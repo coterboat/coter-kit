@@ -20,6 +20,9 @@ import {
   pendingEntries,
   digest,
   syncNow,
+  waitingHandoffs,
+  writeHandoffFile,
+  HANDOFF_PROMPT,
   KINDS,
   REMEMBER_TOOL,
   RECALL_TOOL,
@@ -459,6 +462,17 @@ const RECALL_SPEC = {
   },
 }
 
+// ---------------------------------------------------------------- handoffs
+
+// Writes the readable copy and pushes at once: the next session may be on another machine
+async function shipHandoff($, handoff) {
+  await writeHandoffFile(ioFor($), handoff)
+  const sync = await syncNow(ioFor($))
+  if (!sync || !sync.ok) return ' Handoff saved on this machine, but the push failed (' + (sync?.error || 'unknown') + '); /brain sync retries.'
+  if (sync.local) return ' Handoff saved on this machine only: the brain has no remote.'
+  return ' Handoff ' + handoff.id + ' pushed; the next session on any machine with coter-kit picks it up.'
+}
+
 // ---------------------------------------------------------------- register
 
 export function register(on, options = {}) {
@@ -495,6 +509,7 @@ export function register(on, options = {}) {
       { name: 'checks', description: 'Run project checks now, or turn them on/off for this project', argumentHint: '[on|off]' },
       { name: 'snapshot', description: 'Show the project snapshot and memory coter-kit gives Claude' },
       { name: 'brain', description: 'Review what Claude learned about working with you', argumentHint: '[sync|digest]', immediate: true },
+      { name: 'handoff', description: 'Leave this conversation for the next session to pick up, on any machine', argumentHint: '[anything to add]' },
     ]) {
       try {
         await $.command.register(spec)
@@ -647,10 +662,22 @@ export function register(on, options = {}) {
     redraw($)
     if (!added.length) return { result: 'Nothing new to save (already known, or empty).' }
     const waiting = added.filter((n) => n.status === 'pending').length
+    const handoff = added.find((n) => n.kind === 'handoff')
+    const shipped = handoff ? await shipHandoff($, handoff) : ''
     return {
       result:
-        'Saved ' + added.length + ' note(s): ' + added.map((n) => n.id).join(', ') + '.' + (waiting ? ' ' + waiting + ' wait for the user to review them in /brain.' : ''),
+        'Saved ' + added.length + ' note(s): ' + added.map((n) => n.id).join(', ') + '.' + (waiting ? ' ' + waiting + ' wait for the user to review them in /brain.' : '') + shipped,
     }
+  })
+
+  on('command.run', { command: 'handoff' }, async ($, e) => {
+    if (!brain.dir) return { text: 'Memory is unavailable in this session, so there is nowhere to leave a handoff.' }
+    const reply = await $.model.fork({ prompt: HANDOFF_PROMPT((e.args || '').trim()) })
+    if (!reply.isAnswered) return { text: 'Could not write the handoff: ' + reply.reason + '. Ask Claude to save one with its remember tool instead.' }
+    const [handoff] = await remember(ioFor($), [{ kind: 'handoff', text: reply.text.trim(), confirmed: true }])
+    if (!handoff) return { text: 'That handoff is already saved.' }
+    redraw($)
+    return { text: reply.text.trim() + '\n\n' + (await shipHandoff($, handoff)).trim() }
   })
 
   on('tool.call', { tool: 'mcp__coter-kit__recall' }, async ($, e) => {
@@ -723,7 +750,8 @@ export function register(on, options = {}) {
     const hasList = checklist.items.length > 0
     const showChecks = checkView.state === 'running' || checkView.state === 'fail'
     const toReview = !working && brain.dir ? pendingEntries().length : 0
-    if (!hasList && !working && !showChecks && !toReview) return next(e)
+    const handoff = !working && brain.dir ? waitingHandoffs()[0] : null
+    if (!hasList && !working && !showChecks && !toReview && !handoff) return next(e)
 
     const { Box, Text } = $.ui.resolve(e)
     const width = Math.max(20, (e.props.bodyColumns || 80) - 2)
@@ -753,6 +781,9 @@ export function register(on, options = {}) {
           children: [clip((checkView.state === 'fail' ? '✗ ' : '… ') + checkView.summary, width)],
         }),
       )
+    }
+    if (handoff) {
+      rows.push(Text({ color: 'cyan', wrap: 'truncate', children: [clip('handoff waiting from ' + (handoff.from || 'a session') + ' on ' + handoff.device + ' (' + ago(handoff.at) + ') · say "pick it up"', width)] }))
     }
     if (toReview) rows.push(Text({ dimColor: true, wrap: 'truncate', children: [clip('brain: ' + toReview + ' new thing(s) learned · /brain to review', width)] }))
 

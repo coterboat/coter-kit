@@ -431,3 +431,43 @@ test('with a remote set, a new machine clones the brain and syncs back to it', {
   await clock.advance(21_000)
   expect(ran.some((a) => a[0] === 'git' && a.includes('push') && a.includes('HEAD:brain'))).toBe(true)
 })
+
+// ---------------------------------------------------------------- 5. Handoffs
+
+const REMOTE = { ...OPTS, brainRemote: 'https://github.com/coterboat/coter-kit.git' }
+
+test('/handoff saves a summary, writes HANDOFF.md and pushes it at once', { options: REMOTE }, async ($: any, on: any) => {
+  const { files, ran, forks } = stubAll(on, { forkReply: 'Goal: finish the Mac setup.\nNext steps:\n1. On the Mac, install coter-kit.' })
+  await start($)
+  const out: any = await $.command.run({ command: 'handoff', args: 'mention the Mac' })
+  expect(forks[0]).toContain('The user adds: mention the Mac')
+  expect(out.text).toContain('Goal: finish the Mac setup.')
+  expect(out.text).toContain('pushed')
+  const file = files.get('/brain/HANDOFF.md') ?? ''
+  expect(file).toContain('/plugin marketplace add coterboat/coter-kit')
+  expect(file).toContain('1. On the Mac, install coter-kit.')
+  expect(ran.some((a) => a[0] === 'git' && a.includes('push'))).toBe(true)
+})
+
+t("a handoff from another session comes first in the next session's memory, until it is picked up", async ($, on) => {
+  const handoff = { id: 'h1', at: Date.now() - 3_600_000, device: 'bld', session: 'other-session', project: '', from: 'scratch', kind: 'handoff', text: 'Goal: run mine-history on the Mac.', status: 'active' }
+  stubAll(on, { files: { '/brain/.git/HEAD': 'ref', '/brain/profile.md': '# Profile', '/brain/journal/bld/2026-10-02-other.jsonl': JSON.stringify(handoff) } })
+  await start($)
+  let text = await snapshot($)
+  expect(text.indexOf('## Handoff waiting')).toBeLessThan(text.indexOf('## Who you are working with'))
+  expect(text).toContain('[h1] from scratch on bld')
+  expect(text).toContain('Goal: run mine-history on the Mac.')
+  const band = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  expect(await band.find({ type: 'Text', text: /handoff waiting from scratch on bld/ })).toBeDefined()
+  await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'thread', text: 'Picked up the Mac setup handoff', resolves: 'h1' }] })
+  text = await snapshot($)
+  expect(text).not.toContain('Goal: run mine-history on the Mac.')
+})
+
+t('a handoff is not shown back to the session that wrote it', async ($, on) => {
+  stubAll(on)
+  await start($)
+  const out: any = await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'handoff', text: 'Goal: something for later.', confirmed: true }] })
+  expect(out.result).toContain('saved on this machine only')
+  expect(await snapshot($)).not.toContain('Goal: something for later.')
+})

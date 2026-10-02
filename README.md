@@ -34,10 +34,13 @@ It syncs to the `brain` branch of this repo; the plugin code is on `main`, at th
 | `/brain` | Review what Claude learned: keep or drop each item |
 | `/brain sync` | Commit and push the brain now (it otherwise syncs 20 seconds after a write, and at the next session start) |
 | `/brain digest` | Digest this session now |
+| `/handoff [note]` | Leave this conversation for the next session to pick up, on any machine: a summary with next steps, saved to the brain, written to `HANDOFF.md` on the `brain` branch, and pushed at once. The next session with coter-kit opens with it. |
 | `/snapshot` | Show everything Claude is given at session start |
 | `/checklist` | Open the task checklist |
 | `/checks`, `/checks off`, `/checks on` | Run the checks now, or turn them off or on for this folder |
 | `/coter-kit:mine-history` | Read this machine's past sessions and propose profile updates (run it once on each machine) |
+
+The plugin also ships the `build-a-mod` skill: when you ask for something Claude Code can't do, Claude proposes a mod that adds the capability, builds and tests it, and loads it once you enable hot reloading. The skill lists what such a mod must never do (approve tool calls, change settings or permissions, hide its actions, send data somewhere you didn't name).
 
 ## Checks it runs
 
@@ -80,7 +83,8 @@ Then run `/plugin` and look for `1 mod active · coter-kit`. The first session c
 ```bash
 claude --plugin-dir .                        # load it for one session, reloads on save
 claude plugin validate --strict .
-claude plugin test                            # 25 tests, no session or network needed
+node --check hooks/*.js                       # validate does not catch syntax errors
+claude plugin test                            # 28 tests, no session or network needed
 ```
 
 `register.js` holds every call into Claude Code (`$`), because the validator follows `$` only within one file. `brain.js` reaches Claude Code through the small `io` adapter that `register.js` builds.

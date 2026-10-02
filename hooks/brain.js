@@ -17,12 +17,14 @@ import { env, join, norm, safeJson, clip, ago } from './util.js'
 
 export const REMEMBER_TOOL = 'mcp__coter-kit__remember'
 export const RECALL_TOOL = 'mcp__coter-kit__recall'
-export const KINDS = ['preference', 'term', 'decision', 'thread', 'fact']
+export const KINDS = ['preference', 'term', 'decision', 'thread', 'fact', 'handoff']
 const NEEDS_REVIEW = new Set(['preference', 'term'])
-const GLOBAL_KINDS = new Set(['preference', 'term'])
-const TTL_DAYS = { thread: 21, decision: 180, fact: 180 }
+// A handoff is for whichever session picks the work up next, in any project or on any machine
+const GLOBAL_KINDS = new Set(['preference', 'term', 'handoff'])
+const TTL_DAYS = { thread: 21, decision: 180, fact: 180, handoff: 7 }
+const MAX_TEXT = { handoff: 4000 }
 const DAY = 86_400_000
-const CONTEXT_BUDGET = 9000
+const CONTEXT_BUDGET = 13000
 const SYNC_DELAY_MS = 20_000
 
 export const brain = {
@@ -141,7 +143,7 @@ export async function remember(io, notes, { source = 'claude' } = {}) {
   const rows = []
   for (const note of notes) {
     const kind = KINDS.includes(note.kind) ? note.kind : null
-    const text = clip(redact(String(note.text || '').trim()), 400)
+    const text = clip(redact(String(note.text || '').trim()), MAX_TEXT[kind] || 400)
     if (!kind || !text) continue
     const project = GLOBAL_KINDS.has(kind) || note.scope === 'global' ? '' : env.project
     const dupe = [...brain.entries.values()].find(
@@ -152,7 +154,10 @@ export async function remember(io, notes, { source = 'claude' } = {}) {
       id: newId(),
       at: Date.now(),
       device: env.device,
+      session: env.sessionId,
       project,
+      // A handoff remembers where it came from, though every project sees it
+      from: kind === 'handoff' ? env.project : undefined,
       kind,
       text,
       status: NEEDS_REVIEW.has(kind) && !note.confirmed ? 'pending' : 'active',
@@ -189,6 +194,38 @@ const newestFirst = (a, b) => (b.updatedAt || b.at) - (a.updatedAt || a.at)
 
 export const pendingEntries = () => [...brain.entries.values()].filter((e) => e.status === 'pending').sort(newestFirst)
 
+// Handoffs left by other sessions (on this machine or another) that nobody has picked up
+export const waitingHandoffs = (now = Date.now()) =>
+  [...brain.entries.values()]
+    .filter((e) => e.kind === 'handoff' && e.session !== env.sessionId && isLive(e, now))
+    .sort(newestFirst)
+    .slice(0, 2)
+
+// ---------------------------------------------------------------- handoffs
+
+export const HANDOFF_PROMPT = (note) =>
+  '[coter-kit handoff. This is an automated request, not the user; your reply is saved as-is for another session.]\n' +
+  'Write a handoff so a new Claude session, possibly on another machine and with none of this conversation, can pick the work up. Plain text, under 3000 characters, with these headings:\n' +
+  'Goal: what the user is trying to achieve, in a sentence or two.\n' +
+  'Where it stands: what is done and whether it was verified; what is not done.\n' +
+  'Decisions: the choices made and why, so they are not reopened.\n' +
+  'Next steps: numbered; say who does each one, the user or Claude, and on which machine.\n' +
+  'Gotchas: anything that cost time or would surprise a newcomer.\n' +
+  'Use exact names: repositories, branches, file paths, commands, URLs. No secrets or credentials.' +
+  (note ? '\nThe user adds: ' + note : '')
+
+// A copy anyone can read on GitHub, even on a machine without the plugin yet
+export async function writeHandoffFile(io, entry) {
+  const repo = (brain.remote.match(/github\.com[/:]([^/]+\/[^/.]+)/) || [])[1]
+  const install = repo
+    ? 'Sessions with coter-kit pick this up by themselves. Without it yet, install it first:\n\n```\n/plugin marketplace add ' + repo + '\n/plugin install coter-kit@coter-kit\n```\n\n'
+    : 'Sessions with coter-kit pick this up by themselves.\n\n'
+  const text =
+    '# Handoff\n\nFrom ' + (entry.from || 'a session') + ' on ' + entry.device + ', ' + new Date(entry.at).toISOString().slice(0, 16).replace('T', ' ') + ' UTC (id ' + entry.id + ').\n\n' +
+    install + '---\n\n' + entry.text + '\n'
+  await io.write(join(brain.dir, 'HANDOFF.md'), text)
+}
+
 // What a new session is told: the profile, then what was learned, within a budget
 export async function brainContext(io) {
   const now = Date.now()
@@ -197,6 +234,16 @@ export async function brainContext(io) {
   const sections = []
   const list = (rows, fmt) => rows.map((e) => '- ' + fmt(e)).join('\n')
 
+  // A handoff from another session comes first: it is what the user is here to continue
+  const handoffs = waitingHandoffs(now)
+  if (handoffs.length) {
+    sections.push(
+      '## Handoff waiting for this session\n' +
+        'Another session left this for whoever picks the work up next. Before anything else, tell the user you have it and what you understand the next step to be, then mark it picked up by calling ' +
+        REMEMBER_TOOL + " with kind 'thread', a one-line note of what you're continuing, and resolves set to the handoff's id.\n\n" +
+        handoffs.map((h) => '### [' + h.id + '] from ' + (h.from || 'a session') + ' on ' + h.device + ', ' + ago(h.at) + '\n' + h.text).join('\n\n'),
+    )
+  }
   if (profile) sections.push('## Who you are working with (their own profile)\n' + profile)
   const prefs = live.filter((e) => e.kind === 'preference').slice(0, 25)
   if (prefs.length) sections.push('## How they like to work (learned, approved by them)\n' + list(prefs, (e) => e.text))
@@ -216,6 +263,7 @@ export async function brainContext(io) {
       '- Call ' + REMEMBER_TOOL + ' when the user states a preference, corrects how you work, uses shorthand you should learn, makes a lasting decision, or leaves work open. One short sentence each, in their words where you can. If they explicitly ask you to remember something, pass confirmed: true.',
       '- When an item above is no longer true or a thread is finished, call ' + REMEMBER_TOOL + ' with resolves set to its id.',
       '- Call ' + RECALL_TOOL + ' before asking them something they may already have told you in another session or on another machine.',
+      '- When they are about to switch machines or sessions, offer /handoff: it leaves this conversation\'s state for the next session to pick up.',
       pending ? '- ' + pending + ' learned item(s) wait for their review in /brain. Do not bring it up unless it matters to the task.' : '',
     ]
       .filter(Boolean)
