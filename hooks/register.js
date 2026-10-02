@@ -25,6 +25,7 @@ import {
   takeUnseen,
   arrivalsContext,
   waitingHandoffs,
+  waitingOnUser,
   writeHandoffFile,
   HANDOFF_PROMPT,
   KINDS,
@@ -32,6 +33,7 @@ import {
   RECALL_TOOL,
   REFRESH_EVERY_MS,
 } from './brain.js'
+import { formatWaiting } from './waiting.js'
 
 const CHECKLIST_TOOL = 'mcp__coter-kit__checklist'
 const PANE = 'coter-checklist'
@@ -437,7 +439,7 @@ const CHECKLIST_SPEC = {
 const REMEMBER_SPEC = {
   name: 'remember',
   description:
-    "Save something to the user's long-term memory, shared across their sessions, repositories and machines. Use it when the user states a preference or corrects how you work (preference), uses shorthand you should learn (term, written as \"<term>\" = meaning), makes a lasting decision about the project (decision, with the reason), leaves work open (thread), or you learn something non-obvious about the project (fact). One short sentence per note. Preferences and terms wait for the user's review unless confirmed is true, which you set only when the user explicitly asked you to remember it. To retire a note that is no longer true or a thread that is finished, pass its id as resolves (with a replacing note, or kind 'thread' and text 'done').",
+    "Save something to the user's long-term memory, shared across their sessions, repositories and machines. Use it when the user states a preference or corrects how you work (preference), uses shorthand you should learn (term, written as \"<term>\" = meaning), makes a lasting decision about the project (decision, with the reason), leaves work open (thread), or you learn something non-obvious about the project (fact). When you publish something for the user to review (a mockup, a page) or ask a decision they may answer later, add it as waiting, with link (its URL) and ref (a short label such as \"Q8\"); when they answer, save the answer as a decision with resolves set to the waiting note's id. One short sentence per note. Preferences and terms wait for the user's review unless confirmed is true, which you set only when the user explicitly asked you to remember it. To retire a note that is no longer true or a thread that is finished, pass its id as resolves (with a replacing note, or kind 'thread' and text 'done').",
   inputSchema: {
     type: 'object',
     properties: {
@@ -451,6 +453,8 @@ const REMEMBER_SPEC = {
             scope: { type: 'string', enum: ['project', 'global'], description: 'Decisions, threads and facts default to this project' },
             confirmed: { type: 'boolean' },
             resolves: { type: 'string', description: 'Id of an earlier note this replaces or finishes' },
+            link: { type: 'string', description: "waiting only: the http(s) URL of what to review" },
+            ref: { type: 'string', description: 'waiting only: a short label, such as "Q8"' },
           },
           required: ['kind', 'text'],
         },
@@ -546,6 +550,7 @@ export function register(on, options = {}) {
       { name: 'snapshot', description: 'Show the project snapshot and memory coter-kit gives Claude' },
       { name: 'brain', description: 'Review what Claude learned about working with you', argumentHint: '[sync|digest]', immediate: true },
       { name: 'handoff', description: 'Leave this conversation for the next session to pick up, on any machine', argumentHint: '[anything to add]' },
+      { name: 'waiting', description: 'What is waiting on you: mockups to review and questions to answer, with links', argumentHint: '[all]' },
     ]) {
       try {
         await $.command.register(spec)
@@ -792,6 +797,13 @@ export function register(on, options = {}) {
     return {}
   })
 
+  // /waiting: plain text, so it reads the same in the terminal, the desktop app and on a phone
+  on('command.run', { command: 'waiting' }, async ($, e) => {
+    if (!brain.dir) return { text: 'Memory is unavailable in this session.' }
+    const all = (e.args || '').trim().toLowerCase() === 'all'
+    return { text: formatWaiting(waitingOnUser(env.project, all), { project: env.project, all }) }
+  })
+
   on('command.run', { command: 'checklist' }, async ($) => {
     await $.ui.open({ id: PANE, title: 'Checklist', focus: true, closeOnEscape: true })
     return {}
@@ -804,7 +816,8 @@ export function register(on, options = {}) {
     const showChecks = checkView.state === 'running' || checkView.state === 'fail'
     const toReview = !working && brain.dir ? pendingEntries().length : 0
     const handoff = !working && brain.dir ? waitingHandoffs()[0] : null
-    if (!hasList && !working && !showChecks && !toReview && !handoff) return next(e)
+    const asks = !working && brain.dir ? waitingOnUser(env.project).length : 0
+    if (!hasList && !working && !showChecks && !toReview && !handoff && !asks) return next(e)
 
     const { Box, Text } = $.ui.resolve(e)
     const width = Math.max(20, (e.props.bodyColumns || 80) - 2)
@@ -839,6 +852,7 @@ export function register(on, options = {}) {
       rows.push(Text({ color: 'cyan', wrap: 'truncate', children: [clip('handoff waiting from ' + (handoff.from || 'a session') + ' on ' + handoff.device + ' (' + ago(handoff.at) + ') · say "pick it up"', width)] }))
     }
     if (toReview) rows.push(Text({ dimColor: true, wrap: 'truncate', children: [clip('brain: ' + toReview + ' new thing(s) learned · /brain to review', width)] }))
+    if (asks) rows.push(Text({ dimColor: true, wrap: 'truncate', children: [clip(asks + ' waiting on you · /waiting', width)] }))
 
     const others = await next(e)
     const maxRows = e.props.maxRows || 4

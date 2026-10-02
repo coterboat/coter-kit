@@ -11,17 +11,19 @@
 // what reaches a session is capped.
 
 import { env, join, norm, safeJson, clip, ago } from './util.js'
+import { waitingFields, waitingSection } from './waiting.js'
 
 // Every call into Claude Code goes through `io`, which register.js builds from `$`:
 // { run, list, read, write, exists, after, now, fork, log, pluginRoot }
 
 export const REMEMBER_TOOL = 'mcp__coter-kit__remember'
 export const RECALL_TOOL = 'mcp__coter-kit__recall'
-export const KINDS = ['preference', 'term', 'decision', 'thread', 'fact', 'handoff']
+export const KINDS = ['preference', 'term', 'decision', 'thread', 'fact', 'handoff', 'waiting']
 const NEEDS_REVIEW = new Set(['preference', 'term'])
 // A handoff is for whichever session picks the work up next, in any project or on any machine
 const GLOBAL_KINDS = new Set(['preference', 'term', 'handoff'])
-const TTL_DAYS = { thread: 21, decision: 180, fact: 180, handoff: 7 }
+// An unanswered 'waiting' item (waiting.js) leaves the list after a month
+const TTL_DAYS = { thread: 21, decision: 180, fact: 180, handoff: 7, waiting: 30 }
 const MAX_TEXT = { handoff: 4000 }
 const DAY = 86_400_000
 const CONTEXT_BUDGET = 13000
@@ -169,6 +171,8 @@ export async function remember(io, notes, { source = 'claude' } = {}) {
       from: kind === 'handoff' ? env.project : undefined,
       kind,
       text,
+      // A 'waiting' item keeps its link and short ref (waiting.js)
+      ...(kind === 'waiting' ? waitingFields(note) : {}),
       status: NEEDS_REVIEW.has(kind) && !note.confirmed ? 'pending' : 'active',
       source,
     }
@@ -202,6 +206,12 @@ const isLive = (e, now) => e.status === 'active' && !(TTL_DAYS[e.kind] && now - 
 const newestFirst = (a, b) => (b.updatedAt || b.at) - (a.updatedAt || a.at)
 
 export const pendingEntries = () => [...brain.entries.values()].filter((e) => e.status === 'pending').sort(newestFirst)
+
+// What the user still owes an answer on: this project's and the global ones, or every project's
+export const waitingOnUser = (project, all = false, now = Date.now()) =>
+  [...brain.entries.values()]
+    .filter((e) => e.kind === 'waiting' && isLive(e, now) && (all || !e.project || e.project === project))
+    .sort(newestFirst)
 
 // Handoffs left by other sessions (on this machine or another) that nobody has picked up
 export const waitingHandoffs = (now = Date.now()) =>
@@ -269,6 +279,8 @@ export async function brainContext(io) {
   if (here.length) {
     sections.push('## ' + env.project + ': decisions, facts and open threads\n' + list(here, (e) => '[' + e.kind + ' · ' + ago(e.updatedAt || e.at) + ' · ' + e.id + '] ' + e.text))
   }
+  const asks = waitingSection(waitingOnUser(env.project, false, now).slice(0, 12), env.project)
+  if (asks) sections.push(asks)
   const elsewhere = live.filter((e) => e.kind === 'thread' && e.project && e.project !== env.project).slice(0, 8)
   if (elsewhere.length) sections.push('## In flight in their other projects\n' + list(elsewhere, (e) => '[' + e.project + ' · ' + ago(e.updatedAt || e.at) + '] ' + e.text))
 
@@ -278,6 +290,7 @@ export async function brainContext(io) {
       '## Using this memory',
       '- Call ' + REMEMBER_TOOL + ' when the user states a preference, corrects how you work, uses shorthand you should learn, makes a lasting decision, or leaves work open. One short sentence each, in their words where you can. If they explicitly ask you to remember something, pass confirmed: true.',
       '- When an item above is no longer true or a thread is finished, call ' + REMEMBER_TOOL + ' with resolves set to its id.',
+      "- When you publish something for the user to review (a mockup, a page) or ask them a decision they may answer later, add a 'waiting' note with link (its URL) and ref (a short label such as \"Q8\"). When they answer, resolve it with a decision note. They see the list with /waiting.",
       '- This memory stays current while the session runs: what their other sessions and machines write is taken in every ' + REFRESH_EVERY_MS / 60_000 + ' minutes, and anything new reaches you beside their next message, under "New in working memory".',
       '- Call ' + RECALL_TOOL + ' before asking them something they may already have told you, and whenever they mention work from another session or machine ("pick up where I left off", "what was I doing on the PC"): it fetches the latest from their other machines first.',
       '- If they say memory looks out of date, /brain sync pulls and pushes it now; what arrives reaches you with their next message, so there is no need to /clear or start over.',
@@ -341,7 +354,8 @@ export function recall(query, project) {
 }
 
 export const describe = (e) =>
-  '[' + e.id + ' · ' + e.kind + (e.project ? ' · ' + e.project : '') + ' · ' + ago(e.updatedAt || e.at) + (e.status !== 'active' ? ' · ' + e.status : '') + '] ' + e.text
+  '[' + e.id + ' · ' + e.kind + (e.project ? ' · ' + e.project : '') + ' · ' + ago(e.updatedAt || e.at) + (e.status !== 'active' ? ' · ' + e.status : '') + '] ' +
+  (e.ref ? e.ref + ' · ' : '') + e.text + (e.link ? ' (' + e.link + ')' : '')
 
 // ---------------------------------------------------------------- the digest
 

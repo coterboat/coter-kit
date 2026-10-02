@@ -600,3 +600,55 @@ t("a sync never commits a deletion: a note missing from disk is put back, not de
   const restore = ran.find((a) => a[0] === 'git' && a.includes('checkout'))
   expect(restore).toEqual(['git', '-C', '/brain', 'checkout', '--', 'journal/bld/2026-10-02-5cf38e73.jsonl', 'HANDOFF.md'])
 })
+
+// ---------------------------------------------------------------- 6. Waiting on you
+
+t('a mockup to review waits in /waiting with its link until the user answers it', async ($, on) => {
+  stubAll(on)
+  await start($)
+  const out: any = await $.tool.call({
+    tool: 'mcp__coter-kit__remember',
+    notes: [
+      { kind: 'waiting', text: 'Pick the desktop job-detail layout', ref: 'Q1', link: 'https://claude.ai/artifact/abc123' },
+      { kind: 'waiting', text: 'A link that is not a web page is dropped', link: 'javascript:alert(1)' },
+      { kind: 'waiting', text: 'A link with a password in it is dropped', link: 'https://me:hunter22@example.com/x' },
+    ],
+  })
+  expect(out.result).toContain('Saved 3 note(s)')
+  const first = String(out.result.match(/Saved 3 note\(s\): (\S+?),/)[1])
+
+  const shown: any = await $.command.run({ command: 'waiting', args: '' })
+  expect(shown.text).toContain('Waiting on you (work): 3')
+  expect(shown.text).toContain('Q1 · Pick the desktop job-detail layout')
+  expect(shown.text).toContain('https://claude.ai/artifact/abc123')
+  expect(shown.text).not.toContain('javascript:')
+  expect(shown.text).not.toContain('hunter22')
+
+  // A new session is told what is waiting, with ids it can resolve
+  const text = await snapshot($)
+  expect(text).toContain('## Waiting on the user (work)')
+  expect(text).toContain('[' + first + '] Q1 · Pick the desktop job-detail layout (https://claude.ai/artifact/abc123)')
+
+  // The band nudges quietly
+  const band = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await band.find({ type: 'Text', text: /3 waiting on you · \/waiting/ })).toBeDefined()
+
+  // The answer resolves it
+  await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'decision', text: 'Build both layouts A and B to compare', resolves: first }] })
+  const after: any = await $.command.run({ command: 'waiting', args: '' })
+  expect(after.text).not.toContain('Pick the desktop job-detail layout')
+  expect(after.text).toContain('Waiting on you (work): 2')
+})
+
+t('/waiting shows this project by default and every project with "all"', async ($, on) => {
+  const other = [
+    { id: 'w1', at: Date.now(), device: 'pc', session: 's9', project: 'wallstbets', kind: 'waiting', text: 'Approve the new stop-loss rule', ref: 'Q3', status: 'active' },
+  ]
+  stubAll(on, { files: { '/brain/.git/HEAD': 'ref', '/brain/profile.md': '# Profile', '/brain/journal/pc/2026-10-02-s9.jsonl': other.map((r) => JSON.stringify(r)).join('\n') } })
+  await start($)
+  const here: any = await $.command.run({ command: 'waiting', args: '' })
+  expect(here.text).toContain('Nothing is waiting on you in work')
+  const all: any = await $.command.run({ command: 'waiting', args: 'all' })
+  expect(all.text).toContain('Waiting on you (wallstbets): 1')
+  expect(all.text).toContain('Q3 · Approve the new stop-loss rule')
+})
