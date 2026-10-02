@@ -13,7 +13,7 @@
 import { env, join, norm, safeJson, clip, ago } from './util.js'
 
 // Every call into Claude Code goes through `io`, which register.js builds from `$`:
-// { run, list, read, write, exists, after, fork, log, pluginRoot }
+// { run, list, read, write, exists, after, now, fork, log, pluginRoot }
 
 export const REMEMBER_TOOL = 'mcp__coter-kit__remember'
 export const RECALL_TOOL = 'mcp__coter-kit__recall'
@@ -26,6 +26,8 @@ const MAX_TEXT = { handoff: 4000 }
 const DAY = 86_400_000
 const CONTEXT_BUDGET = 13000
 const SYNC_DELAY_MS = 20_000
+// A running session takes in what other sessions wrote this often
+export const REFRESH_EVERY_MS = 120_000
 
 export const brain = {
   dir: '',
@@ -34,8 +36,11 @@ export const brain = {
   file: '', // this session's journal file
   lines: [], // what this session has written to it
   entries: new Map(), // id -> entry, folded
-  lastSync: null, // { ok, at, error }
+  unseen: [], // ids that other sessions wrote after this one loaded, not yet shown to Claude
+  lastPull: 0, // when the brain was last re-read (and pulled, with a remote)
+  lastSync: null, // { ok, at, error, arrived }
   syncTimer: null,
+  refreshing: null,
 }
 
 // ---------------------------------------------------------------- redaction
@@ -86,7 +91,7 @@ export async function initBrain(io, options = {}) {
   } else if (brain.remote) {
     // Commit what an earlier session left unsynced, then take the other machines' notes
     await commit(io)
-    await io.run(['git', '-C', brain.dir, 'pull', '-q', '--rebase', '--autostash', 'origin', brain.branch], { timeoutMs: 30_000 })
+    await pull(io)
   }
 
   if (!(await io.exists(join(brain.dir, 'profile.md')))) {
@@ -103,6 +108,8 @@ export async function initBrain(io, options = {}) {
   // A reload of the module keeps writing the same file, so start from what it holds
   brain.lines = (await io.read(brain.file)).split('\n').filter(Boolean)
   await loadBrain(io)
+  brain.unseen = []
+  brain.lastPull = await io.now()
 }
 
 export async function loadBrain(io) {
@@ -219,14 +226,21 @@ export const HANDOFF_PROMPT = (note) =>
 // A copy anyone can read on GitHub, even on a machine without the plugin yet
 export async function writeHandoffFile(io, entry) {
   const repo = (brain.remote.match(/github\.com[/:]([^/]+\/[^/.]+)/) || [])[1]
+  // Terminal commands: the desktop app's /plugin opens its plugin browser and ignores arguments
   const install = repo
-    ? 'Sessions with coter-kit pick this up by themselves. Without it yet, install it first:\n\n```\n/plugin marketplace add ' + repo + '\n/plugin install coter-kit@coter-kit\n```\n\n'
+    ? 'Sessions with coter-kit pick this up by themselves, including ones already open. Without it yet, install it first, in a terminal:\n\n```\n' +
+      'claude plugin marketplace add ' + repo + '\n' +
+      'claude plugin install coter-kit@coter-kit --config brainRemote=' + brain.remote + ' --config brainBranch=' + brain.branch + '\n```\n\n'
     : 'Sessions with coter-kit pick this up by themselves.\n\n'
   const text =
     '# Handoff\n\nFrom ' + (entry.from || 'a session') + ' on ' + entry.device + ', ' + new Date(entry.at).toISOString().slice(0, 16).replace('T', ' ') + ' UTC (id ' + entry.id + ').\n\n' +
     install + '---\n\n' + entry.text + '\n'
   await io.write(join(brain.dir, 'HANDOFF.md'), text)
 }
+
+const MARK_PICKED_UP =
+  'mark it picked up by calling ' + REMEMBER_TOOL + " with kind 'thread', a one-line note of what you're continuing, and resolves set to the handoff's id."
+const handoffBlock = (h) => '### [' + h.id + '] from ' + (h.from || 'a session') + ' on ' + h.device + ', ' + ago(h.at) + '\n' + h.text
 
 // What a new session is told: the profile, then what was learned, within a budget
 export async function brainContext(io) {
@@ -241,9 +255,9 @@ export async function brainContext(io) {
   if (handoffs.length) {
     sections.push(
       '## Handoff waiting for this session\n' +
-        'Another session left this for whoever picks the work up next. Before anything else, tell the user you have it and what you understand the next step to be, then mark it picked up by calling ' +
-        REMEMBER_TOOL + " with kind 'thread', a one-line note of what you're continuing, and resolves set to the handoff's id.\n\n" +
-        handoffs.map((h) => '### [' + h.id + '] from ' + (h.from || 'a session') + ' on ' + h.device + ', ' + ago(h.at) + '\n' + h.text).join('\n\n'),
+        'Another session left this for whoever picks the work up next. Before anything else, tell the user you have it and what you understand the next step to be, then ' +
+        MARK_PICKED_UP + '\n\n' +
+        handoffs.map(handoffBlock).join('\n\n'),
     )
   }
   if (profile) sections.push('## Who you are working with (their own profile)\n' + profile)
@@ -264,8 +278,10 @@ export async function brainContext(io) {
       '## Using this memory',
       '- Call ' + REMEMBER_TOOL + ' when the user states a preference, corrects how you work, uses shorthand you should learn, makes a lasting decision, or leaves work open. One short sentence each, in their words where you can. If they explicitly ask you to remember something, pass confirmed: true.',
       '- When an item above is no longer true or a thread is finished, call ' + REMEMBER_TOOL + ' with resolves set to its id.',
-      '- Call ' + RECALL_TOOL + ' before asking them something they may already have told you in another session or on another machine.',
-      '- When they are about to switch machines or sessions, offer /handoff: it leaves this conversation\'s state for the next session to pick up.',
+      '- This memory stays current while the session runs: what their other sessions and machines write is taken in every ' + REFRESH_EVERY_MS / 60_000 + ' minutes, and anything new reaches you beside their next message, under "New in working memory".',
+      '- Call ' + RECALL_TOOL + ' before asking them something they may already have told you, and whenever they mention work from another session or machine ("pick up where I left off", "what was I doing on the PC"): it fetches the latest from their other machines first.',
+      '- If they say memory looks out of date, /brain sync pulls and pushes it now; what arrives reaches you with their next message, so there is no need to /clear or start over.',
+      '- When they are about to switch machines or sessions, or wrap up a long stretch of work, offer /handoff: it leaves this conversation\'s state for the next session to pick up, on any machine, including sessions already open.',
       pending ? '- ' + pending + ' learned item(s) wait for their review in /brain. Do not bring it up unless it matters to the task.' : '',
     ]
       .filter(Boolean)
@@ -281,6 +297,30 @@ export async function brainContext(io) {
     out += '\n\n' + s
   }
   return out
+}
+
+// What arrived from other sessions since Claude was last told, still in use; telling empties it
+export function takeUnseen(now = Date.now()) {
+  const fresh = brain.unseen.map((id) => brain.entries.get(id)).filter((e) => e && isLive(e, now))
+  brain.unseen = []
+  return fresh.sort(newestFirst)
+}
+
+// Attached to the user's next message when other sessions wrote something this one should know
+export function arrivalsContext(entries) {
+  const handoffs = entries.filter((e) => e.kind === 'handoff').slice(0, 2)
+  const notes = entries.filter((e) => e.kind !== 'handoff').slice(0, 20)
+  const sections = ['# New in working memory (coter-brain): written by another session or machine since this session loaded it']
+  if (handoffs.length) {
+    sections.push(
+      '## Handoff\n' +
+        "If the user's message is about this work, or they ask to pick it up, tell them you have it and what you understand the next step to be, then " +
+        MARK_PICKED_UP + ' Otherwise, answer what they asked and mention it in one line at the end.\n\n' +
+        handoffs.map(handoffBlock).join('\n\n'),
+    )
+  }
+  if (notes.length) sections.push('## Notes\nUse these as you would the rest of your memory.\n' + notes.map((e) => '- ' + describe(e)).join('\n'))
+  return clip(sections.join('\n\n'), CONTEXT_BUDGET)
 }
 
 // Keyword search over everything except rejected notes
@@ -353,17 +393,61 @@ async function commit(io) {
   return io.run(['git', ...who, '-C', brain.dir, 'commit', '-q', '-m', env.device + ': ' + (env.project || 'notes')])
 }
 
+// Takes the other machines' notes. A rebase that stops on a conflict (HANDOFF.md, profile.md)
+// is undone, so the brain is never left mid-rebase and the next pull can try again.
+async function pull(io) {
+  const r = await io.run(['git', '-C', brain.dir, 'pull', '-q', '--rebase', '--autostash', 'origin', brain.branch], { timeoutMs: 30_000 })
+  if (r.exitCode !== 0) await io.run(['git', '-C', brain.dir, 'rebase', '--abort'])
+  return r.exitCode === 0
+}
+
+// Re-reads the brain from disk and queues what other sessions wrote for Claude to be told.
+// Other sessions on this machine write to the same folder, so this needs no remote.
+async function reload(io) {
+  const before = brain.entries
+  await loadBrain(io)
+  const arrived = [...brain.entries.values()].filter(
+    (e) => !before.has(e.id) && e.session !== env.sessionId && (!e.project || e.project === env.project),
+  )
+  brain.unseen.push(...arrived.map((e) => e.id))
+  return arrived.filter((e) => isLive(e, Date.now()))
+}
+
+// Brings a running session up to date with every other session; returns the notes that
+// arrived. Calls made while one is under way share it.
+export function refresh(io) {
+  if (!brain.dir) return Promise.resolve([])
+  if (!brain.refreshing) {
+    brain.refreshing = (async () => {
+      try {
+        if (brain.remote) await pull(io)
+        return await reload(io)
+      } finally {
+        brain.lastPull = await io.now()
+        brain.refreshing = null
+      }
+    })()
+  }
+  return brain.refreshing
+}
+
+export async function refreshIfStale(io, maxAgeMs) {
+  if (!brain.dir || (await io.now()) - brain.lastPull < maxAgeMs) return []
+  return refresh(io)
+}
+
 export async function syncNow(io) {
   if (!brain.dir) return null
   await commit(io)
   if (!brain.remote) {
-    brain.lastSync = { ok: true, at: Date.now(), local: true }
+    const arrived = await refresh(io)
+    brain.lastSync = { ok: true, at: Date.now(), local: true, arrived: arrived.length }
     return brain.lastSync
   }
   // The first push creates the branch, so a failed pull is expected then
-  await io.run(['git', '-C', brain.dir, 'pull', '-q', '--rebase', '--autostash', 'origin', brain.branch], { timeoutMs: 30_000 })
+  const arrived = await refresh(io)
   const push = await io.run(['git', '-C', brain.dir, 'push', '-q', 'origin', 'HEAD:' + brain.branch], { timeoutMs: 30_000 })
-  brain.lastSync = { ok: push.exitCode === 0, at: Date.now(), error: push.exitCode === 0 ? '' : clip(push.stderr.trim(), 200) }
+  brain.lastSync = { ok: push.exitCode === 0, at: Date.now(), error: push.exitCode === 0 ? '' : clip(push.stderr.trim(), 200), arrived: arrived.length }
   return brain.lastSync
 }
 

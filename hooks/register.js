@@ -20,12 +20,17 @@ import {
   pendingEntries,
   digest,
   syncNow,
+  refresh,
+  refreshIfStale,
+  takeUnseen,
+  arrivalsContext,
   waitingHandoffs,
   writeHandoffFile,
   HANDOFF_PROMPT,
   KINDS,
   REMEMBER_TOOL,
   RECALL_TOOL,
+  REFRESH_EVERY_MS,
 } from './brain.js'
 
 const CHECKLIST_TOOL = 'mcp__coter-kit__checklist'
@@ -34,6 +39,8 @@ const BRAIN_PANE = 'coter-brain'
 const EDIT_TOOLS = ['Edit', 'Write', 'MultiEdit', 'NotebookEdit']
 const MAX_FIX_ROUNDS = 2
 const DIGEST_EVERY_TURNS = 8
+// recall answers from a pull at most this old, so "pick up what I did on the PC" sees it
+const RECALL_FRESH_MS = 15_000
 const SKIP_DIRS = new Set(['node_modules', '.git', 'bin', 'obj', 'dist', 'build', '.next', '.godot', '.venv', 'venv', '__pycache__', '.claude'])
 const LOCKED = /MSB3027|MSB3021|being used by another process/
 
@@ -52,6 +59,7 @@ let checkView = { state: 'idle', summary: '', at: 0 } // idle|running|pass|fail|
 
 // Brain
 let turnsSinceDigest = 0
+let refreshTimer = null
 
 // ---------------------------------------------------------------- calls into Claude Code
 
@@ -101,6 +109,7 @@ function ioFor($) {
     write: (path, text) => $.fs.write(path, text),
     exists: (path) => exists($, path),
     after: (ms, fn) => $.clock.after(ms, fn),
+    now: () => $.clock.now(),
     fork: (prompt) => $.model.fork({ prompt }),
     log: (text) => $.ui.log(text),
     pluginRoot: $.plugin.root,
@@ -496,6 +505,17 @@ export function register(on, options = {}) {
       env.home = norm((await $.env.get('USERPROFILE')) || (await $.env.get('HOME')) || '')
       env.device = await deviceName($)
       await initBrain(ioFor($), options)
+      // Keep taking in what other sessions and machines write while this one runs; what
+      // arrives reaches Claude with the next prompt (prompt.submit below)
+      refreshTimer?.cancel()
+      refreshTimer = $.clock.every(REFRESH_EVERY_MS, async () => {
+        try {
+          const arrived = await refreshIfStale(ioFor($), REFRESH_EVERY_MS / 2)
+          if (arrived.length) redraw($)
+        } catch (err) {
+          $.ui.log('brain refresh failed: ' + (err?.message || err))
+        }
+      })
     } catch (err) {
       brain.dir = ''
       $.ui.log('brain unavailable: ' + (err?.message || err))
@@ -530,7 +550,11 @@ export function register(on, options = {}) {
     }
     let snapshot = ''
     try {
+      // session.start has just loaded the brain at startup; any other start re-reads it first
+      if (brain.dir && e.source !== 'startup') await refresh(ioFor($))
       snapshot = await buildSnapshot($)
+      // The snapshot carries the whole brain, so nothing is left to deliver separately
+      brain.unseen = []
     } catch (err) {
       $.ui.log('snapshot failed: ' + (err?.message || err))
     }
@@ -542,11 +566,14 @@ export function register(on, options = {}) {
     return { text: await buildSnapshot($) }
   })
 
-  // A new prompt from the user starts a fresh allowance of automatic fix rounds
+  // A new prompt from the user starts a fresh allowance of automatic fix rounds, and carries
+  // what other sessions wrote since Claude was last told
   on('prompt.submit', async ($, e, next) => {
     fixRounds = 0
     lastFailureSig = ''
-    return next(e)
+    const arrived = brain.dir ? takeUnseen() : []
+    if (!arrived.length) return next(e)
+    return next({ ...e, context: [...(e.context ?? []), arrivalsContext(arrived)] })
   })
 
   // Live activity for the band, from every tool call (main loop and subagents)
@@ -682,6 +709,11 @@ export function register(on, options = {}) {
 
   on('tool.call', { tool: 'mcp__coter-kit__recall' }, async ($, e) => {
     if (!brain.dir) return { result: 'Memory is unavailable in this session.' }
+    try {
+      await refreshIfStale(ioFor($), RECALL_FRESH_MS)
+    } catch (err) {
+      $.ui.log('brain refresh failed: ' + (err?.message || err))
+    }
     const found = recall(e.query, e.project)
     return { result: found.length ? found.map(describe).join('\n') : 'Nothing in memory matches "' + e.query + '".' }
   })
@@ -728,7 +760,11 @@ export function register(on, options = {}) {
     if (!brain.dir) return { text: 'Memory is unavailable in this session.' }
     if (arg === 'sync') {
       const r = await syncNow(ioFor($))
-      return { text: r?.ok ? 'Brain synced' + (r.local ? ' (no remote set, committed locally).' : ' with ' + brain.remote + '.') : 'Sync failed: ' + (r?.error || 'unknown') }
+      redraw($)
+      const arrived = r?.arrived
+        ? ' ' + r.arrived + ' new note(s) from other sessions; Claude gets them with your next message.'
+        : ' Nothing new from other sessions.'
+      return { text: (r?.ok ? 'Brain synced' + (r.local ? ' (no remote set, committed locally).' : ' with ' + brain.remote + '.') : 'Sync failed: ' + (r?.error || 'unknown')) + arrived }
     }
     if (arg === 'digest') {
       const n = await digest(ioFor($), 'asked for')

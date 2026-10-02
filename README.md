@@ -4,7 +4,7 @@ A personal Claude Code plugin for the CLI and the desktop app. It answers one pr
 
 | Mod | What it does |
 | :- | :- |
-| **Brain** | What Claude learns about working with you: your profile, how you like to work, your shorthand, each project's decisions and open threads. It is loaded at the start of every session, on every machine. Claude adds notes with its `remember` tool and searches them with `recall`. Every 8 turns, and before compaction, a cheap digest of the session (run over the session's own cached transcript) catches what Claude missed. `/brain` reviews it. |
+| **Brain** | What Claude learns about working with you: your profile, how you like to work, your shorthand, each project's decisions and open threads. It is loaded at the start of every session, on every machine, and kept current while a session runs. Claude adds notes with its `remember` tool and searches them with `recall`. Every 8 turns, and before compaction, a cheap digest of the session (run over the session's own cached transcript) catches what Claude missed. `/brain` reviews it. |
 | **Snapshot** | On startup, `/resume`, `/clear` and after compaction, gives Claude the branch, uncommitted files, last 8 commits, the stack, the last check results, and the brain. `/snapshot` shows exactly what Claude gets. |
 | **Checks** | Remembers which files Claude edits. Before Claude finishes a turn, it runs that project's typecheck or build. If they fail, Claude is sent back to fix them, at most 2 rounds, and never twice for the same failure. Python syntax errors are reported right after the edit. |
 | **Checklist** | Claude keeps a live task list with its `checklist` tool. A band above the prompt shows progress, the current step, what Claude is doing right now, and failing checks. `/checklist` opens the full list. |
@@ -27,14 +27,29 @@ The brain is a git folder, `~/.claude/coter-brain`:
 
 It syncs to the `brain` branch of this repo; the plugin code is on `main`, at the repo root. Change that in the plugin's settings (`brainRemote`, `brainBranch`, `brainDir`). Set `brainRemote` empty to keep the brain on one machine.
 
+## How open sessions stay in sync
+
+A session doesn't have to restart to see what another one wrote, on this machine or another:
+
+| When | What happens |
+| :- | :- |
+| Session start | Pulls the brain and gives Claude all of it, with any waiting handoff first. |
+| Every 2 minutes | Pulls the brain and re-reads it. A new handoff shows in the band above the prompt. |
+| Each prompt you send | Anything new from other sessions goes along with it, under "New in working memory", once. Only this project's notes and the global ones (handoffs, approved preferences and vocabulary) are sent. |
+| Claude calls `recall` | Pulls first if the last pull is over 15 seconds old, so "pick up what I did on the PC" sees it. |
+| `/clear`, `/resume`, compaction | Pulls and re-reads before giving Claude the fresh snapshot. |
+| `/brain sync` | Pushes this session's notes and pulls everyone else's now; what arrives goes with your next prompt. |
+
+Claude is told all of this at session start, along with when to call `recall`, when to offer `/handoff`, and that `/brain sync` (not `/clear`) is the fix when memory looks out of date. Sessions that started before a plugin update keep running the old code until they are restarted.
+
 ## Commands
 
 | Command | What it does |
 | :- | :- |
 | `/brain` | Review what Claude learned: keep or drop each item |
-| `/brain sync` | Commit and push the brain now (it otherwise syncs 20 seconds after a write, and at the next session start) |
+| `/brain sync` | Push this session's notes and pull everyone else's now (it otherwise pushes 20 seconds after a write and pulls every 2 minutes) |
 | `/brain digest` | Digest this session now |
-| `/handoff [note]` | Leave this conversation for the next session to pick up, on any machine: a summary with next steps, saved to the brain, written to `HANDOFF.md` on the `brain` branch, and pushed at once. The next session with coter-kit opens with it. |
+| `/handoff [note]` | Leave this conversation for the next session to pick up, on any machine: a summary with next steps, saved to the brain, written to `HANDOFF.md` on the `brain` branch, and pushed at once. The next session with coter-kit opens with it, and sessions already open get it within 2 minutes. |
 | `/snapshot` | Show everything Claude is given at session start |
 | `/checklist` | Open the task checklist |
 | `/checks`, `/checks off`, `/checks on` | Run the checks now, or turn them off or on for this folder |
@@ -102,9 +117,11 @@ When you release, bump `version` in `.claude-plugin/plugin.json`. Installed copi
 
 ```bash
 claude --plugin-dir .                        # load it for one session, reloads on save
-claude plugin validate --strict .
+claude plugin validate --strict .claude-plugin/plugin.json   # `.` checks only the marketplace manifest
 node --check hooks/*.js                       # validate does not catch syntax errors
-claude plugin test                            # 29 tests, no session or network needed
+claude plugin test                            # 37 tests, no session or network needed
 ```
+
+If `claude plugin test` says hooks modules are turned off in this process, run it with `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` set. Some builds ignore that setting and leave it to a server-side switch; the Claude Code inside the desktop app (`$CLAUDE_CODE_EXECPATH` in its sessions) runs the tests.
 
 `register.js` holds every call into Claude Code (`$`), because the validator follows `$` only within one file. `brain.js` reaches Claude Code through the small `io` adapter that `register.js` builds.

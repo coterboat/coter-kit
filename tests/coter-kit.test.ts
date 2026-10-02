@@ -22,6 +22,7 @@ type Opts = {
   typecheckFails?: boolean | (() => boolean)
   files?: Record<string, string>
   forkReply?: string
+  pullFails?: boolean
 }
 
 // An in-memory file system and stubs for everything coter-kit asks Claude Code for.
@@ -82,6 +83,7 @@ function stubAll(on: any, opts: Opts = {}) {
       if (argv.includes('--version')) return { value: { exitCode: 0, stdout: 'Python 3.13', stderr: '' } }
       return { value: { exitCode: 1, stdout: '', stderr: '  File "bad.py", line 2\nSyntaxError: invalid syntax' } }
     }
+    if (argv[0] === 'git' && argv.includes('pull') && opts.pullFails) return { value: { exitCode: 1, stdout: '', stderr: 'CONFLICT (content): Merge conflict in HANDOFF.md' } }
     if (argv[0] === 'git' && argv.includes('status')) return { value: { exitCode: 0, stdout: '## main...origin/main [ahead 1]\n M src/app.ts\n', stderr: '' } }
     if (argv[0] === 'git' && argv.includes('log')) return { value: { exitCode: 0, stdout: 'abc1234 2 hours ago  Add commute route\ndef5678 1 day ago  Fix pins', stderr: '' } }
     if (argv[0] === 'dotnet') {
@@ -100,7 +102,7 @@ function stubAll(on: any, opts: Opts = {}) {
   on('classic.SessionStart', () => ({}))
   on('classic.Stop', () => ({}))
   on('classic.PreCompact', () => ({}))
-  on('prompt.submit', ($: any, e: any) => ({ text: e.text }))
+  on('prompt.submit', ($: any, e: any) => ({ text: e.text, context: e.context }))
   on('tool.call', () => ({ result: 'ok' }))
   on('turn.start', ($: any, e: any) => ({ turnId: e.turnId }))
   on('turn.complete', () => ({ text: '' }))
@@ -451,7 +453,8 @@ test('/handoff saves a summary, writes HANDOFF.md and pushes it at once', { opti
   expect(out.text).toContain('Goal: finish the Mac setup.')
   expect(out.text).toContain('pushed')
   const file = files.get('/brain/HANDOFF.md') ?? ''
-  expect(file).toContain('/plugin marketplace add coterboat/coter-kit')
+  expect(file).toContain('claude plugin marketplace add coterboat/coter-kit')
+  expect(file).toContain('--config brainRemote=https://github.com/coterboat/coter-kit.git --config brainBranch=brain')
   expect(file).toContain('1. On the Mac, install coter-kit.')
   expect(ran.some((a) => a[0] === 'git' && a.includes('push'))).toBe(true)
 })
@@ -477,4 +480,97 @@ t('a handoff is not shown back to the session that wrote it', async ($, on) => {
   const out: any = await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'handoff', text: 'Goal: something for later.', confirmed: true }] })
   expect(out.result).toContain('saved on this machine only')
   expect(await snapshot($)).not.toContain('Goal: something for later.')
+})
+
+// ---------------------------------------------------------------- 6. A running session stays in sync
+
+// Notes another session wrote, as a pull (or a session on this machine) leaves them on disk
+const arrive = (files: Map<string, string>, rows: object[], device = 'pc') =>
+  files.set('/brain/journal/' + device + '/2026-10-02-other.jsonl', rows.map((r) => JSON.stringify(r)).join('\n'))
+const fromPC = (over: object) => ({ at: Date.now() - 60_000, device: 'pc', session: 'pc-session', project: 'work', status: 'active', ...over })
+
+t('the snapshot tells Claude how memory stays current and when to sync or hand off', async ($, on) => {
+  stubAll(on)
+  await start($)
+  const text = await snapshot($)
+  expect(text).toContain('New in working memory')
+  expect(text).toContain('/brain sync')
+  expect(text).toContain('/handoff')
+})
+
+t('/brain sync takes in what another session wrote, and the next prompt carries it once', async ($, on) => {
+  const { files } = stubAll(on)
+  await start($)
+  arrive(files, [fromPC({ id: 'p1', kind: 'decision', text: 'Routes are cached for a day' })])
+  const reply: any = await $.command.run({ command: 'brain', args: 'sync' })
+  expect(reply.text).toContain('1 new note(s) from other sessions')
+  const first: any = await $.prompt.submit({ text: 'where were we?' })
+  expect(first.context.join('\n')).toContain('Routes are cached for a day')
+  const second: any = await $.prompt.submit({ text: 'and then?' })
+  expect((second.context ?? []).length).toBe(0)
+})
+
+test('while a session runs, a handoff pushed from another machine is pulled in, shown, and handed to Claude', { options: REMOTE }, async ($: any, on: any) => {
+  const { files, ran, clock } = stubAll(on)
+  await start($)
+  expect(ran.some((a) => a.includes('pull'))).toBe(false)
+  arrive(files, [fromPC({ id: 'h9', project: '', from: 'ourPlace', kind: 'handoff', text: 'Goal: ship the statewide search.' })])
+  await clock.advance(121_000)
+  expect(ran.some((a) => a[0] === 'git' && a.includes('pull'))).toBe(true)
+  const band = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  expect(await band.find({ type: 'Text', text: /handoff waiting from ourPlace on pc/ })).toBeDefined()
+  const out: any = await $.prompt.submit({ text: 'morning' })
+  const context = out.context.join('\n')
+  expect(context).toContain('## Handoff')
+  expect(context).toContain('[h9] from ourPlace on pc')
+  expect(context).toContain("resolves set to the handoff's id")
+})
+
+test('recall fetches the latest from other machines before it searches', { options: REMOTE }, async ($: any, on: any) => {
+  const { files, ran, clock } = stubAll(on)
+  await start($)
+  arrive(files, [fromPC({ id: 'f1', kind: 'fact', text: 'The PC builds the Godot export, not the Mac' })])
+  await clock.advance(20_000)
+  const out: any = await $.tool.call({ tool: 'mcp__coter-kit__recall', query: 'godot export' })
+  expect(ran.some((a) => a[0] === 'git' && a.includes('pull'))).toBe(true)
+  expect(out.result).toContain('The PC builds the Godot export')
+})
+
+t('/clear re-reads the brain, so the fresh snapshot has what other sessions wrote', async ($, on) => {
+  const { files } = stubAll(on)
+  await start($)
+  arrive(files, [fromPC({ id: 'p2', kind: 'thread', text: 'Waiting on the county list' })], 'macbook')
+  const out: any = await $.classic.SessionStart({ source: 'clear' })
+  expect(out.additionalContext.join('\n')).toContain('Waiting on the county list')
+  const next: any = await $.prompt.submit({ text: 'go' })
+  expect((next.context ?? []).length).toBe(0)
+})
+
+t("a session's own notes are not handed back to it as new", async ($, on) => {
+  stubAll(on)
+  await start($)
+  await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'fact', text: 'Written here' }] })
+  await $.command.run({ command: 'brain', args: 'sync' })
+  const out: any = await $.prompt.submit({ text: 'go' })
+  expect((out.context ?? []).length).toBe(0)
+})
+
+t("another project's notes and unreviewed preferences are not pushed into this session", async ($, on) => {
+  const { files } = stubAll(on)
+  await start($)
+  arrive(files, [
+    fromPC({ id: 'o1', project: 'ironVeil', kind: 'decision', text: 'Iron Veil ships on Steam first' }),
+    fromPC({ id: 'o2', project: '', kind: 'preference', text: 'Never use tabs', status: 'pending' }),
+  ])
+  const reply: any = await $.command.run({ command: 'brain', args: 'sync' })
+  expect(reply.text).toContain('Nothing new from other sessions')
+  const out: any = await $.prompt.submit({ text: 'go' })
+  expect((out.context ?? []).length).toBe(0)
+})
+
+test('a pull that hits a conflict is undone, so the brain is never left mid-rebase', { options: REMOTE }, async ($: any, on: any) => {
+  const { ran } = stubAll(on, { pullFails: true })
+  await start($)
+  await $.command.run({ command: 'brain', args: 'sync' })
+  expect(ran.some((a) => a[0] === 'git' && a.includes('rebase') && a.includes('--abort'))).toBe(true)
 })
