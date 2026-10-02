@@ -1,0 +1,26 @@
+{
+  "name": "coter-kit",
+  "version": "0.2.0",
+  "description": "Project snapshot, automatic checks after edits, a live task checklist, and a working memory shared across sessions, repos and machines",
+  "author": { "name": "coterboat" },
+  "userConfig": {
+    "brainRemote": {
+      "type": "string",
+      "title": "Brain remote",
+      "description": "Git remote the brain syncs to. Leave empty to keep it on this machine only.",
+      "default": "https://github.com/coterboat/coter-kit.git"
+    },
+    "brainBranch": {
+      "type": "string",
+      "title": "Brain branch",
+      "description": "Branch of the remote that holds the brain",
+      "default": "brain"
+    },
+    "brainDir": {
+      "type": "string",
+      "title": "Brain folder",
+      "description": "Where the brain lives on this machine. Empty means ~/.claude/coter-brain.",
+      "default": ""
+    }
+  }
+}

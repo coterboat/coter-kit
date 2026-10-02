@@ -1,0 +1,14 @@
+{
+  "name": "coter-kit",
+  "owner": {
+    "name": "coterboat"
+  },
+  "plugins": [
+    {
+      "name": "coter-kit",
+      "source": "./",
+      "description": "Project snapshot, automatic checks after edits, a live task checklist, and a working memory shared across sessions, repos and machines"
+    }
+  ],
+  "description": "coterboat's personal Claude Code plugins"
+}
