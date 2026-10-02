@@ -47,7 +47,9 @@ const SECRET_PATTERNS = [
   /\bAKIA[0-9A-Z]{16}\b/g,
   /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g,
   /\b[a-f0-9]{32,}\b/gi,
-  /((?:password|passwd|pwd|pw|secret|token|api[_ -]?key|app[_ -]?secret)\s*(?:is\s+|=\s*|:\s*)?)\S+/gi,
+  // A labelled value that looks like a credential (6+ characters with a digit), so prose
+  // such as "the token budget" is left alone
+  /((?:password|passwd|pwd|\bpw|secret|token|api[_ -]?key)\s*(?:is\s+|=\s*|:\s*)?)(?=\S*\d)\S{6,}/gi,
 ]
 
 // Keeps credentials out of the brain, whatever Claude or the digest wrote

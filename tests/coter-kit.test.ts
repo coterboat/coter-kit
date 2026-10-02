@@ -352,6 +352,13 @@ t('credentials are redacted before anything is written', async ($, on) => {
   expect(written).not.toContain('0123456789abcdef0123456789abcdef')
 })
 
+t('ordinary words like token or secret are not redacted', async ($, on) => {
+  const { files } = stubAll(on)
+  await start($)
+  await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'fact', text: 'The token budget is tight; the secret sauce is the digest' }] })
+  expect(journal(files)).toContain('The token budget is tight; the secret sauce is the digest')
+})
+
 t('the same note twice is kept once', async ($, on) => {
   stubAll(on)
   await start($)

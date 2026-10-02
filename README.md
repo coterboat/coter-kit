@@ -84,7 +84,7 @@ Then run `/plugin` and look for `1 mod active · coter-kit`. The first session c
 claude --plugin-dir .                        # load it for one session, reloads on save
 claude plugin validate --strict .
 node --check hooks/*.js                       # validate does not catch syntax errors
-claude plugin test                            # 28 tests, no session or network needed
+claude plugin test                            # 29 tests, no session or network needed
 ```
 
 `register.js` holds every call into Claude Code (`$`), because the validator follows `$` only within one file. `brain.js` reaches Claude Code through the small `io` adapter that `register.js` builds.
