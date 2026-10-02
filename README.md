@@ -69,14 +69,34 @@ Tests never run by default, because some runners (CRA's `npm test`) start a watc
 
 Needs Claude Code 2.1.286 or later. Check with `claude --version`.
 
-On each machine (Windows PC and Mac), in any Claude Code session:
+On each machine (Windows PC and Mac), in a terminal:
+
+```bash
+claude plugin marketplace add coterboat/coter-kit
+claude plugin install coter-kit@coter-kit --config brainRemote=https://github.com/coterboat/coter-kit.git --config brainBranch=brain
+```
+
+It installs for your user account, so every new session on that machine loads it, in the CLI and in the desktop app. The `--config` options point the brain at this repo's `brain` branch. Leave `brainDir` out: an empty `--config` value is rejected, and with it every other option on the line.
+
+In the desktop app's Code tab, `/plugin` only opens the app's plugin browser and ignores what you type after it, so use the terminal commands above. In a terminal Claude Code session, the slash commands also work:
 
 ```
 /plugin marketplace add coterboat/coter-kit
 /plugin install coter-kit@coter-kit
 ```
 
-Then run `/plugin` and look for `1 mod active · coter-kit`. The first session clones the brain. On a new machine, run `/coter-kit:mine-history` once.
+`claude plugin list` should show `coter-kit@coter-kit` as enabled. The first session clones the brain. On a new machine, run `/coter-kit:mine-history` once.
+
+### Updating
+
+The brain syncs on its own. New plugin code does not: auto-update is off by default for marketplaces that aren't Anthropic's. Turn it on once per machine, from a terminal Claude Code session: `/plugin` → **Marketplaces** → `coter-kit` → **Enable auto-update**. It then checks after each session starts, and the new version loads in the next session. To update by hand:
+
+```bash
+claude plugin marketplace update coter-kit
+claude plugin update coter-kit@coter-kit
+```
+
+When you release, bump `version` in `.claude-plugin/plugin.json`. Installed copies update only when it changes.
 
 ## Develop
 
