@@ -23,6 +23,7 @@ type Opts = {
   files?: Record<string, string>
   forkReply?: string
   pullFails?: boolean
+  missingFiles?: string[]
 }
 
 // An in-memory file system and stubs for everything coter-kit asks Claude Code for.
@@ -84,6 +85,7 @@ function stubAll(on: any, opts: Opts = {}) {
       return { value: { exitCode: 1, stdout: '', stderr: '  File "bad.py", line 2\nSyntaxError: invalid syntax' } }
     }
     if (argv[0] === 'git' && argv.includes('pull') && opts.pullFails) return { value: { exitCode: 1, stdout: '', stderr: 'CONFLICT (content): Merge conflict in HANDOFF.md' } }
+    if (argv[0] === 'git' && argv.includes('ls-files')) return { value: { exitCode: 0, stdout: (opts.missingFiles ?? []).join('\n'), stderr: '' } }
     if (argv[0] === 'git' && argv.includes('status')) return { value: { exitCode: 0, stdout: '## main...origin/main [ahead 1]\n M src/app.ts\n', stderr: '' } }
     if (argv[0] === 'git' && argv.includes('log')) return { value: { exitCode: 0, stdout: 'abc1234 2 hours ago  Add commute route\ndef5678 1 day ago  Fix pins', stderr: '' } }
     if (argv[0] === 'dotnet') {
@@ -573,4 +575,28 @@ test('a pull that hits a conflict is undone, so the brain is never left mid-reba
   await start($)
   await $.command.run({ command: 'brain', args: 'sync' })
   expect(ran.some((a) => a[0] === 'git' && a.includes('rebase') && a.includes('--abort'))).toBe(true)
+})
+
+// ---------------------------------------------------------------- 7. Startup order and safe syncs
+
+t('the snapshot has the brain even when the session raises SessionStart before session.start', async ($, on) => {
+  const { ran } = stubAll(on)
+  const text = await snapshot($)
+  expect(text).toContain('Project: work')
+  expect(text).toContain('Prefers short summaries')
+  expect(text).toContain('## Using this memory')
+  await start($)
+  expect(ran.filter((a) => a[0] === 'git' && a.includes('init')).length).toBe(1)
+})
+
+t("a sync never commits a deletion: a note missing from disk is put back, not deleted on every machine", async ($, on) => {
+  const { ran, clock } = stubAll(on, { missingFiles: ['journal/bld/2026-10-02-5cf38e73.jsonl', 'HANDOFF.md'] })
+  await start($)
+  await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'fact', text: 'Sync safety test' }] })
+  await clock.advance(21_000)
+  const adds = ran.filter((a) => a[0] === 'git' && a.includes('add'))
+  expect(adds.length).toBeGreaterThan(0)
+  expect(adds.every((a) => a.includes('--ignore-removal') && !a.includes('-A'))).toBe(true)
+  const restore = ran.find((a) => a[0] === 'git' && a.includes('checkout'))
+  expect(restore).toEqual(['git', '-C', '/brain', 'checkout', '--', 'journal/bld/2026-10-02-5cf38e73.jsonl', 'HANDOFF.md'])
 })

@@ -25,6 +25,8 @@ The brain is a git folder, `~/.claude/coter-brain`:
 - `profile.md`: yours to edit. It starts from `profile.seed.md`.
 - `journal/<machine>/<date>-<session>.jsonl`: append-only, one file per session, so two machines never edit the same file and syncs never conflict.
 
+A sync never deletes anything. It commits only new and changed files, and puts back any file missing from disk, so a half-finished clone or a stray delete can't wipe another machine's notes.
+
 It syncs to the `brain` branch of this repo; the plugin code is on `main`, at the repo root. Change that in the plugin's settings (`brainRemote`, `brainBranch`, `brainDir`). Set `brainRemote` empty to keep the brain on one machine.
 
 ## How open sessions stay in sync
@@ -119,7 +121,7 @@ When you release, bump `version` in `.claude-plugin/plugin.json`. Installed copi
 claude --plugin-dir .                        # load it for one session, reloads on save
 claude plugin validate --strict .claude-plugin/plugin.json   # `.` checks only the marketplace manifest
 node --check hooks/*.js                       # validate does not catch syntax errors
-claude plugin test                            # 37 tests, no session or network needed
+claude plugin test                            # 39 tests, no session or network needed
 ```
 
 If `claude plugin test` says hooks modules are turned off in this process, run it with `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` set. Some builds ignore that setting and leave it to a server-side switch; the Claude Code inside the desktop app (`$CLAUDE_CODE_EXECPATH` in its sessions) runs the tests.

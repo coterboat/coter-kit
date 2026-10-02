@@ -61,6 +61,9 @@ let checkView = { state: 'idle', summary: '', at: 0 } // idle|running|pass|fail|
 let turnsSinceDigest = 0
 let refreshTimer = null
 
+// The session's setup, started once (see prepare)
+let ready = null
+
 // ---------------------------------------------------------------- calls into Claude Code
 
 // npm/npx are .cmd shims on Windows, which only start through cmd.exe
@@ -484,42 +487,55 @@ async function shipHandoff($, handoff) {
 
 // ---------------------------------------------------------------- register
 
-export function register(on, options = {}) {
-  on('session.start', async ($, e, next) => {
-    env.isWindows = (await $.env.get('OS')) === 'Windows_NT'
-    env.sessionRoot = norm(await $.session.root())
-    env.sessionId = await $.session.id()
-    const repo = await $.session.repo().catch(() => null)
-    env.project = basename(repo?.root || env.sessionRoot) || 'scratch'
-    for (const candidate of env.isWindows ? ['python', 'py'] : ['python3', 'python']) {
-      const r = await run($, [candidate, '--version'], { timeoutMs: 5_000 })
-      if (r.exitCode === 0) {
-        env.python = candidate
-        break
-      }
+// Facts about the session, the checklist it left, and the brain
+async function setUp($, options) {
+  env.isWindows = (await $.env.get('OS')) === 'Windows_NT'
+  env.sessionRoot = norm(await $.session.root())
+  env.sessionId = await $.session.id()
+  const repo = await $.session.repo().catch(() => null)
+  env.project = basename(repo?.root || env.sessionRoot) || 'scratch'
+  for (const candidate of env.isWindows ? ['python', 'py'] : ['python3', 'python']) {
+    const r = await run($, [candidate, '--version'], { timeoutMs: 5_000 })
+    if (r.exitCode === 0) {
+      env.python = candidate
+      break
     }
-    const saved = await $.store.get('checklist:' + env.sessionId)
-    if (saved && Array.isArray(saved.items)) checklist = saved
+  }
+  const saved = await $.store.get('checklist:' + env.sessionId)
+  if (saved && Array.isArray(saved.items)) checklist = saved
 
-    try {
-      env.home = norm((await $.env.get('USERPROFILE')) || (await $.env.get('HOME')) || '')
-      env.device = await deviceName($)
-      await initBrain(ioFor($), options)
-      // Keep taking in what other sessions and machines write while this one runs; what
-      // arrives reaches Claude with the next prompt (prompt.submit below)
-      refreshTimer?.cancel()
-      refreshTimer = $.clock.every(REFRESH_EVERY_MS, async () => {
-        try {
-          const arrived = await refreshIfStale(ioFor($), REFRESH_EVERY_MS / 2)
-          if (arrived.length) redraw($)
-        } catch (err) {
-          $.ui.log('brain refresh failed: ' + (err?.message || err))
-        }
-      })
-    } catch (err) {
-      brain.dir = ''
-      $.ui.log('brain unavailable: ' + (err?.message || err))
-    }
+  try {
+    env.home = norm((await $.env.get('USERPROFILE')) || (await $.env.get('HOME')) || '')
+    env.device = await deviceName($)
+    await initBrain(ioFor($), options)
+    // Keep taking in what other sessions and machines write while this one runs; what
+    // arrives reaches Claude with the next prompt (prompt.submit below)
+    refreshTimer?.cancel()
+    refreshTimer = $.clock.every(REFRESH_EVERY_MS, async () => {
+      try {
+        const arrived = await refreshIfStale(ioFor($), REFRESH_EVERY_MS / 2)
+        if (arrived.length) redraw($)
+      } catch (err) {
+        $.ui.log('brain refresh failed: ' + (err?.message || err))
+      }
+    })
+  } catch (err) {
+    brain.dir = ''
+    $.ui.log('brain unavailable: ' + (err?.message || err))
+  }
+}
+
+// Runs setUp once, for whichever comes first: a session may raise the startup SessionStart,
+// which builds the snapshot, before session.start
+function prepare($, options) {
+  ready ??= setUp($, options)
+  return ready
+}
+
+export function register(on, options = {}) {
+
+  on('session.start', async ($, e, next) => {
+    await prepare($, options)
 
     for (const spec of [CHECKLIST_SPEC, REMEMBER_SPEC, RECALL_SPEC]) await $.tool.register(spec)
 
@@ -543,6 +559,7 @@ export function register(on, options = {}) {
   // 1. Snapshot: startup, /resume, /clear, compaction and /branch all raise SessionStart
   on('classic.SessionStart', async ($, e, next) => {
     const result = await next(e)
+    await prepare($, options)
     if (e.source === 'clear') {
       checklist = { title: '', items: [] }
       env.sessionId = await $.session.id()
@@ -550,7 +567,7 @@ export function register(on, options = {}) {
     }
     let snapshot = ''
     try {
-      // session.start has just loaded the brain at startup; any other start re-reads it first
+      // At startup the brain was loaded just now; any other start re-reads it first
       if (brain.dir && e.source !== 'startup') await refresh(ioFor($))
       snapshot = await buildSnapshot($)
       // The snapshot carries the whole brain, so nothing is left to deliver separately

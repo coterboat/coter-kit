@@ -387,10 +387,17 @@ export async function digest(io, reason) {
 
 // ---------------------------------------------------------------- sync
 
+// Nothing here deletes a file, so one missing from the working copy is an accident, such as
+// a clone another session had not finished checking out. Committing it would delete another
+// machine's notes everywhere, so only additions and changes are staged, and anything missing
+// is put back.
 async function commit(io) {
-  await io.run(['git', '-C', brain.dir, 'add', '-A'])
+  await io.run(['git', '-C', brain.dir, 'add', '--ignore-removal', '.'])
   const who = ['-c', 'user.name=coter-kit (' + env.device + ')', '-c', 'user.email=coter-kit@users.noreply.github.com']
-  return io.run(['git', ...who, '-C', brain.dir, 'commit', '-q', '-m', env.device + ': ' + (env.project || 'notes')])
+  const r = await io.run(['git', ...who, '-C', brain.dir, 'commit', '-q', '-m', env.device + ': ' + (env.project || 'notes')])
+  const missing = (await io.run(['git', '-C', brain.dir, 'ls-files', '--deleted'])).stdout.split('\n').map((l) => l.trim()).filter(Boolean)
+  if (missing.length) await io.run(['git', '-C', brain.dir, 'checkout', '--', ...missing])
+  return r
 }
 
 // Takes the other machines' notes. A rebase that stops on a conflict (HANDOFF.md, profile.md)
