@@ -4,8 +4,8 @@ A personal Claude Code plugin for the CLI and the desktop app. It answers one pr
 
 | Mod | What it does |
 | :- | :- |
-| **Brain** | What Claude learns about working with you: your profile, how you like to work, your shorthand, each project's decisions and open threads. It is loaded at the start of every session, on every machine, and kept current while a session runs. Claude adds notes with its `remember` tool and searches them with `recall`. Every 8 turns, and before compaction, a cheap digest of the session (run over the session's own cached transcript) catches what Claude missed. `/brain` reviews it. |
-| **Snapshot** | On startup, `/resume`, `/clear` and after compaction, gives Claude the branch, uncommitted files, last 8 commits, the stack, the last check results, and the brain. `/snapshot` shows exactly what Claude gets. |
+| **Brain** | What Claude learns about working with you: your profile, how you like to work, your shorthand, each project's decisions and open threads. It reaches Claude with your first message in every session, on every machine, and is kept current while a session runs. Claude adds notes with its `remember` tool and searches them with `recall`. Every 8 turns, and before compaction, a cheap digest of the session (run over the session's own cached transcript) proposes what Claude missed; its notes wait for you in `/brain`. |
+| **Snapshot** | On startup, `/resume`, `/clear` and after compaction, gives Claude the branch, uncommitted files, last 8 commits, the stack and the last check results, then the brain (at startup, with your first message). `/snapshot` shows exactly what Claude gets. |
 | **Checks** | Remembers which files Claude edits. Before Claude finishes a turn, it runs that project's typecheck or build. If they fail, Claude is sent back to fix them, at most 2 rounds, and never twice for the same failure. Python syntax errors are reported right after the edit. |
 | **Waiting on you** | Mockups, pages and questions Claude is waiting on you for, each with its link, in the brain. `/waiting` lists them; an answer resolves them; unanswered ones drop off after 30 days. |
 | **Checklist** | Claude keeps a live task list with its `checklist` tool. A band above the prompt shows progress, the current step, what Claude is doing right now, and failing checks. The ▸ at its start opens every step in the band and ▾ folds it back (click it, or ctrl+x tab then Enter in the terminal); it stays the way you left it, across sessions. `/checklist` opens the list in a pane. |
@@ -14,9 +14,9 @@ A personal Claude Code plugin for the CLI and the desktop app. It answers one pr
 
 Memory that learns by itself can learn the wrong thing and keep reinforcing it. So:
 
-- **You approve anything about you.** Preferences and vocabulary wait in `/brain` (keep / drop) until you approve them, unless you told Claude outright to remember them.
+- **You approve anything about you, and anything the digest proposes.** Preferences, vocabulary and every digest note wait in `/brain` (keep / drop) until you approve them, unless you told Claude outright to remember them. A digest note can't skip that, retire another note, or leave a handoff, and one you dropped isn't proposed again.
 - **Work in progress expires.** Threads drop out after 3 weeks; decisions and facts after 6 months. Claude can retire a note early with `resolves`.
-- **There's a budget.** At most about 9,000 characters reach a session, newest first.
+- **There's a budget.** At most about 13,000 characters reach a session, newest first. Other projects get one short line each, their latest thread; `recall` has the rest.
 - **Credentials are redacted** (keys, tokens, `pw ...`, long hex strings) before anything is written. The digest is told never to keep client or end-user personal data.
 
 ## Where it lives
@@ -36,8 +36,8 @@ A session doesn't have to restart to see what another one wrote, on this machine
 
 | When | What happens |
 | :- | :- |
-| Session start | Pulls the brain and gives Claude all of it, with any waiting handoff first. |
-| Every 2 minutes | Pulls the brain and re-reads it. A new handoff shows in the band above the prompt. |
+| Session start | Pulls the brain. The snapshot goes in at once, and the brain goes with your first message, because that message shows who is there: a scheduled task's run starts with its `<scheduled-task>` tag and gets only this project's notes and your approved ways of working (no profile, no other projects, never a handoff, nothing more later, no digest). |
+| Every 2 minutes | Pulls the brain and re-reads it. A new handoff shows in the band above the prompt; Claude acts on it only when you say "pick it up". |
 | Each prompt you send | Anything new from other sessions goes along with it, under "New in working memory", once. Only this project's notes and the global ones (handoffs, approved preferences and vocabulary) are sent. |
 | Claude calls `recall` | Pulls first if the last pull is over 15 seconds old, so "pick up what I did on the PC" sees it. |
 | `/clear`, `/resume`, compaction | Pulls and re-reads before giving Claude the fresh snapshot. |
@@ -53,7 +53,7 @@ Claude is told all of this at session start, along with when to call `recall`, w
 | `/brain sync` | Push this session's notes and pull everyone else's now (it otherwise pushes 20 seconds after a write and pulls every 2 minutes) |
 | `/brain digest` | Digest this session now |
 | `/waiting`, `/waiting all` | What is waiting on you, with links: mockups to review, questions to answer, sign-offs. Claude adds an item whenever it publishes something for you to look at or asks a decision you may answer later, and resolves it when you answer. Kept in the brain, so every session and machine sees the same list; this project's items by default, `all` for every project. The band above the prompt shows the count. |
-| `/handoff [note]` | Leave this conversation for the next session to pick up, on any machine: a summary with next steps, saved to the brain, written to `HANDOFF.md` on the `brain` branch, and pushed at once. The next session with coter-kit opens with it, and sessions already open get it within 2 minutes. |
+| `/handoff [note]` | Leave this conversation for the next session to pick up, on any machine: a summary with next steps, saved to the brain, written to `HANDOFF.md` on the `brain` branch, and pushed at once. Every session with coter-kit, including ones already open (within 2 minutes), shows it in the band and picks it up when you say so; it is a plan written earlier, so Claude checks it against the repo first. |
 | `/snapshot` | Show everything Claude is given at session start |
 | `/checklist` | Open the task checklist |
 | `/checks`, `/checks off`, `/checks on` | Run the checks now, or turn them off or on for this folder |
@@ -123,7 +123,7 @@ When you release, bump `version` in `.claude-plugin/plugin.json`. Installed copi
 claude --plugin-dir .                        # load it for one session, reloads on save
 claude plugin validate --strict .claude-plugin/plugin.json   # `.` checks only the marketplace manifest
 node --check hooks/*.js                       # validate does not catch syntax errors
-claude plugin test                            # 43 tests, no session or network needed
+claude plugin test                            # 48 tests, no session or network needed
 ```
 
 If `claude plugin test` says hooks modules are turned off in this process, run it with `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` set. Some builds ignore that setting and leave it to a server-side switch; the Claude Code inside the desktop app (`$CLAUDE_CODE_EXECPATH` in its sessions) runs the tests.

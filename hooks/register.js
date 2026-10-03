@@ -63,6 +63,12 @@ let checkView = { state: 'idle', summary: '', at: 0 } // idle|running|pass|fail|
 // Brain
 let turnsSinceDigest = 0
 let refreshTimer = null
+// The startup snapshot leaves the brain for the first prompt, which shows whether anyone is
+// there: a scheduled task's run starts with its tag, and gets a lean brain (brainContext)
+let promptSeen = false
+let brainOnFirstPrompt = false
+let unattended = false
+const SCHEDULED_RUN = /^\s*<scheduled-task[\s>]/
 
 // The session's setup, started once (see prepare)
 let ready = null
@@ -219,7 +225,8 @@ async function stackSummary($, root) {
   return found.map((s) => s.trim())
 }
 
-async function buildSnapshot($) {
+// brain: 'full', 'lean' (brainContext) or 'none', left for the first prompt
+async function buildSnapshot($, brainMode = 'full') {
   const root = env.sessionRoot
   const out = ['# Project snapshot (from the coter-kit mod)']
   const git = await gitSummary($, root)
@@ -250,7 +257,7 @@ async function buildSnapshot($) {
     "Checks: when you finish a turn that edited code, the mod runs the project's typecheck/build. If it fails, you will be asked to fix it before stopping. If a failure predates your change or is unrelated, say so plainly instead of guessing at a fix.",
   )
 
-  if (brain.dir) out.push(await brainContext(ioFor($)))
+  if (brain.dir && brainMode !== 'none') out.push(await brainContext(ioFor($), { lean: brainMode === 'lean' }))
   return out.join('\n')
 }
 
@@ -586,9 +593,12 @@ export function register(on, options = {}) {
     try {
       // At startup the brain was loaded just now; any other start re-reads it first
       if (brain.dir && e.source !== 'startup') await refresh(ioFor($))
-      snapshot = await buildSnapshot($)
+      // Before any prompt, nobody can tell yet whether a person is there
+      const later = e.source === 'startup' && !promptSeen
+      snapshot = await buildSnapshot($, later ? 'none' : unattended ? 'lean' : 'full')
+      if (later) brainOnFirstPrompt = true
       // The snapshot carries the whole brain, so nothing is left to deliver separately
-      brain.unseen = []
+      else brain.unseen = []
     } catch (err) {
       $.ui.log('snapshot failed: ' + (err?.message || err))
     }
@@ -600,14 +610,33 @@ export function register(on, options = {}) {
     return { text: await buildSnapshot($) }
   })
 
-  // A new prompt from the user starts a fresh allowance of automatic fix rounds, and carries
-  // what other sessions wrote since Claude was last told
+  // A new prompt from the user starts a fresh allowance of automatic fix rounds. The first
+  // carries the brain the startup snapshot left out; later ones, what other sessions wrote
+  // since Claude was last told. A scheduled run gets a lean brain and nothing after it.
   on('prompt.submit', async ($, e, next) => {
     fixRounds = 0
     lastFailureSig = ''
-    const arrived = brain.dir ? takeUnseen() : []
-    if (!arrived.length) return next(e)
-    return next({ ...e, context: [...(e.context ?? []), arrivalsContext(arrived)] })
+    if (!promptSeen && SCHEDULED_RUN.test(e.text)) {
+      unattended = true
+      refreshTimer?.cancel()
+    }
+    promptSeen = true
+    const extra = []
+    try {
+      if (brainOnFirstPrompt) {
+        brainOnFirstPrompt = false
+        if (brain.dir) extra.push(await brainContext(ioFor($), { lean: unattended }))
+        brain.unseen = []
+      } else if (brain.dir && !unattended) {
+        const arrived = takeUnseen()
+        if (arrived.length) extra.push(arrivalsContext(arrived))
+      }
+    } catch (err) {
+      $.ui.log('brain context failed: ' + (err?.message || err))
+    }
+    if (unattended) brain.unseen = []
+    if (!extra.length) return next(e)
+    return next({ ...e, context: [...(e.context ?? []), ...extra] })
   })
 
   // Live activity for the band, from every tool call (main loop and subagents)
@@ -765,7 +794,8 @@ export function register(on, options = {}) {
     activity = ''
     redraw($)
     turnsSinceDigest += 1
-    if (brain.dir && !e.isAborted && turnsSinceDigest >= DIGEST_EVERY_TURNS) {
+    // A run nobody watches proposes nothing for review
+    if (brain.dir && !unattended && !e.isAborted && turnsSinceDigest >= DIGEST_EVERY_TURNS) {
       turnsSinceDigest = 0
       // Off the turn's path: the digest is a model call of its own
       $.clock.after(1_000, async () => {
@@ -778,7 +808,7 @@ export function register(on, options = {}) {
 
   // Compaction is the last chance to read the full conversation, so digest first
   on('classic.PreCompact', async ($, e, next) => {
-    if (brain.dir && turnsSinceDigest > 0) {
+    if (brain.dir && !unattended && turnsSinceDigest > 0) {
       turnsSinceDigest = 0
       try {
         await digest(ioFor($), 'before compaction')
@@ -948,7 +978,7 @@ export function register(on, options = {}) {
           children: [
             Button({ key: 'keep-' + p.id, label: 'keep', plain: true, onPress: async () => (await setStatus(ioFor($), p.id, 'active'), redraw($)) }),
             Button({ key: 'drop-' + p.id, label: 'drop', plain: true, onPress: async () => (await setStatus(ioFor($), p.id, 'rejected'), redraw($)) }),
-            Text({ wrap: 'wrap', children: [clip(p.kind + ': ' + p.text, width)] }),
+            Text({ wrap: 'wrap', children: [clip(p.kind + (p.project ? ' · ' + p.project : '') + (p.source === 'digest' ? ' · digest' : '') + ': ' + p.text, width)] }),
           ],
         }),
       )

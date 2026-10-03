@@ -6,9 +6,9 @@
 // so two sessions or two machines never write the same file and syncs never conflict.
 // A line is either an entry or a status change to an earlier entry; loading folds them.
 //
-// Guardrails against memory rot: anything about the user (preferences, vocabulary) waits
-// for their review before it shapes a session; threads expire; decisions can be superseded;
-// what reaches a session is capped.
+// Guardrails against memory rot: anything about the user (preferences, vocabulary), and
+// anything the digest proposes, waits for their review before it shapes a session; threads
+// expire; decisions can be superseded; what reaches a session is capped.
 
 import { env, join, norm, safeJson, clip, ago } from './util.js'
 import { waitingFields, waitingSection } from './waiting.js'
@@ -150,15 +150,20 @@ async function append(io, rows) {
 // Adds notes; returns the ones that were new. `confirmed` skips the review step,
 // for things the user asked to have remembered.
 export async function remember(io, notes, { source = 'claude' } = {}) {
+  // The digest's notes are the model's own reading of the conversation: every one waits for
+  // the user's review, none may skip it or retire another note, and one the user dropped is
+  // not proposed again
+  const fromDigest = source === 'digest'
   const added = []
   const rows = []
   for (const note of notes) {
     const kind = KINDS.includes(note.kind) ? note.kind : null
     const text = clip(redact(String(note.text || '').trim()), MAX_TEXT[kind] || 400)
     if (!kind || !text) continue
+    const confirmed = note.confirmed === true && !fromDigest
     const project = GLOBAL_KINDS.has(kind) || note.scope === 'global' ? '' : env.project
     const dupe = [...brain.entries.values()].find(
-      (e) => e.kind === kind && (e.project || '') === project && sameText(e.text) === sameText(text) && e.status !== 'rejected',
+      (e) => e.kind === kind && (e.project || '') === project && sameText(e.text) === sameText(text) && (e.status !== 'rejected' || fromDigest),
     )
     if (dupe) continue
     const entry = {
@@ -173,13 +178,13 @@ export async function remember(io, notes, { source = 'claude' } = {}) {
       text,
       // A 'waiting' item keeps its link and short ref (waiting.js)
       ...(kind === 'waiting' ? waitingFields(note) : {}),
-      status: NEEDS_REVIEW.has(kind) && !note.confirmed ? 'pending' : 'active',
+      status: (NEEDS_REVIEW.has(kind) || fromDigest) && !confirmed ? 'pending' : 'active',
       source,
     }
     brain.entries.set(entry.id, entry)
     rows.push(entry)
     added.push(entry)
-    if (note.resolves && brain.entries.has(note.resolves)) {
+    if (note.resolves && !fromDigest && brain.entries.has(note.resolves)) {
       rows.push(setStatusRow(note.resolves, 'superseded'))
     }
   }
@@ -250,58 +255,73 @@ export async function writeHandoffFile(io, entry) {
 
 const MARK_PICKED_UP =
   'mark it picked up by calling ' + REMEMBER_TOOL + " with kind 'thread', a one-line note of what you're continuing, and resolves set to the handoff's id."
+// A handoff is a plan someone wrote earlier: background until the user asks for it, never an
+// order to act first. The band above their prompt shows it is waiting.
+const HANDOFF_WAITS =
+  'Another session left this for whoever picks the work up next, and the band above their prompt shows them it is waiting. Act on it only when they ask to pick it up; until then do not act on it or bring it up. When they do, check it against the repo first, since it may be out of date, tell them what you understand the next step to be, then ' +
+  MARK_PICKED_UP
 const handoffBlock = (h) => '### [' + h.id + '] from ' + (h.from || 'a session') + ' on ' + h.device + ', ' + ago(h.at) + '\n' + h.text
+const OTHER_PROJECT_LINE = 140
 
-// What a new session is told: the profile, then what was learned, within a budget
-export async function brainContext(io) {
+// What a session is told: the profile, then what was learned, within a budget. A lean
+// brain, for a run nobody is watching (a scheduled task), is this project's notes and the
+// approved ways of working alone: no profile, no other projects, never a handoff.
+export async function brainContext(io, { lean = false } = {}) {
   const now = Date.now()
   const live = [...brain.entries.values()].filter((e) => isLive(e, now)).sort(newestFirst)
-  const profile = (await io.read(join(brain.dir, 'profile.md'))).trim()
   const sections = []
   const list = (rows, fmt) => rows.map((e) => '- ' + fmt(e)).join('\n')
 
-  // A handoff from another session comes first: it is what the user is here to continue
-  const handoffs = waitingHandoffs(now)
-  if (handoffs.length) {
-    sections.push(
-      '## Handoff waiting for this session\n' +
-        'Another session left this for whoever picks the work up next. Before anything else, tell the user you have it and what you understand the next step to be, then ' +
-        MARK_PICKED_UP + '\n\n' +
-        handoffs.map(handoffBlock).join('\n\n'),
-    )
-  }
+  const profile = lean ? '' : (await io.read(join(brain.dir, 'profile.md'))).trim()
   if (profile) sections.push('## Who you are working with (their own profile)\n' + profile)
   const prefs = live.filter((e) => e.kind === 'preference').slice(0, 25)
   if (prefs.length) sections.push('## How they like to work (learned, approved by them)\n' + list(prefs, (e) => e.text))
-  const terms = live.filter((e) => e.kind === 'term').slice(0, 40)
+  const terms = lean ? [] : live.filter((e) => e.kind === 'term').slice(0, 40)
   if (terms.length) sections.push('## Shared vocabulary\n' + list(terms, (e) => e.text))
   const here = live.filter((e) => e.project === env.project && ['decision', 'fact', 'thread'].includes(e.kind)).slice(0, 15)
   if (here.length) {
     sections.push('## ' + env.project + ': decisions, facts and open threads\n' + list(here, (e) => '[' + e.kind + ' · ' + ago(e.updatedAt || e.at) + ' · ' + e.id + '] ' + e.text))
   }
-  const asks = waitingSection(waitingOnUser(env.project, false, now).slice(0, 12), env.project)
-  if (asks) sections.push(asks)
-  const elsewhere = live.filter((e) => e.kind === 'thread' && e.project && e.project !== env.project).slice(0, 8)
-  if (elsewhere.length) sections.push('## In flight in their other projects\n' + list(elsewhere, (e) => '[' + e.project + ' · ' + ago(e.updatedAt || e.at) + '] ' + e.text))
+  if (!lean) {
+    const handoffs = waitingHandoffs(now)
+    if (handoffs.length) sections.push('## Handoff waiting\n' + HANDOFF_WAITS + '\n\n' + handoffs.map(handoffBlock).join('\n\n'))
+    const asks = waitingSection(waitingOnUser(env.project, false, now).slice(0, 12), env.project)
+    if (asks) sections.push(asks)
+    // One line per other project, its newest thread: enough to know what is in flight
+    const latest = new Map()
+    for (const e of live) if (e.kind === 'thread' && e.project && e.project !== env.project && !latest.has(e.project)) latest.set(e.project, e)
+    const elsewhere = [...latest.values()].slice(0, 8)
+    if (elsewhere.length) {
+      sections.push(
+        '## In flight in their other projects (the latest thread of each; ' + RECALL_TOOL + ' has the rest)\n' +
+          list(elsewhere, (e) => '[' + e.project + ' · ' + ago(e.updatedAt || e.at) + '] ' + clip(e.text, OTHER_PROJECT_LINE)),
+      )
+    }
+  }
 
-  const pending = pendingEntries().length
-  sections.push(
-    [
-      '## Using this memory',
-      '- Call ' + REMEMBER_TOOL + ' when the user states a preference, corrects how you work, uses shorthand you should learn, makes a lasting decision, or leaves work open. One short sentence each, in their words where you can. If they explicitly ask you to remember something, pass confirmed: true.',
-      '- When an item above is no longer true or a thread is finished, call ' + REMEMBER_TOOL + ' with resolves set to its id.',
+  const pending = lean ? 0 : pendingEntries().length
+  const usage = [
+    '## Using this memory',
+    '- Call ' + REMEMBER_TOOL + ' when the user states a preference, corrects how you work, uses shorthand you should learn, makes a lasting decision, or leaves work open. One short sentence each, in their words where you can. If they explicitly ask you to remember something, pass confirmed: true.',
+    '- When an item above is no longer true or a thread is finished, call ' + REMEMBER_TOOL + ' with resolves set to its id.',
+  ]
+  if (!lean) {
+    usage.push(
       "- When you publish something for the user to review (a mockup, a page) or ask them a decision they may answer later, add a 'waiting' note with link (its URL) and ref (a short label such as \"Q8\"). When they answer, resolve it with a decision note. They see the list with /waiting.",
       '- This memory stays current while the session runs: what their other sessions and machines write is taken in every ' + REFRESH_EVERY_MS / 60_000 + ' minutes, and anything new reaches you beside their next message, under "New in working memory".',
       '- Call ' + RECALL_TOOL + ' before asking them something they may already have told you, and whenever they mention work from another session or machine ("pick up where I left off", "what was I doing on the PC"): it fetches the latest from their other machines first.',
       '- If they say memory looks out of date, /brain sync pulls and pushes it now; what arrives reaches you with their next message, so there is no need to /clear or start over.',
       '- When they are about to switch machines or sessions, or wrap up a long stretch of work, offer /handoff: it leaves this conversation\'s state for the next session to pick up, on any machine, including sessions already open.',
-      pending ? '- ' + pending + ' learned item(s) wait for their review in /brain. Do not bring it up unless it matters to the task.' : '',
-    ]
-      .filter(Boolean)
-      .join('\n'),
-  )
+    )
+    if (pending) usage.push('- ' + pending + ' learned item(s) wait for their review in /brain. Do not bring it up unless it matters to the task.')
+  } else {
+    usage.push('- Call ' + RECALL_TOOL + ' to search the rest of their notes on this project.')
+  }
+  sections.push(usage.join('\n'))
 
-  let out = '# Working memory (coter-brain, shared across their sessions, repos and machines)'
+  let out = lean
+    ? '# Working memory (coter-brain): this project\'s notes, for a run nobody is watching'
+    : '# Working memory (coter-brain, shared across their sessions, repos and machines)'
   for (const s of sections) {
     if (out.length + s.length + 2 > CONTEXT_BUDGET) {
       out += '\n\n' + clip(s, Math.max(200, CONTEXT_BUDGET - out.length - 2))
@@ -327,8 +347,7 @@ export function arrivalsContext(entries) {
   if (handoffs.length) {
     sections.push(
       '## Handoff\n' +
-        "If the user's message is about this work, or they ask to pick it up, tell them you have it and what you understand the next step to be, then " +
-        MARK_PICKED_UP + ' Otherwise, answer what they asked and mention it in one line at the end.\n\n' +
+        HANDOFF_WAITS + '\n\n' +
         handoffs.map(handoffBlock).join('\n\n'),
     )
   }
@@ -360,6 +379,7 @@ export const describe = (e) =>
 // ---------------------------------------------------------------- the digest
 
 let digesting = false
+const DIGEST_KINDS = ['preference', 'term', 'decision', 'thread', 'fact']
 
 const DIGEST_PROMPT = (known) =>
   '[coter-kit memory digest. This is an automated request, not the user; nobody will read your reply but a parser.]\n' +
@@ -386,13 +406,16 @@ export async function digest(io, reason) {
       .join('\n')
     const reply = await io.fork(DIGEST_PROMPT(known))
     if (!reply.isAnswered) return 0
+    // Only the kinds the prompt asks for, and only their kind, text and scope: no handoff,
+    // waiting item, confirmation or resolves from a parser's input
     const notes = reply.text
       .split('\n')
       .map((l) => safeJson(l.trim().replace(/^```(?:json)?|```$/g, '').replace(/,$/, '')))
-      .filter((n) => n && KINDS.includes(n.kind) && n.text)
+      .filter((n) => n && DIGEST_KINDS.includes(n.kind) && n.text)
+      .map((n) => ({ kind: n.kind, text: n.text, scope: n.scope }))
       .slice(0, 8)
     const added = await remember(io, notes, { source: 'digest' })
-    if (added.length) io.log('brain: kept ' + added.length + ' note(s) from this session (' + reason + ')')
+    if (added.length) io.log('brain: ' + added.length + ' note(s) from this session wait for review in /brain (' + reason + ')')
     return added.length
   } finally {
     digesting = false

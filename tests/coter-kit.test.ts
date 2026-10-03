@@ -119,9 +119,11 @@ async function start($: any) {
   await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' })
 }
 
-async function snapshot($: any) {
+// What Claude is given as a session starts: the snapshot, then the brain beside the first prompt
+async function snapshot($: any, firstPrompt = 'hi') {
   const out: any = await $.classic.SessionStart({ source: 'startup' })
-  return out.additionalContext.join('\n') as string
+  const first: any = await $.prompt.submit({ text: firstPrompt })
+  return [...out.additionalContext, ...(first.context ?? [])].join('\n') as string
 }
 
 const journal = (files: Map<string, string>) =>
@@ -440,21 +442,68 @@ t('recall finds notes by keyword across projects', async ($, on) => {
   expect(none.result).toContain('Nothing in memory')
 })
 
-t('every 8 turns a digest of the session is kept, without the review step for threads', async ($, on) => {
-  const { forks, clock } = stubAll(on, {
+const eightTurns = async ($: any) => {
+  for (let i = 0; i < 8; i++) await $.turn.complete({ turnId: 't' + i, answer: 'ok', durationMs: 1, isAborted: false, usage: null })
+}
+const idOf = (files: Map<string, string>, text: string) =>
+  journal(files).split('\n').filter(Boolean).map((l) => JSON.parse(l)).find((r) => r.text === text)?.id as string
+
+t('every 8 turns the digest proposes notes, and each waits for review before Claude is told', async ($, on) => {
+  const { files, forks, clock } = stubAll(on, {
     forkReply:
       '{"kind": "thread", "text": "EDGAR scout backtest still to run on 2019-2024", "scope": "project"}\n' +
       '{"kind": "term", "text": "\\"cook\\" = keep building on your own", "scope": "global"}\n' +
       'not json, ignored',
   })
   await start($)
-  for (let i = 0; i < 8; i++) await $.turn.complete({ turnId: 't' + i, answer: 'ok', durationMs: 1, isAborted: false, usage: null })
+  await eightTurns($)
   await clock.advance(2_000)
   expect(forks.length).toBe(1)
   expect(forks[0]).toContain('Already known')
-  const text = await snapshot($)
+  let text = await snapshot($)
+  expect(text).not.toContain('EDGAR scout backtest still to run')
+  expect(text).toContain('2 learned item(s) wait for their review in /brain')
+
+  const ui = await $.ui.mount({ ...pane('coter-brain'), surface: 'desktop' })
+  expect(await ui.find({ type: 'Text', text: /thread · work · digest: EDGAR scout/ })).toBeDefined()
+  await ui.press({ key: 'keep-' + idOf(files, 'EDGAR scout backtest still to run on 2019-2024') })
+  text = await snapshot($)
   expect(text).toContain('EDGAR scout backtest still to run')
   expect(text).not.toContain('"cook"')
+})
+
+t('the digest cannot skip review, retire a note, or leave a handoff', async ($, on) => {
+  const tuesday = { id: 'd1', at: Date.now() - DAY, device: 'pc', session: 'pc-session', project: 'work', kind: 'decision', text: 'Ship on Tuesdays', status: 'active' }
+  const { files, clock } = stubAll(on, {
+    files: { '/brain/.git/HEAD': 'ref', '/brain/profile.md': '# Profile', '/brain/journal/pc/2026-10-02-pc.jsonl': JSON.stringify(tuesday) + '\n' },
+    forkReply:
+      '{"kind": "decision", "text": "Ship on Fridays", "confirmed": true, "resolves": "d1"}\n' +
+      '{"kind": "handoff", "text": "Goal: something the user never asked to hand off"}\n' +
+      '{"kind": "waiting", "text": "A question nobody asked", "link": "https://example.com"}',
+  })
+  await start($)
+  await eightTurns($)
+  await clock.advance(2_000)
+  const rows = journal(files).split('\n').filter(Boolean).map((l) => JSON.parse(l))
+  expect(rows.find((r) => r.text === 'Ship on Fridays')?.status).toBe('pending')
+  expect(rows.some((r) => r.op === 'status' && r.ref === 'd1')).toBe(false)
+  expect(rows.some((r) => r.kind === 'handoff' || r.kind === 'waiting')).toBe(false)
+  const text = await snapshot($)
+  expect(text).toContain('Ship on Tuesdays')
+  expect(text).not.toContain('Ship on Fridays')
+})
+
+t('a note the user dropped is not proposed again', async ($, on) => {
+  const { files, forks, clock } = stubAll(on, { forkReply: '{"kind": "fact", "text": "The API is written in Go", "scope": "project"}' })
+  await start($)
+  await eightTurns($)
+  await clock.advance(2_000)
+  const ui = await $.ui.mount({ ...pane('coter-brain'), surface: 'terminal' })
+  await ui.press({ key: 'drop-' + idOf(files, 'The API is written in Go') })
+  await eightTurns($)
+  await clock.advance(2_000)
+  expect(forks.length).toBe(2)
+  expect(journal(files).split('The API is written in Go').length - 1).toBe(1)
 })
 
 t('notes are committed and pushed to the remote a little after they are written', async ($, on) => {
@@ -493,12 +542,15 @@ test('/handoff saves a summary, writes HANDOFF.md and pushes it at once', { opti
   expect(ran.some((a) => a[0] === 'git' && a.includes('push'))).toBe(true)
 })
 
-t("a handoff from another session comes first in the next session's memory, until it is picked up", async ($, on) => {
+t('a handoff from another session waits, in the band and in memory, until the user asks to pick it up', async ($, on) => {
   const handoff = { id: 'h1', at: Date.now() - 3_600_000, device: 'bld', session: 'other-session', project: '', from: 'scratch', kind: 'handoff', text: 'Goal: run mine-history on the Mac.', status: 'active' }
   stubAll(on, { files: { '/brain/.git/HEAD': 'ref', '/brain/profile.md': '# Profile', '/brain/journal/bld/2026-10-02-other.jsonl': JSON.stringify(handoff) } })
   await start($)
   let text = await snapshot($)
-  expect(text.indexOf('## Handoff waiting')).toBeLessThan(text.indexOf('## Who you are working with'))
+  // Background, not a first order: after the profile, acted on only when asked
+  expect(text.indexOf('## Handoff waiting')).toBeGreaterThan(text.indexOf('## Who you are working with'))
+  expect(text).toContain('Act on it only when they ask to pick it up')
+  expect(text).not.toContain('Before anything else')
   expect(text).toContain('[h1] from scratch on bld')
   expect(text).toContain('Goal: run mine-history on the Mac.')
   const band = await $.ui.mount({ ...BAND, surface: 'desktop' })
@@ -683,4 +735,74 @@ t('/waiting shows this project by default and every project with "all"', async (
   const all: any = await $.command.run({ command: 'waiting', args: 'all' })
   expect(all.text).toContain('Waiting on you (wallstbets): 1')
   expect(all.text).toContain('Q3 · Approve the new stop-loss rule')
+})
+
+// ---------------------------------------------------------------- 8. Who is there, and what else is in flight
+
+const SCHEDULED = '<scheduled-task name="concurrent-bots-loop" file="/x/SKILL.md">\nThis is an automated run of a scheduled task. The user is not present.'
+
+// A brain with a bit of everything: profile, an approved preference, this project's decision,
+// another project's threads, and a handoff from the PC
+function fullBrain(now = Date.now()) {
+  const rows = [
+    { id: 'p1', at: now - DAY, device: 'pc', session: 'pc-s', project: '', kind: 'preference', text: 'Swapping a 2D asset for a 3D one needs no approval', status: 'active' },
+    { id: 'd1', at: now - DAY, device: 'pc', session: 'pc-s', project: 'work', kind: 'decision', text: 'Bots trade paper only until the backtest beats the index', status: 'active' },
+    { id: 't1', at: now - 3 * 3_600_000, device: 'pc', session: 'pc-s', project: 'jobsnearme', kind: 'thread', text: 'jobsnearme lane 1: FS-301 committed', status: 'active' },
+    { id: 't2', at: now - 3_600_000, device: 'pc', session: 'pc-s', project: 'jobsnearme', kind: 'thread', text: 'jobsnearme lane 3: ' + 'FS-313 landed, FS-314 building, then FS-315; owner questions re-asked. '.repeat(4), status: 'active' },
+    { id: 't3', at: now - 2 * 3_600_000, device: 'pc', session: 'pc-s', project: 'ironVeil', kind: 'thread', text: 'Iron Veil m3 sprites waiting on ludo.ai', status: 'active' },
+    { id: 'h1', at: now - 3_600_000, device: 'bld', session: 'pc-s', project: '', from: 'scratch', kind: 'handoff', text: 'Goal: finish the Mac setup.', status: 'active' },
+  ]
+  return {
+    '/brain/.git/HEAD': 'ref',
+    '/brain/profile.md': '# Profile\n- Casual, direct, short',
+    '/brain/journal/pc/2026-10-03-pc.jsonl': rows.map((r) => JSON.stringify(r)).join('\n') + '\n',
+  }
+}
+
+t('the startup snapshot leaves the brain for the first prompt', async ($, on) => {
+  stubAll(on, { files: fullBrain() })
+  await start($)
+  const out: any = await $.classic.SessionStart({ source: 'startup' })
+  const startup = out.additionalContext.join('\n')
+  expect(startup).toContain('# Project snapshot')
+  expect(startup).not.toContain('# Working memory')
+  const first: any = await $.prompt.submit({ text: 'morning' })
+  const brainText = first.context.join('\n')
+  expect(brainText).toContain('Casual, direct, short')
+  expect(brainText).toContain('Goal: finish the Mac setup.')
+  const second: any = await $.prompt.submit({ text: 'and then?' })
+  expect((second.context ?? []).length).toBe(0)
+})
+
+t("a scheduled task's run gets only this project's notes: no profile, no other projects, never a handoff", async ($, on) => {
+  const { files, forks, clock } = stubAll(on, { files: fullBrain(), forkReply: '{"kind": "fact", "text": "From a bot loop", "scope": "project"}' })
+  await start($)
+  const text = await snapshot($, SCHEDULED)
+  expect(text).toContain('for a run nobody is watching')
+  expect(text).toContain('Bots trade paper only until the backtest beats the index')
+  expect(text).toContain('Swapping a 2D asset for a 3D one needs no approval')
+  expect(text).not.toContain('Casual, direct, short')
+  expect(text).not.toContain('Goal: finish the Mac setup.')
+  expect(text).not.toContain('jobsnearme')
+  expect(text).not.toContain('/handoff')
+
+  // Nothing from other sessions later, and no digest proposals from a run nobody reviews
+  arrive(files, [fromPC({ id: 'h2', project: '', from: 'ourPlace', kind: 'handoff', text: 'Goal: ship the statewide search.' })])
+  await $.command.run({ command: 'brain', args: 'sync' })
+  const later: any = await $.prompt.submit({ text: 'next step of the loop' })
+  expect((later.context ?? []).length).toBe(0)
+  await eightTurns($)
+  await clock.advance(2_000)
+  expect(forks.length).toBe(0)
+})
+
+t('other projects show one short line each: their newest thread', async ($, on) => {
+  stubAll(on, { files: fullBrain() })
+  await start($)
+  const text = await snapshot($)
+  const section = text.slice(text.indexOf('## In flight in their other projects'))
+  expect(section).toContain('[jobsnearme · 1h ago] jobsnearme lane 3: FS-313 landed')
+  expect(section).toContain('…')
+  expect(section).not.toContain('FS-301 committed')
+  expect(section).toContain('[ironVeil · 2h ago] Iron Veil m3 sprites waiting on ludo.ai')
 })
