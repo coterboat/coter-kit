@@ -23,6 +23,8 @@ import {
   refresh,
   refreshIfStale,
   takeUnseen,
+  takeRetired,
+  forgetUnseen,
   arrivalsContext,
   waitingHandoffs,
   waitingOnUser,
@@ -37,7 +39,7 @@ import {
 import { formatWaiting } from './waiting.js'
 import { formatRoutes } from './routes.js'
 import { liveRoot, dayOf, beatCredit, liveRecord, liveness, lastBeatIn, glance, KEEP_DAYS } from './live.js'
-import { REVIEW_TOOL, VERDICTS, reviewQueue, queueText, recordVerdicts, picks, challenges, applyVerdict, applyPicks, keepAsIs, userDecides, score, isGuarded } from './review.js'
+import { REVIEW_TOOL, VERDICTS, reviewQueue, queueText, recordVerdicts, picks, challenges, applyVerdict, applyPicks, keepAsIs, userDecides, score, isGuarded, isProtected } from './review.js'
 
 const CHECKLIST_TOOL = 'mcp__coter-kit__checklist'
 const PANE = 'coter-checklist'
@@ -97,6 +99,7 @@ let branch = ''
 let publishTimer = null
 let heartbeatTimer = null
 let othersNeedingYou = [] // other live sessions on this machine waiting on the user, for the band
+let lastUsage = null // $.session.usage(), refreshed on the heartbeat and after each turn
 const LIVE_COMMANDS = ['catchup', 'glance', 'waiting', 'brain', 'checklist', 'checks', 'snapshot', 'handoff', 'routes']
 
 // The session's setup, started once (see prepare)
@@ -612,18 +615,23 @@ const CATCHUP_PROMPT = (away) =>
 
 // ---------------------------------------------------------------- live status file
 
-// Every record in today's and yesterday's folders, this session's included
+// Every record in every day folder kept (a week), this session's included. A session lives in the
+// folder of the day it opened, so one left open across two midnights must still be found
+// (RV-002 F4); if a record turns up twice, the fresher one counts.
 async function readLive($, now) {
   const root = liveRoot(env.home)
-  const records = []
-  for (const day of new Set([dayOf(now), dayOf(now - 86_400_000)])) {
-    for (const f of await listDir($, join(root, day))) {
+  const byId = new Map()
+  for (const d of await listDir($, root)) {
+    if (d.kind !== 'dir' || !/^\d{4}-\d{2}-\d{2}$/.test(d.name)) continue
+    for (const f of await listDir($, join(root, d.name))) {
       if (f.kind !== 'file' || !f.name.endsWith('.json')) continue
-      const rec = safeJson(await readText($, join(root, day + '/' + f.name)))
-      if (rec && rec.v) records.push(rec)
+      const rec = safeJson(await readText($, join(root, d.name + '/' + f.name)))
+      if (!rec || !rec.v || !rec.id) continue
+      const seen = byId.get(rec.id)
+      if (!seen || Date.parse(rec.updated_at) > Date.parse(seen.updated_at)) byId.set(rec.id, rec)
     }
   }
-  return records
+  return [...byId.values()]
 }
 
 // This session as liveRecord (live.js) reads it
@@ -635,7 +643,6 @@ function liveSelf() {
     device: env.device,
     project: env.project,
     worktree: env.worktree,
-    folder: env.sessionRoot,
     branch,
     openedAt,
     lastEventAt,
@@ -659,12 +666,26 @@ function liveSelf() {
   }
 }
 
+// What the session has used, and the account's rate-limit windows, for routing choices. Looked up
+// on the heartbeat and after each turn, never on the way to writing a beat, so a beat reaches the
+// file as fast as it can (RV-003 F6)
+async function refreshUsage($) {
+  const usage = await $.session.usage().catch(() => lastUsage)
+  if (usage === lastUsage) return
+  lastUsage = usage
+  publish($)
+}
+
+// Start a lookup without waiting on it: session start and the end of a turn never hang on it, even
+// if it never answers (RV-004 F5)
+function refreshUsageSoon($) {
+  $.clock.after(0, () => refreshUsage($))
+}
+
 async function publishNow($) {
   if (!liveFile) return
   try {
-    // What the session has used, and the account's rate-limit windows, for routing choices
-    const usage = await $.session.usage().catch(() => null)
-    await $.fs.write(liveFile, JSON.stringify(liveRecord({ ...liveSelf(), usage }, await $.clock.now())) + '\n')
+    await $.fs.write(liveFile, JSON.stringify(liveRecord({ ...liveSelf(), usage: lastUsage }, await $.clock.now())) + '\n')
   } catch (err) {
     $.ui.log('live status not written: ' + (err?.message || err))
   }
@@ -698,7 +719,9 @@ async function userBeat($) {
   const own = beats.length ? beats[beats.length - 1][0] : 0
   beats.push([now, beatCredit(now, { lastBeatAnywhere: Math.max(elsewhere, own), lastTurnEnd, openedAt })])
   lastEventAt = now
-  publish($)
+  // Written at once, not batched: another session's beat a moment later must see this one, or
+  // both would credit the same minutes (RV-001 F5)
+  await publishNow($)
 }
 
 async function currentBranch($) {
@@ -740,6 +763,7 @@ async function startLive($) {
   }
   liveFile = join(liveRoot(env.home), dayOf(openedAt) + '/' + env.sessionId.replace(/[^\w-]/g, '') + '.json')
   branch = await currentBranch($)
+  refreshUsageSoon($)
   await pruneLive($, now)
   heartbeatTimer?.cancel()
   heartbeatTimer = $.clock.every(60_000, async () => {
@@ -747,6 +771,7 @@ async function startLive($) {
     const at = await $.clock.now()
     othersNeedingYou = needingYou(await readLive($, at), at)
     await publishNow($)
+    refreshUsageSoon($)
     $.ui.invalidate('ui.render')
   })
   await publishNow($)
@@ -870,7 +895,7 @@ export function register(on, options = {}) {
       snapshot = await buildSnapshot($, later ? 'none' : unattended ? 'lean' : 'full')
       if (later) brainOnFirstPrompt = true
       // The snapshot carries the whole brain, so nothing is left to deliver separately
-      else brain.unseen = []
+      else forgetUnseen()
     } catch (err) {
       $.ui.log('snapshot failed: ' + (err?.message || err))
     }
@@ -905,15 +930,16 @@ export function register(on, options = {}) {
       if (brainOnFirstPrompt) {
         brainOnFirstPrompt = false
         if (brain.dir) extra.push(await brainContext(ioFor($), { lean: unattended }))
-        brain.unseen = []
+        forgetUnseen()
       } else if (brain.dir && !unattended) {
         const arrived = takeUnseen()
-        if (arrived.length) extra.push(arrivalsContext(arrived))
+        const gone = takeRetired()
+        if (arrived.length || gone.length) extra.push(arrivalsContext(arrived, gone))
       }
     } catch (err) {
       $.ui.log('brain context failed: ' + (err?.message || err))
     }
-    if (unattended) brain.unseen = []
+    if (unattended) forgetUnseen()
     if (!extra.length) return next(e)
     return next({ ...e, context: [...(e.context ?? []), ...extra] })
   })
@@ -1144,7 +1170,7 @@ export function register(on, options = {}) {
     } catch (err) {
       $.ui.log('brain refresh failed: ' + (err?.message || err))
     }
-    const found = recall(e.query, e.project)
+    const found = recall(e.query, unattended ? env.project : e.project, { lean: unattended })
     return { result: found.length ? found.map(describe).join('\n') : 'Nothing in memory matches "' + e.query + '".' }
   })
 
@@ -1166,6 +1192,7 @@ export function register(on, options = {}) {
     if (turnStartedAt) turns.push([turnStartedAt, endedAt])
     lastTurnEnd = endedAt
     turnStartedAt = 0
+    refreshUsageSoon($)
     // A scheduled run never waits on the user
     await setLiveState($, unattended ? 'idle' : 'your_move')
     await saveLook($)
@@ -1361,7 +1388,7 @@ export function register(on, options = {}) {
       const v = n.review
       if (!v || v.by === 'user') return null
       // The flags come first, so a narrow pane never cuts off whose call it is
-      const flags = [isGuarded(n) ? 'yours: your call' : '', v.frozen ? 'unsettled: your call' : ''].filter(Boolean).join(', ')
+      const flags = [isGuarded(n) ? (v.protected || isProtected(n) ? 'yours: your call' : 'a live decision: your call') : '', v.frozen ? 'unsettled: your call' : ''].filter(Boolean).join(', ')
       const text = '  ↳ reviewer: ' + v.verdict + (flags ? ' (' + flags + ')' : '') + (v.reason ? ' · ' + v.reason : '') + (v.evidence ? ' · ' + v.evidence : '') + (v.replacement ? ' → "' + v.replacement.text + '"' : '')
       return Text({ key: 'why-' + n.id, dimColor: true, wrap: 'wrap', children: [clip(text, 500)] })
     }

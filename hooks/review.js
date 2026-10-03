@@ -15,7 +15,7 @@
 // note is dropped (rejected if it was waiting for review, superseded if it was live).
 
 import { env, clip, ago } from './util.js'
-import { brain, remember, setStatus, appendOps, sameText } from './brain.js'
+import { brain, remember, setStatus, appendOps, isLive, sameText, redact } from './brain.js'
 
 export const REVIEW_TOOL = 'mcp__coter-kit__review'
 export const VERDICTS = ['accept', 'reject', 'rewrite', 'merge', 'retire', 'ask']
@@ -77,6 +77,11 @@ export async function recordVerdicts(io, verdicts, now = Date.now()) {
   const rows = []
   const refused = []
   const auto = []
+  // Only what the queue offered: not handoffs, waiting items or routes, which are the user's
+  // records, and not notes already settled (RV-002 F3). A note the reviewer already ruled on can be
+  // ruled on again until the user decides it.
+  const queue = new Set(reviewQueue(now).map((n) => n.id))
+  const reviewable = (n) => !!n && (queue.has(n.id) || (!!n.review && !n.review.by && (n.status === 'pending' || n.status === 'active')))
   for (const v of Array.isArray(verdicts) ? verdicts : []) {
     const e = brain.entries.get(v.ref)
     const why = (text) => refused.push(v.ref + ': ' + text)
@@ -84,13 +89,18 @@ export async function recordVerdicts(io, verdicts, now = Date.now()) {
       why('no such note')
       continue
     }
+    if (!reviewable(e)) {
+      why('not in the review queue (handoffs, waiting items, routes and settled notes are not the reviewer\'s)')
+      continue
+    }
     if (!VERDICTS.includes(v.verdict)) {
       why('verdict must be one of ' + VERDICTS.join(', '))
       continue
     }
-    const evidence = String(v.evidence || '').trim()
-    const steelman = String(v.steelman || '').trim()
-    const replacement = v.replacement && String(v.replacement.text || '').trim() ? { kind: v.replacement.kind || e.kind, text: clip(String(v.replacement.text).trim(), 400) } : null
+    // Everything the reviewer writes is redacted like any note: it reads code and logs (RV-003 F1)
+    const evidence = redact(String(v.evidence || '').trim())
+    const steelman = redact(String(v.steelman || '').trim())
+    const replacement = v.replacement && String(v.replacement.text || '').trim() ? { kind: v.replacement.kind || e.kind, text: clip(redact(String(v.replacement.text).trim()), 400) } : null
     if (v.verdict !== 'ask' && !evidence) {
       why('every verdict but ask needs evidence: a file:line, a commit, a session and time, or the id of the note it repeats')
       continue
@@ -104,27 +114,50 @@ export async function recordVerdicts(io, verdicts, now = Date.now()) {
       why(v.verdict + ' needs a replacement { text }')
       continue
     }
-    const merged = v.verdict === 'merge' ? (Array.isArray(v.with) ? v.with : []).filter((id) => brain.entries.has(id) && id !== e.id) : []
+    // Every note a merge would retire is checked like the note itself: in the queue's kinds, the same
+    // project, not already settled; and if any is the user's, or a live decision, or unsettled, the
+    // whole merge becomes the user's call (RV-002 F3)
+    const ids = v.verdict === 'merge' ? (Array.isArray(v.with) ? v.with : []).filter((id) => id !== e.id) : []
+    const unknown = ids.filter((id) => !brain.entries.has(id))
+    if (unknown.length) {
+      why('a merge names notes that do not exist: ' + unknown.join(', '))
+      continue
+    }
+    const members = ids.map((id) => brain.entries.get(id))
+    // Members are held to the same bar as the note itself, and one the user already kept or
+    // dropped is theirs (RV-003 F5)
+    if (members.some((m) => !reviewable(m) || (m.project || '') !== (e.project || ''))) {
+      why('a merge may only take in notes from the review queue, in the same project')
+      continue
+    }
+    const merged = members.map((m) => m.id)
+    const memberGuarded = members.some((m) => isProtected(m) || isLiveDecision(m) || m.review?.by === 'user')
+    const memberFrozen = members.some((m) => isUnsettled(m, '', now))
     const row = {
       op: 'review',
       ref: e.id,
       verdict: v.verdict,
-      reason: clip(String(v.reason || '').trim(), 300),
+      reason: clip(redact(String(v.reason || '').trim()), 300),
       evidence: clip(evidence, 300),
       ...(steelman ? { steelman: clip(steelman, 300) } : {}),
       ...(replacement ? { replacement } : {}),
       ...(merged.length ? { with: merged } : {}),
       // Rule 2: against the user's own note, a verdict is a challenge, never applied for them
-      ...(isProtected(e) && CHANGES.has(v.verdict) ? { protected: true } : {}),
+      ...((isProtected(e) && CHANGES.has(v.verdict)) || memberGuarded ? { protected: true } : {}),
       // Rule 4
-      ...(CHANGES.has(v.verdict) && isUnsettled(e, replacement?.text, now) ? { frozen: true } : {}),
+      ...((CHANGES.has(v.verdict) && isUnsettled(e, replacement?.text, now)) || memberFrozen ? { frozen: true } : {}),
       at: now,
       device: env.device,
       session: env.sessionId,
     }
     // The one thing it does alone: an exact duplicate of a live note goes, if it isn't the user's
+    // Literally the same note, in the same project, and the other one is live: anything looser
+    // (C and C++, the same words in two projects) waits for the user (RV-001 F2)
     const dup = v.verdict === 'reject' && v.duplicateOf ? brain.entries.get(v.duplicateOf) : null
-    if (dup && dup.id !== e.id && dup.status === 'active' && dup.kind === e.kind && sameText(dup.text) === sameText(e.text) && !row.protected) row.auto = true
+    // Exactly the same text: /data and /Data are different paths, so only line endings and
+    // surrounding space are ignored (RV-002 F6)
+    const literal = (s) => String(s).replace(/\r\n/g, '\n').trim()
+    if (dup && dup.id !== e.id && isLive(dup, now) && dup.kind === e.kind && (dup.project || '') === (e.project || '') && literal(dup.text) === literal(e.text) && !row.protected) row.auto = true
     rows.push(row)
     brain.entries.set(e.id, { ...brain.entries.get(e.id), review: row })
   }
@@ -147,8 +180,11 @@ export function isOpen(e) {
 }
 
 // A verdict against the user's own note, whether that was known when it was recorded or worked
-// out since (brain.js links older answers to the questions they closed)
-export const isGuarded = (e) => !!e.review && (!!e.review.protected || (isProtected(e) && CHANGES.has(e.review.verdict)))
+// out since (brain.js links older answers to the questions they closed). A live decision is
+// guarded too: a decision the user made in conversation looks like any other in the data, so
+// changing one is always their call (RV-001 F3)
+export const isLiveDecision = (e) => e.kind === 'decision' && e.status === 'active'
+export const isGuarded = (e) => !!e.review && (!!e.review.protected || ((isProtected(e) || isLiveDecision(e)) && CHANGES.has(e.review.verdict)))
 
 // The picks one press applies: open verdicts that aren't challenges to the user's own notes
 // and aren't frozen

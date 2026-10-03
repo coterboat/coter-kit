@@ -12,6 +12,7 @@
 
 import { env, join, norm, safeJson, clip, ago } from './util.js'
 import { waitingFields, waitingSection } from './waiting.js'
+import { redact } from './redact.js'
 
 // Every call into Claude Code goes through `io`, which register.js builds from `$`:
 // { run, list, read, write, exists, after, now, fork, log, pluginRoot }
@@ -40,42 +41,34 @@ export const brain = {
   file: '', // this session's journal file
   lines: [], // what this session has written to it
   entries: new Map(), // id -> entry, folded
-  unseen: [], // ids that other sessions wrote after this one loaded, not yet shown to Claude
+  unseen: [], // ids that other sessions wrote (or approved) after this one loaded, not yet shown to Claude
+  retired: [], // notes Claude was using that another session retired since, not yet told
   lastPull: 0, // when the brain was last re-read (and pulled, with a remote)
   lastSync: null, // { ok, at, error, arrived }
   overrules: [], // the user's disagreements with the reviewer (review.js)
   syncTimer: null,
   refreshing: null,
+  lastPullResult: '', // ok | no-branch | busy | failed (pull)
 }
 
 // ---------------------------------------------------------------- redaction
 
-const SECRET_PATTERNS = [
-  /\b(?:sk|pk|rk)-[A-Za-z0-9_-]{16,}/g,
-  /\bgh[pousr]_[A-Za-z0-9]{20,}/g,
-  /\bxox[abpr]-[A-Za-z0-9-]{10,}/g,
-  /\bAKIA[0-9A-Z]{16}\b/g,
-  /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g,
-  /\b[a-f0-9]{32,}\b/gi,
-  // A labelled value that looks like a credential (6+ characters with a digit), so prose
-  // such as "the token budget" is left alone
-  /((?:password|passwd|pwd|\bpw|secret|token|api[_ -]?key)\s*(?:is\s+|=\s*|:\s*)?)(?=\S*\d)\S{6,}/gi,
-]
-
-// Keeps credentials out of the brain, whatever Claude or the digest wrote
-export function redact(text) {
-  let out = String(text)
-  for (const re of SECRET_PATTERNS) {
-    out = out.replace(re, (match, prefix) => (typeof prefix === 'string' && match.startsWith(prefix) ? prefix + '[redacted]' : '[redacted]'))
-  }
-  return out
-}
+// One redactor for everything the kit writes (redact.js): notes, links, the reviewer's text
+export { redact }
 
 // ---------------------------------------------------------------- setup and loading
 
 const slug = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 32)
 const newId = () => Date.now().toString(36).slice(-5) + Math.random().toString(36).slice(2, 5)
-export const sameText = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+// Close enough to be the same note: case and punctuation don't count, but symbols that change the
+// meaning do (C, C++ and C# are three notes) (RV-001 F2), and so do letters and numbers in any
+// script (周二 and 周五 are two notes) (RV-003 F3)
+export const sameText = (s) => String(s).normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}+#]+/gu, ' ').trim()
+// Two texts are the same note only if they still say something after normalising
+export const sameNote = (a, b) => {
+  const x = sameText(a)
+  return x !== '' ? x === sameText(b) : String(a).trim() === String(b).trim()
+}
 
 // Clones or creates the brain, brings it up to date, and loads it
 export async function initBrain(io, options = {}) {
@@ -93,7 +86,7 @@ export async function initBrain(io, options = {}) {
       await io.run(['git', 'init', '-q', '-b', brain.branch, brain.dir])
       if (brain.remote) await io.run(['git', '-C', brain.dir, 'remote', 'add', 'origin', brain.remote])
     }
-  } else if (brain.remote) {
+  } else if (brain.remote && !(await rebaseUnderWay(io))) {
     // Commit what an earlier session left unsynced, then take the other machines' notes
     await commit(io)
     await pull(io)
@@ -113,7 +106,7 @@ export async function initBrain(io, options = {}) {
   // A reload of the module keeps writing the same file, so start from what it holds
   brain.lines = (await io.read(brain.file)).split('\n').filter(Boolean)
   await loadBrain(io)
-  brain.unseen = []
+  forgetUnseen()
   brain.lastPull = await io.now()
 }
 
@@ -183,21 +176,33 @@ export async function remember(io, notes, { source = 'claude' } = {}) {
     const text = clip(redact(String(note.text || '').trim()), MAX_TEXT[kind] || 400)
     if (!kind || !text) continue
     const confirmed = note.confirmed === true && !fromDigest
-    // The reviewer runs in coter-kit's folder but rewrites notes of every project
-    // A waiting item or a route can be filed under another project by its repository name, and
-    // the reviewer rewrites notes of every project from coter-kit's folder
-    const named = typeof note.project === 'string' && note.project.trim() ? note.project.trim().slice(0, 40) : null
-    const project = named && (kind === 'waiting' || kind === 'route' || source === 'review') ? named : GLOBAL_KINDS.has(kind) || note.scope === 'global' ? '' : env.project
     const replaced = !fromDigest && note.resolves ? brain.entries.get(note.resolves) : null
+    // A waiting item or a route can be filed under another project by its repository name, and
+    // the reviewer rewrites notes of every project from coter-kit's folder. A note that resolves
+    // another belongs where that one did: answering jobsnearme's question from coter-kit files the
+    // answer under jobsnearme (RV-004 F4)
+    const named = typeof note.project === 'string' && note.project.trim() ? note.project.trim().slice(0, 40) : null
+    const project = named && (kind === 'waiting' || kind === 'route' || source === 'review')
+      ? named
+      : GLOBAL_KINDS.has(kind) || note.scope === 'global'
+        ? ''
+        : replaced && replaced.project
+          ? replaced.project
+          : env.project
     // "done" with resolves retires the note it names; it isn't a note of its own
     if (note.resolves && /^done[.!]?$/i.test(text)) {
       if (replaced) rows.push(setStatusRow(replaced.id, 'superseded'))
       continue
     }
     const dupe = [...brain.entries.values()].find(
-      (e) => e.kind === kind && (e.project || '') === project && sameText(e.text) === sameText(text) && (e.status !== 'rejected' || fromDigest),
+      (e) => e.kind === kind && (e.project || '') === project && sameNote(e.text, text) && (e.status !== 'rejected' || fromDigest),
     )
-    if (dupe) continue
+    if (dupe) {
+      // The note is already known, but what it resolves still gets resolved: an answer that repeats
+      // an earlier decision word for word still closes the question (RV-004 F3)
+      if (replaced) rows.push(setStatusRow(replaced.id, 'superseded'))
+      continue
+    }
     const entry = {
       id: newId(),
       at: Date.now(),
@@ -242,7 +247,7 @@ export async function setStatus(io, id, status) {
 
 // ---------------------------------------------------------------- reading
 
-const isLive = (e, now) => e.status === 'active' && !(TTL_DAYS[e.kind] && now - (e.updatedAt || e.at) > TTL_DAYS[e.kind] * DAY)
+export const isLive = (e, now) => e.status === 'active' && !(TTL_DAYS[e.kind] && now - (e.updatedAt || e.at) > TTL_DAYS[e.kind] * DAY)
 const newestFirst = (a, b) => (b.updatedAt || b.at) - (a.updatedAt || a.at)
 
 export const pendingEntries = () => [...brain.entries.values()].filter((e) => e.status === 'pending').sort(newestFirst)
@@ -276,11 +281,21 @@ export const HANDOFF_PROMPT = (note) =>
 // A copy anyone can read on GitHub, even on a machine without the plugin yet
 export async function writeHandoffFile(io, entry) {
   const repo = (brain.remote.match(/github\.com[/:]([^/]+\/[^/.]+)/) || [])[1]
+  // The install line carries the remote without whatever credentials it was configured with (RV-004 F1)
+  let remote = brain.remote
+  try {
+    const url = new URL(brain.remote)
+    url.username = ''
+    url.password = ''
+    remote = url.toString()
+  } catch {
+    remote = brain.remote.replace(/\/\/[^/@]*@/, '//')
+  }
   // Terminal commands: the desktop app's /plugin opens its plugin browser and ignores arguments
   const install = repo
     ? 'Sessions with coter-kit pick this up by themselves, including ones already open. Without it yet, install it first, in a terminal:\n\n```\n' +
       'claude plugin marketplace add ' + repo + '\n' +
-      'claude plugin install coter-kit@coter-kit --config brainRemote=' + brain.remote + ' --config brainBranch=' + brain.branch + '\n```\n\n'
+      'claude plugin install coter-kit@coter-kit --config brainRemote=' + redact(remote) + ' --config brainBranch=' + brain.branch + '\n```\n\n'
     : 'Sessions with coter-kit pick this up by themselves.\n\n'
   const text =
     '# Handoff\n\nFrom ' + (entry.from || 'a session') + ' on ' + entry.device + ', ' + new Date(entry.at).toISOString().slice(0, 16).replace('T', ' ') + ' UTC (id ' + entry.id + ').\n\n' +
@@ -344,6 +359,14 @@ export async function brainContext(io, { lean = false } = {}) {
         join(io.pluginRoot || '', 'docs/routing.md') + '.' +
         (outcomes.length ? '\nRecent outcomes:\n' + outcomes.map((e) => '- ' + clip(e.text, 160)).join('\n') : ''),
     )
+    // The house standard (docs/standard.md): every project inherits the same pipeline
+    sections.push(
+      '## How we build\n' +
+        'Follow the house standard, ' + join(io.pluginRoot || '', 'docs/standard.md') + '. Pick the tier by stakes: light (prototypes, small internal changes), standard (client features, anything a user sees), full (privacy, consent, money, auth, deleting data). ' +
+        'Standard and full: acceptance criteria that each name the test proving them, a read-only critic pass on the plan before building (2 rounds at most), tests watched failing first, every gate green (a skip is "not verified"). ' +
+        'An outside review (/coter-kit:outside-review) only when its triage says a trigger fired (data that lasts, who can do what, things others depend on, things that run on their own, a big change, a fix to a high finding): once per push, once you would push it right now; verify every finding with your own evidence, fix the class. Only a confirmed high finding or a compliance issue blocks shipping; mediums are fixed if quick or deferred with a reason. ' +
+        'Aim reviews at what users, attackers or bad data could break, not at wording or the process. Compliance, privacy and judgment calls go to the user; anything user-visible is done once they have walked it.',
+    )
   }
 
   const pending = lean ? 0 : pendingEntries().length
@@ -386,8 +409,21 @@ export function takeUnseen(now = Date.now()) {
   return fresh.sort(newestFirst)
 }
 
+// Notes Claude was using that another session retired since; telling empties it
+export function takeRetired() {
+  const gone = brain.retired.filter((e) => brain.entries.get(e.id)?.status !== 'active')
+  brain.retired = []
+  return gone
+}
+
+// Nothing is left to tell: a fresh snapshot carries the whole brain
+export function forgetUnseen() {
+  brain.unseen = []
+  brain.retired = []
+}
+
 // Attached to the user's next message when other sessions wrote something this one should know
-export function arrivalsContext(entries) {
+export function arrivalsContext(entries, retired = []) {
   const handoffs = entries.filter((e) => e.kind === 'handoff').slice(0, 2)
   const notes = entries.filter((e) => e.kind !== 'handoff').slice(0, 20)
   const sections = ['# New in working memory (coter-brain): written by another session or machine since this session loaded it']
@@ -399,16 +435,27 @@ export function arrivalsContext(entries) {
     )
   }
   if (notes.length) sections.push('## Notes\nUse these as you would the rest of your memory.\n' + notes.map((e) => '- ' + describe(e)).join('\n'))
+  if (retired.length) {
+    sections.push('## No longer true\nAnother session retired these. Stop relying on them.\n' + retired.slice(0, 20).map((e) => '- [' + e.id + ' · ' + e.kind + '] ' + clip(e.text, 200)).join('\n'))
+  }
   return clip(sections.join('\n\n'), CONTEXT_BUDGET)
 }
 
-// Keyword search over everything except rejected notes
-export function recall(query, project) {
-  const words = String(query || '').toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 3)
+// Keyword search over approved notes, past ones included (not rejected or waiting for review)
+// A run nobody watches (a scheduled task) gets what its lean brain promises, nothing more: this
+// project's decisions, facts and threads, and the approved ways of working; never another project,
+// a handoff, a waiting item or a route (RV-003 F2)
+const leanVisible = (e) => (e.project === env.project && ['decision', 'fact', 'thread'].includes(e.kind)) || (e.kind === 'preference' && !e.project && e.status === 'active')
+
+export function recall(query, project, { lean = false } = {}) {
+  // Words in any script; a CJK query has no spaces, so one character is a word there (RV-003 F3)
+  const words = String(query || '').normalize('NFKC').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 3 || /\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana}|\p{Script=Hangul}/u.test(w))
   const now = Date.now()
   const scored = []
   for (const e of brain.entries.values()) {
-    if (e.status === 'rejected') continue
+    // A note waiting for review hasn't been approved, so it isn't memory yet (RV-001 F1)
+    if (e.status === 'rejected' || e.status === 'pending') continue
+    if (lean && !leanVisible(e)) continue
     if (project && e.project && e.project.toLowerCase() !== String(project).toLowerCase()) continue
     const hay = (e.text + ' ' + e.project + ' ' + e.kind).toLowerCase()
     const hits = words.filter((w) => hay.includes(w)).length
@@ -484,22 +531,45 @@ async function commit(io) {
   return r
 }
 
-// Takes the other machines' notes. A rebase that stops on a conflict (HANDOFF.md, profile.md)
-// is undone, so the brain is never left mid-rebase and the next pull can try again.
+// Another session, or the user, is part-way through a rebase in this folder. While one is,
+// none of our git commands may touch the folder: an add would mark half-resolved files as
+// resolved, and a commit would move HEAD inside someone else's rebase (RV-002 F1)
+async function rebaseUnderWay(io) {
+  return (await io.exists(join(brain.dir, '.git/rebase-merge'))) || (await io.exists(join(brain.dir, '.git/rebase-apply')))
+}
+
+// Takes the other machines' notes: 'ok', 'no-branch' (the remote has no brain branch yet),
+// 'busy' (another session on this machine is mid-rebase in the same folder) or 'failed'.
+// Only a rebase this pull started and stopped on a conflict is undone; another session's
+// rebase is never touched (RV-001 F4).
 async function pull(io) {
+  if (await rebaseUnderWay(io)) return 'busy'
   const r = await io.run(['git', '-C', brain.dir, 'pull', '-q', '--rebase', '--autostash', 'origin', brain.branch], { timeoutMs: 30_000 })
-  if (r.exitCode !== 0) await io.run(['git', '-C', brain.dir, 'rebase', '--abort'])
-  return r.exitCode === 0
+  if (r.exitCode === 0) return 'ok'
+  const said = (r.stdout || '') + (r.stderr || '')
+  if (/CONFLICT|could not apply/i.test(said)) {
+    await io.run(['git', '-C', brain.dir, 'rebase', '--abort'])
+    return 'failed'
+  }
+  if (/couldn't find remote ref/i.test(said)) return 'no-branch'
+  return /index\.lock|rebase-merge|rebase-apply/i.test(said) ? 'busy' : 'failed'
 }
 
 // Re-reads the brain from disk and queues what other sessions wrote for Claude to be told.
 // Other sessions on this machine write to the same folder, so this needs no remote.
+// Changes to notes it already has count too (RV-002 F2): one approved since is told like a new one,
+// and one it was using that another session retired is told as no longer true. This session's
+// own changes are already in memory, so they never come back as news.
 async function reload(io) {
   const before = brain.entries
   await loadBrain(io)
-  const arrived = [...brain.entries.values()].filter(
-    (e) => !before.has(e.id) && e.session !== env.sessionId && (!e.project || e.project === env.project),
-  )
+  const arrived = []
+  for (const e of brain.entries.values()) {
+    if (e.project && e.project !== env.project) continue
+    const was = before.get(e.id)
+    if (!was ? e.session !== env.sessionId : was.status !== 'active' && e.status === 'active') arrived.push(e)
+    else if (was && was.status === 'active' && e.status !== 'active') brain.retired.push(e)
+  }
   brain.unseen.push(...arrived.map((e) => e.id))
   return arrived.filter((e) => isLive(e, Date.now()))
 }
@@ -511,7 +581,7 @@ export function refresh(io) {
   if (!brain.refreshing) {
     brain.refreshing = (async () => {
       try {
-        if (brain.remote) await pull(io)
+        if (brain.remote) brain.lastPullResult = await pull(io)
         return await reload(io)
       } finally {
         brain.lastPull = await io.now()
@@ -527,18 +597,47 @@ export async function refreshIfStale(io, maxAgeMs) {
   return refresh(io)
 }
 
+// This session's notes went out: its journal file is committed, and nothing is left unpushed.
+// Another session can hold git's lock at the moment this one commits, so "the push worked" is not
+// enough to say "your notes are synced" (RV-003 F4)
+async function delivered(io) {
+  if (!brain.file) return true
+  const rel = brain.file.slice(brain.dir.length + 1)
+  const changed = (await io.run(['git', '-C', brain.dir, 'diff', '--name-only', 'HEAD', '--', rel])).stdout.trim()
+  const untracked = (await io.run(['git', '-C', brain.dir, 'ls-files', '--others', '--', rel])).stdout.trim()
+  const ahead = Number((await io.run(['git', '-C', brain.dir, 'rev-list', '--count', 'origin/' + brain.branch + '..HEAD'])).stdout.trim() || 0)
+  return !changed && !untracked && !ahead
+}
+
 export async function syncNow(io) {
   if (!brain.dir) return null
+  if (await rebaseUnderWay(io)) {
+    brain.lastSync = { ok: false, at: Date.now(), error: 'another session is syncing; the next sync retries', arrived: 0 }
+    return brain.lastSync
+  }
   await commit(io)
   if (!brain.remote) {
     const arrived = await refresh(io)
     brain.lastSync = { ok: true, at: Date.now(), local: true, arrived: arrived.length }
     return brain.lastSync
   }
-  // The first push creates the branch, so a failed pull is expected then
   const arrived = await refresh(io)
-  const push = await io.run(['git', '-C', brain.dir, 'push', '-q', 'origin', 'HEAD:' + brain.branch], { timeoutMs: 30_000 })
-  brain.lastSync = { ok: push.exitCode === 0, at: Date.now(), error: push.exitCode === 0 ? '' : clip(push.stderr.trim(), 200), arrived: arrived.length }
+  // Push only on top of a pull that worked, or to create the branch the first time: never from
+  // the middle of another session's rebase (RV-001 F4)
+  if (brain.lastPullResult !== 'ok' && brain.lastPullResult !== 'no-branch') {
+    brain.lastSync = { ok: false, at: Date.now(), error: brain.lastPullResult === 'busy' ? 'another session is syncing; the next sync retries' : 'the pull failed; the next sync retries', arrived: arrived.length }
+    return brain.lastSync
+  }
+  const pushNow = () => io.run(['git', '-C', brain.dir, 'push', '-q', 'origin', 'HEAD:' + brain.branch], { timeoutMs: 30_000 })
+  let push = await pushNow()
+  if (push.exitCode === 0 && !(await delivered(io))) {
+    // Another session held git's lock when this one committed: once more
+    await commit(io)
+    push = await pushNow()
+  }
+  const out = push.exitCode === 0 && (await delivered(io))
+  const error = push.exitCode !== 0 ? clip(push.stderr.trim(), 200) : out ? '' : "some of this session's notes are not pushed yet; the next sync retries"
+  brain.lastSync = { ok: out, at: Date.now(), error, arrived: arrived.length }
   return brain.lastSync
 }
 

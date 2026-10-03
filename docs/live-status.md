@@ -4,7 +4,7 @@ Every Claude Code session with coter-kit writes one small JSON file describing i
 
 ## Where
 
-`~/.claude/coter-kit/live/<YYYY-MM-DD>/<session id>.json`. The date is the local day the session opened. Read today's folder and yesterday's. Folders older than 7 days are removed when a session starts.
+`~/.claude/coter-kit/live/<YYYY-MM-DD>/<session id>.json`. The date is the local day the session opened. Read every day folder, since a session left open across midnight stays in the folder of the day it opened. If a session id shows up twice, keep the fresher record. Folders older than 7 days are removed when a session starts.
 
 ## When it's written
 
@@ -22,7 +22,7 @@ Every Claude Code session with coter-kit writes one small JSON file describing i
 | `tool` | `"claude"` |
 | `id` | The Claude Code session id |
 | `device` | The machine's name (`alexs-macbook-pro`, `bld`), the same name coter-kit's brain uses |
-| `project`, `worktree`, `folder`, `branch` | Where it runs. `worktree` is the worktree's folder name, or `""` |
+| `project`, `worktree`, `branch` | Where it runs: the repository's name, the worktree's folder name (or `""`) and the branch. No absolute paths |
 | `opened_at`, `updated_at`, `last_event_at` | ISO times |
 | `state`, `state_since` | `working` (mid-turn), `needs_ok` (a permission prompt is waiting), `your_move` (turn finished, waiting on you), `idle` (`your_move` for 15 minutes or more, or nothing yet), `ended` |
 | `scheduled` | `true` for a run started by a scheduled task, a routine or `/loop`. It is never `your_move` and earns you no time |
@@ -36,4 +36,4 @@ Every Claude Code session with coter-kit writes one small JSON file describing i
 
 ## Privacy
 
-No prompt text, file paths, commands or note contents. The one piece of your own wording is `checklist.title` and `checklist.current`, so anything that sends a record off the machine (home-agent posting to Grok Bot, a phone push) redacts or drops them.
+No prompt text, file paths (not even the session's own folder), commands or note contents. The one piece of your own wording is `checklist.title` and `checklist.current`, so anything that sends a record off the machine (home-agent posting to Grok Bot, a phone push) redacts or drops them.

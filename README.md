@@ -12,6 +12,7 @@ A personal Claude Code plugin for the CLI and the desktop app. It answers one pr
 | **Live status** | Every session writes a small status file (state, checklist step, what needs you, your time and Claude's) so other tools read it instead of transcripts: `/glance`, undertone, the home dashboard, a phone notifier. The band says when another session here needs you. Format: `docs/live-status.md`. |
 | **Reviewer** | `/coter-kit:review-brain` checks the notes waiting in `/brain`, and what went live this week, against the code, git and other sessions' logs, and gives each a verdict with its evidence. You apply its picks with one press. Rules that stop the newest sentence from always winning are enforced in code (`docs/build-plan.md`). |
 | **Where work runs** | Every session is told when to work here, open a new session, fan out to subagents, use the cloud or a scheduled task (`docs/routing.md`). Each choice is logged as a `route` note with its reason, then its outcome and usage; `/routes` lists them, and the latest outcomes reach every session, so the playbook learns from what happened. |
+| **How we build** | The house standard every project inherits (`docs/standard.md`), lifted from what jobsnearme's pipeline proved: tiers by stakes, acceptance criteria that name their tests, a read-only critic, gates where a skip is "not verified", and an outside review by another model before landing. `/coter-kit:outside-review` runs that loop: a script-built packet, Codex (or Grok as red team) in a read-only sandbox, the answer saved verbatim, every finding verified and logged, at most 4 rounds. Every session is told the standard. |
 
 ## How the brain avoids rotting
 
@@ -54,7 +55,8 @@ Claude is told all of this at session start, along with when to call `recall`, w
 | Command | What it does |
 | :- | :- |
 | `/brain` | Review what Claude learned: keep or drop each item, with the reviewer's verdict under it; apply all the reviewer's picks with one press; see the live notes it would change, and how often you've overruled it |
-| `/coter-kit:review-brain` | Run the outside review now (it also suits a daily scheduled task) |
+| `/coter-kit:review-brain` | Run the brain's outside review now (it also runs daily, as a scheduled task) |
+| `/coter-kit:outside-review` | Have a change reviewed by another model before it lands, when it needs one: triage says whether a trigger fired (data that lasts, who can do what, what others depend on, what runs on its own, a big change, a fix to a high finding, a path the project marks sensitive in `.claude/review.json`); then packet, relay, verify, log, fix the class. Only a confirmed high finding blocks shipping (`docs/standard.md`) |
 | `/brain sync` | Push this session's notes and pull everyone else's now (it otherwise pushes 20 seconds after a write and pulls every 2 minutes) |
 | `/brain digest` | Digest this session now |
 | `/waiting`, `/waiting all` | What is waiting on you, with links: mockups to review, questions to answer, sign-offs. Claude adds an item whenever it publishes something for you to look at or asks a decision you may answer later, and resolves it when you answer. Kept in the brain, so every session and machine sees the same list; this project's items by default, `all` for every project. The band above the prompt shows the count. |
@@ -131,7 +133,8 @@ When you release, bump `version` in `.claude-plugin/plugin.json`. Installed copi
 claude --plugin-dir .                        # load it for one session, reloads on save
 claude plugin validate --strict .claude-plugin/plugin.json   # `.` checks only the marketplace manifest
 node --check hooks/*.js                       # validate does not catch syntax errors
-claude plugin test                            # 77 tests, no session or network needed
+claude plugin test                            # 100 tests, no session or network needed
+node --test tests/outside-review.test.mjs     # the outside-review scripts (14 tests), on a throwaway repo
 ```
 
 If `claude plugin test` says hooks modules are turned off in this process, run it with `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` set. Some builds ignore that setting and leave it to a server-side switch; the Claude Code inside the desktop app (`$CLAUDE_CODE_EXECPATH` in its sessions) runs the tests.

@@ -3,7 +3,8 @@
 // the user, so undertone, /glance, the home dashboard and a phone notifier read state
 // instead of parsing the brain or transcripts (or spending credits to work it out).
 //
-// Readers look in today's and yesterday's folders. A file whose updated_at is more than
+// Readers look in every day folder (a session stays in the folder of the day it opened). A file
+// whose updated_at is more than
 // 3 minutes old belongs to a session that died (sessions write a heartbeat every minute);
 // one whose state is "ended" closed normally. Files stay for a week, for the minutes.
 //
@@ -11,8 +12,9 @@
 // answered permission prompt) counts the time before it, back to the later of their previous
 // beat anywhere on this machine and the end of this session's last turn, capped at 15
 // minutes. Claude's time is its main-thread turns. Scheduled runs earn the user nothing.
-// The file carries no prompt text, file paths or commands; the checklist step is the one
-// piece of the user's own wording in it, so anything that sends it off the machine redacts it.
+// The file carries no prompt text, file paths (not even the session's folder: RV-001 F6) or
+// commands; the checklist step is the one piece of the user's own wording in it, so anything
+// that sends it off the machine redacts it.
 
 import { join } from './util.js'
 
@@ -46,7 +48,8 @@ export function beatCredit(at, { lastBeatAnywhere = 0, lastTurnEnd = 0, openedAt
 // Minutes since local midnight: the user's from their beats, Claude's from its turns (clipped)
 export function minutesToday({ beats, turns, turnStartedAt = 0 }, now) {
   const from = startOfDay(now)
-  const you = beats.filter(([at]) => at >= from).reduce((sum, [, credit]) => sum + credit, 0)
+  // A beat just after midnight credits only the minutes since midnight to today (RV-001 F8)
+  const you = beats.filter(([at]) => at >= from).reduce((sum, [at, credit]) => sum + Math.min(credit, at - from), 0)
   const spans = [...turns, ...(turnStartedAt ? [[turnStartedAt, now]] : [])]
   const claude = spans.reduce((sum, [a, b]) => sum + Math.max(0, b - Math.max(a, from)), 0)
   return { you: Math.round(you / 60_000), claude: Math.round(claude / 60_000) }
@@ -70,7 +73,6 @@ export function liveRecord(s, now) {
     device: s.device,
     project: s.project,
     worktree: s.worktree || '',
-    folder: s.folder,
     branch: s.branch || '',
     opened_at: iso(s.openedAt),
     updated_at: iso(now),

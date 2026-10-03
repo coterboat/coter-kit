@@ -3,11 +3,15 @@
 // (brain.js) carries an optional link (http/https only, no credentials) and a short ref such as "Q8". Resolving it
 // (remember with resolves set to its id) takes it off the list; unanswered, it expires after 30 days.
 import { ago, clip } from './util.js'
+import { redact } from './redact.js'
 
 const MAX_LINK = 400
 const MAX_REF = 16
 
-// Only a plain web link is kept: no javascript:, data: or file: links, no user:password@ in the address
+// Only a plain web link is kept: no javascript:, data: or file: links, no user:password@ in the
+// address, and no query string or fragment at all, since any parameter can be the capability that
+// opens the page (?ticket=, ?jwt=, …) and a list of bad names is never complete (RV-003 F1,
+// RV-004 F2). What's left is redacted like any note.
 export function safeLink(raw) {
   const s = String(raw || '').trim()
   if (!s) return undefined
@@ -19,13 +23,15 @@ export function safeLink(raw) {
   }
   if (url.protocol !== 'https:' && url.protocol !== 'http:') return undefined
   if (url.username || url.password) return undefined
-  return clip(url.toString(), MAX_LINK)
+  url.search = ''
+  url.hash = ''
+  return clip(redact(url.toString()), MAX_LINK)
 }
 
 // The extra fields a 'waiting' note keeps
 export function waitingFields(note) {
   const link = safeLink(note.link)
-  const ref = clip(String(note.ref || '').replace(/\s+/g, ' ').trim(), MAX_REF)
+  const ref = clip(redact(String(note.ref || '').replace(/\s+/g, ' ').trim()), MAX_REF)
   return { ...(link ? { link } : {}), ...(ref ? { ref } : {}) }
 }
 

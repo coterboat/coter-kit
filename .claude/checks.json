@@ -1,0 +1,14 @@
+{
+  "checks": [
+    {
+      "name": "syntax",
+      "run": ["node", "-e", "for (const d of ['hooks', 'skills/outside-review/scripts']) for (const f of require('fs').readdirSync(d)) if (/\\.m?js$/.test(f)) require('child_process').execFileSync(process.execPath, ['--check', d + '/' + f], { stdio: 'inherit' })"],
+      "timeoutSec": 60
+    },
+    {
+      "name": "outside-review scripts",
+      "run": ["node", "--test", "tests/outside-review.test.mjs"],
+      "timeoutSec": 180
+    }
+  ]
+}

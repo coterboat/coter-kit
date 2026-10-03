@@ -26,6 +26,10 @@ type Opts = {
   missingFiles?: string[]
   hostname?: string
   usage?: Record<string, unknown>
+  pullBusy?: boolean
+  now?: number
+  undelivered?: boolean
+  usageHangs?: boolean
 }
 
 // An in-memory file system and stubs for everything coter-kit asks Claude Code for.
@@ -36,7 +40,7 @@ function stubAll(on: any, opts: Opts = {}) {
   const ran: string[][] = []
   const forks: string[] = []
   const root = opts.root ?? '/work'
-  const clock = mock.clock(on, { now: Date.now() })
+  const clock = mock.clock(on, { now: opts.now ?? Date.now() })
 
   const list = (dir: string) => {
     const prefix = unix(dir).replace(/\/$/, '') + '/'
@@ -86,8 +90,11 @@ function stubAll(on: any, opts: Opts = {}) {
       if (argv.includes('--version')) return { value: { exitCode: 0, stdout: 'Python 3.13', stderr: '' } }
       return { value: { exitCode: 1, stdout: '', stderr: '  File "bad.py", line 2\nSyntaxError: invalid syntax' } }
     }
+    if (argv[0] === 'git' && argv.includes('pull') && opts.pullBusy) return { value: { exitCode: 128, stdout: '', stderr: "fatal: Unable to create '/brain/.git/index.lock': File exists." } }
     if (argv[0] === 'git' && argv.includes('pull') && opts.pullFails) return { value: { exitCode: 1, stdout: '', stderr: 'CONFLICT (content): Merge conflict in HANDOFF.md' } }
     if (argv[0] === 'hostname') return opts.hostname ? { value: { exitCode: 0, stdout: opts.hostname + '\n', stderr: '' } } : { value: { exitCode: 1, stdout: '', stderr: 'no' } }
+    if (argv[0] === 'git' && argv.includes('diff') && argv.includes('--name-only') && opts.undelivered) return { value: { exitCode: 0, stdout: 'journal/x/y.jsonl\n', stderr: '' } }
+    if (argv[0] === 'git' && argv.includes('ls-files') && !argv.includes('--deleted')) return { value: { exitCode: 0, stdout: '', stderr: '' } }
     if (argv[0] === 'git' && argv.includes('ls-files')) return { value: { exitCode: 0, stdout: (opts.missingFiles ?? []).join('\n'), stderr: '' } }
     if (argv[0] === 'git' && argv.includes('status')) return { value: { exitCode: 0, stdout: '## main...origin/main [ahead 1]\n M src/app.ts\n', stderr: '' } }
     if (argv[0] === 'git' && argv.includes('log')) return { value: { exitCode: 0, stdout: 'abc1234 2 hours ago  Add commute route\ndef5678 1 day ago  Fix pins', stderr: '' } }
@@ -110,6 +117,8 @@ function stubAll(on: any, opts: Opts = {}) {
   on('classic.Notification', () => ({}))
   on('session.end', ($: any, e: any) => ({ sessionId: e.sessionId }))
   if (opts.usage) on('session.usage', () => ({ value: opts.usage }))
+  let usageCalls = 0
+  if (opts.usageHangs) on('session.usage', () => (++usageCalls === 1 ? { value: { startedAt: 0, context: { window: 1 }, rateLimits: [] } } : new Promise(() => {})))
   on('prompt.submit', ($: any, e: any) => ({ text: e.text, context: e.context }))
   on('tool.call', () => ({ result: 'ok' }))
   on('turn.start', ($: any, e: any) => ({ turnId: e.turnId }))
@@ -1084,7 +1093,7 @@ function reviewBrain(now = Date.now()) {
     n('p1', { kind: 'fact', source: 'digest', status: 'pending', text: 'The e2e gate stops after the flake hunt' }),
     n('p2', { kind: 'fact', source: 'digest', status: 'pending', text: 'Node modules in the main checkout are stale' }),
     n('l1', { kind: 'thread', source: 'digest', text: 'Lane 1 is building FS-301' }),
-    n('l2', { kind: 'fact', source: 'digest', text: 'node modules in the main checkout are stale' }),
+    n('l2', { kind: 'fact', source: 'digest', text: 'Node modules in the main checkout are stale' }),
     n('u1', { kind: 'decision', text: 'Q8: tag the art as Example', answers: 'w8' }),
     n('old', { at: now - 30 * DAY, text: 'An old fact nobody needs to look at again' }),
     n('t1', { at: now - 6 * DAY, kind: 'decision', text: 'Ship on Tuesdays', status: 'superseded' }),
@@ -1107,7 +1116,7 @@ t('the reviewer gets everything waiting for review and what went live this week,
 })
 
 t('every verdict needs evidence, and changing a live note also needs the best case for keeping it', async ($, on) => {
-  stubAll(on, { files: reviewBrain() })
+  const { files } = stubAll(on, { files: reviewBrain() })
   await start($)
   const out: any = await $.tool.call({
     tool: REVIEW,
@@ -1121,9 +1130,8 @@ t('every verdict needs evidence, and changing a live note also needs the best ca
   expect(out.result).toContain('Recorded 1 verdict(s)')
   expect(out.result).toContain('p1: every verdict but ask needs evidence')
   expect(out.result).toContain('l1: changing a live note needs a steelman')
-  // Recorded, not applied
-  const text = await snapshot($)
-  expect(text).not.toContain('Node modules in the main checkout are stale')
+  // Recorded, not applied: the note is still waiting for review
+  expect(journal(files)).not.toContain('"op":"status","ref":"p2"')
 })
 
 t('an exact duplicate of a live note is the one thing the reviewer drops on its own', async ($, on) => {
@@ -1151,7 +1159,7 @@ t("one press applies the picks; challenges to the user's own notes and unsettled
   const ui = await $.ui.mount({ ...pane('coter-brain'), surface: 'desktop' })
   expect(await ui.find({ type: 'Text', text: /↳ reviewer: accept · Holds · scripts\/e2e-ci-local\.mjs:125/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /↳ reviewer: retire \(yours: your call\)/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /↳ reviewer: rewrite \(unsettled: your call\)/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /↳ reviewer: rewrite \(a live decision: your call, unsettled: your call\)/ })).toBeDefined()
   await ui.press({ key: 'apply-picks' })
   const text = await snapshot($)
   expect(text).toContain('The e2e gate stops after the flake hunt')
@@ -1273,4 +1281,305 @@ t("each session's usage and the account's windows reach the status file and /gla
   expect(out.text).toContain('used: five-hour 42%, seven-day 13%')
   expect(out.text).toContain('$1.23 · context 64%')
   expect(out.text).toContain('usage at API prices')
+})
+
+t('every session is told how we build: the tiers, the outside review, and where the standard lives', async ($, on) => {
+  stubAll(on)
+  await start($)
+  const text = await snapshot($)
+  expect(text).toContain('## How we build')
+  expect(text).toContain('docs/standard.md')
+  expect(text).toContain('/coter-kit:outside-review')
+  expect(text).toContain('only when its triage says a trigger fired')
+  expect(text).toContain('Only a confirmed high finding or a compliance issue blocks shipping')
+})
+
+// ---------------------------------------------------------------- 13. RV-001 (Codex's outside review of 0.4 to 0.9)
+
+t('RV-001 F1: recall never returns a note still waiting for review', async ($, on) => {
+  const { clock } = stubAll(on, { forkReply: '{"kind": "fact", "text": "Production uses Redis for sessions", "scope": "project"}' })
+  await start($)
+  await eightTurns($)
+  await clock.advance(2_000)
+  const out: any = await $.tool.call({ tool: 'mcp__coter-kit__recall', query: 'redis sessions' })
+  expect(out.result).not.toContain('Production uses Redis')
+})
+
+t('RV-001 F2: C and C++ are two notes, and the reviewer drops only a literal duplicate in the same project', async ($, on) => {
+  const now = Date.now()
+  const rows = [
+    { id: 'c1', at: now - DAY, device: 'pc', session: 's', project: 'work', kind: 'fact', text: 'The backend is C', status: 'active', source: 'claude' },
+    { id: 'c2', at: now - DAY, device: 'pc', session: 's', project: 'work', kind: 'fact', text: 'The backend is C++', status: 'pending', source: 'digest' },
+    { id: 'o1', at: now - DAY, device: 'pc', session: 's', project: 'other', kind: 'fact', text: 'Deploys run by hand', status: 'active', source: 'claude' },
+    { id: 'o2', at: now - DAY, device: 'pc', session: 's', project: 'work', kind: 'fact', text: 'Deploys run by hand', status: 'pending', source: 'digest' },
+  ]
+  stubAll(on, { files: { '/brain/.git/HEAD': 'ref', '/brain/profile.md': '# P', '/brain/journal/pc/2026-10-02-pc.jsonl': rows.map((r) => JSON.stringify(r)).join('\n') + '\n' } })
+  await start($)
+  const saved: any = await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'fact', text: 'The frontend is C#' }, { kind: 'fact', text: 'The frontend is C' }] })
+  expect(saved.result).toContain('Saved 2 note(s)')
+  const out: any = await $.tool.call({
+    tool: REVIEW,
+    action: 'verdicts',
+    verdicts: [
+      { ref: 'c2', verdict: 'reject', reason: 'dup', evidence: 'c1', duplicateOf: 'c1' },
+      { ref: 'o2', verdict: 'reject', reason: 'dup', evidence: 'o1', duplicateOf: 'o1' },
+    ],
+  })
+  expect(out.result).not.toContain('Dropped as exact duplicates')
+})
+
+t('RV-001 F3: a live decision is your call, never applied by the picks button', async ($, on) => {
+  stubAll(on, { files: reviewBrain() })
+  await start($)
+  await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'decision', text: 'Use Postgres for the API' }] })
+  const id = [...(await $.tool.call({ tool: 'mcp__coter-kit__recall', query: 'postgres' }) as any).result.matchAll(/\[(\S+) · decision/g)][0][1]
+  await $.tool.call({ tool: REVIEW, action: 'verdicts', verdicts: [{ ref: id, verdict: 'retire', reason: 'Moved to MySQL', evidence: 'commit abc', steelman: 'The user chose it' }] })
+  const ui = await $.ui.mount({ ...pane('coter-brain'), surface: 'desktop' })
+  expect(await ui.find({ type: 'Text', text: /↳ reviewer: retire \(a live decision: your call\)/ })).toBeDefined()
+  const ready = await ui.find({ key: 'apply-picks' })
+  if (ready) await ui.press({ key: 'apply-picks' })
+  expect(await snapshot($)).toContain('Use Postgres for the API')
+})
+
+test("RV-001 F4: a pull never aborts another session's rebase, and nothing is pushed after a failed pull", { options: REMOTE }, async ($: any, on: any) => {
+  const { ran } = stubAll(on, { pullBusy: true })
+  await start($)
+  await $.command.run({ command: 'brain', args: 'sync' })
+  expect(ran.some((a) => a.includes('rebase') && a.includes('--abort'))).toBe(false)
+  expect(ran.some((a) => a[0] === 'git' && a.includes('push'))).toBe(false)
+})
+
+test('RV-001 F4: with a rebase already under way in the folder, a sync stays out of it', { options: REMOTE }, async ($: any, on: any) => {
+  const { ran } = stubAll(on, { files: { '/brain/.git/HEAD': 'ref', '/brain/.git/rebase-merge/head-name': 'refs/heads/brain', '/brain/profile.md': '# P' } })
+  await start($)
+  const reply: any = await $.command.run({ command: 'brain', args: 'sync' })
+  expect(ran.some((a) => a[0] === 'git' && (a.includes('pull') || a.includes('push') || a.includes('add') || a.includes('commit') || a.includes('checkout')))).toBe(false)
+  expect(reply.text).toContain('another session is syncing')
+})
+
+t("RV-001 F5: a beat is written at once, so another session's beat a moment later sees it", async ($, on) => {
+  const { files } = stubAll(on)
+  await start($)
+  await $.prompt.submit({ text: 'go' })
+  expect(liveOf(files).beats.length).toBe(1)
+})
+
+t('RV-001 F6: the status file carries no absolute paths', async ($, on) => {
+  const { files, clock } = stubAll(on)
+  await start($)
+  await $.prompt.submit({ text: 'go' })
+  await clock.advance(2_000)
+  const rec = liveOf(files)
+  expect(rec.folder).toBeUndefined()
+  expect(JSON.stringify(rec)).not.toContain('"/work')
+})
+
+t('RV-001 F8: a beat just after midnight credits only the minutes since midnight to the new day', async ($, on) => {
+  const d = new Date()
+  d.setHours(24, 0, 0, 0)
+  const midnight = d.getTime()
+  const { files, clock } = stubAll(on, { now: midnight - 11 * MIN })
+  await start($)
+  await clock.advance(MIN)
+  await $.prompt.submit({ text: 'late' })
+  await clock.advance(15 * MIN)
+  await $.prompt.submit({ text: 'just after midnight' })
+  expect(liveOf(files).minutes_today.you).toBe(5)
+})
+
+// ---------------------------------------------------------------- 14. RV-002 (Codex, round 2)
+
+t('RV-002 F2: an open session hears when another session approves a note or retires one it was using', async ($, on) => {
+  const { files } = stubAll(on)
+  await start($)
+  const now = Date.now()
+  const t9 = { id: 't9', at: now - DAY, device: 'pc', session: 'pc-s', project: 'work', kind: 'thread', text: 'Lane 2 builds FS-302', status: 'active', source: 'claude' }
+  const p9 = { id: 'p9', at: now - DAY, device: 'pc', session: 'pc-s', project: 'work', kind: 'fact', text: 'CI runs on Node 22', status: 'pending', source: 'digest' }
+  files.set('/brain/journal/pc/2026-10-03-a.jsonl', [t9, p9].map((r) => JSON.stringify(r)).join('\n') + '\n')
+  await $.command.run({ command: 'brain', args: 'sync' })
+  const first: any = await $.prompt.submit({ text: 'go' })
+  expect(first.context.join('\n')).toContain('Lane 2 builds FS-302')
+  // Elsewhere: the thread is finished and the fact is approved
+  const ops = [{ op: 'status', ref: 't9', status: 'superseded', at: now, device: 'pc' }, { op: 'status', ref: 'p9', status: 'active', at: now, device: 'pc' }]
+  files.set('/brain/journal/pc/2026-10-03-b.jsonl', ops.map((r) => JSON.stringify(r)).join('\n') + '\n')
+  await $.command.run({ command: 'brain', args: 'sync' })
+  const next: any = await $.prompt.submit({ text: 'and now?' })
+  const text = next.context.join('\n')
+  expect(text).toContain('## No longer true')
+  expect(text).toContain('[t9 · thread] Lane 2 builds FS-302')
+  expect(text).toContain('CI runs on Node 22')
+  const after: any = await $.prompt.submit({ text: 'again' })
+  expect((after.context ?? []).length).toBe(0)
+})
+
+t("RV-002 F3: a merge that would retire the user's note becomes their call, and only queued notes take verdicts", async ($, on) => {
+  const now = Date.now()
+  const rows = [
+    { id: 'w8', at: now - 2 * DAY, device: 'pc', session: 's', project: 'work', kind: 'waiting', ref: 'Q8', text: 'Which art?', status: 'active', source: 'claude' },
+    { id: 'a8', at: now - DAY, device: 'pc', session: 's', project: 'work', kind: 'decision', text: 'Q8: tag the art as Example', status: 'active', source: 'claude' },
+    { op: 'status', ref: 'w8', status: 'superseded', at: now - DAY + 3, device: 'pc' },
+    { id: 'f1', at: now - DAY, device: 'pc', session: 's', project: 'work', kind: 'fact', text: 'Art comes from Alexis', status: 'pending', source: 'digest' },
+    { id: 'h1', at: now - DAY, device: 'pc', session: 's', project: '', kind: 'handoff', text: 'Goal: x', status: 'active', source: 'claude' },
+  ]
+  stubAll(on, { files: { '/brain/.git/HEAD': 'ref', '/brain/profile.md': '# P', '/brain/journal/pc/2026-10-02-pc.jsonl': rows.map((r) => JSON.stringify(r)).join('\n') + '\n' } })
+  await start($)
+  const out: any = await $.tool.call({
+    tool: REVIEW,
+    action: 'verdicts',
+    verdicts: [
+      { ref: 'f1', verdict: 'merge', reason: 'Same subject', evidence: 'a8', steelman: 'n/a', with: ['a8'], replacement: { text: 'Art comes from Alexis, tagged Example' } },
+      { ref: 'h1', verdict: 'retire', reason: 'Old', evidence: 'x', steelman: 'y' },
+    ],
+  })
+  expect(out.result).toContain('h1: not in the review queue')
+  const ui = await $.ui.mount({ ...pane('coter-brain'), surface: 'desktop' })
+  expect(await ui.find({ key: 'apply-picks' })).toBeUndefined()
+  expect(await snapshot($)).toContain('Q8: tag the art as Example')
+})
+
+t('RV-002 F4: a session open across two midnights still shows in /glance', async ($, on) => {
+  const { files, clock } = stubAll(on)
+  await start($)
+  const now = clock.now()
+  const old = localDay(now - 2 * DAY)
+  const rec = { v: 1, tool: 'claude', id: 'longrun', project: 'jobsnearme', worktree: '', state: 'needs_ok', state_since: new Date(now - MIN).toISOString(), updated_at: new Date(now).toISOString(), scheduled: false, minutes_today: { you: 0, claude: 0 } }
+  files.set('/home/.claude/coter-kit/live/' + old + '/longrun.json', JSON.stringify(rec))
+  const out: any = await $.command.run({ command: 'glance', args: '' })
+  expect(out.text).toContain('! jobsnearme  needs your OK')
+})
+
+t('RV-002 F5 and F6: a note with one earlier version can be reviewed, and only an exact duplicate is dropped alone', async ($, on) => {
+  const now = Date.now()
+  const rows = [
+    { id: 'v1', at: now - 3 * DAY, device: 'pc', session: 's', project: 'work', kind: 'fact', text: 'Config lives in /data/config', status: 'superseded', source: 'claude' },
+    { id: 'v2', at: now - DAY, device: 'pc', session: 's', project: 'work', kind: 'fact', text: 'Config lives in /etc/app', replaces: 'v1', status: 'active', source: 'claude' },
+    { id: 'd1', at: now - DAY, device: 'pc', session: 's', project: 'work', kind: 'fact', text: 'Use /data/config', status: 'active', source: 'claude' },
+    { id: 'd2', at: now - DAY, device: 'pc', session: 's', project: 'work', kind: 'fact', text: 'Use /Data/config', status: 'pending', source: 'digest' },
+  ]
+  stubAll(on, { files: { '/brain/.git/HEAD': 'ref', '/brain/profile.md': '# P', '/brain/journal/pc/2026-10-02-pc.jsonl': rows.map((r) => JSON.stringify(r)).join('\n') + '\n' } })
+  await start($)
+  const out: any = await $.tool.call({
+    tool: REVIEW,
+    action: 'verdicts',
+    verdicts: [
+      { ref: 'v2', verdict: 'rewrite', reason: 'Back to before', evidence: 'x', steelman: 'y', replacement: { text: 'Config lives in /data/config' } },
+      { ref: 'd2', verdict: 'reject', reason: 'dup', evidence: 'd1', duplicateOf: 'd1' },
+    ],
+  })
+  expect(out.result).toContain('Recorded 2 verdict(s)')
+  expect(out.result).not.toContain('Dropped as exact duplicates')
+  const ui = await $.ui.mount({ ...pane('coter-brain'), surface: 'desktop' })
+  expect(await ui.find({ type: 'Text', text: /↳ reviewer: rewrite \(unsettled: your call\)/ })).toBeDefined()
+})
+
+// ---------------------------------------------------------------- 15. RV-003 (Codex, round 3)
+
+t('RV-003 F1: a credential in a waiting link or in the reviewer\'s words never reaches the brain', async ($, on) => {
+  const { files } = stubAll(on, { files: reviewBrain() })
+  await start($)
+  await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'waiting', ref: 'Q1', text: 'Review the preview', link: 'https://preview.example/item?id=7&access_token=sk-abcdefghijklmnopqrstu#sig=123' }] })
+  await $.tool.call({ tool: REVIEW, action: 'verdicts', verdicts: [{ ref: 'p1', verdict: 'accept', reason: 'Holds', evidence: 'config had token=ghp_abcdefghijklmnopqrstuvwxyz0123 in it' }] })
+  const written = journal(files)
+  expect(written).toContain('"link":"https://preview.example/item"')
+  expect(written).not.toContain('access_token')
+  expect(written).not.toContain('sk-abcdefghijklmnopqrstu')
+  expect(written).not.toContain('ghp_abcdefghijklmnopqrstuvwxyz0123')
+})
+
+t("RV-003 F2: a scheduled run's recall sees only its own project, never another project or a handoff", async ($, on) => {
+  stubAll(on, { files: fullBrain() })
+  await start($)
+  await $.classic.SessionStart({ source: 'startup' })
+  await $.prompt.submit({ text: SCHEDULED })
+  const all: any = await $.tool.call({ tool: 'mcp__coter-kit__recall', query: 'jobsnearme lane mac setup finish goal' })
+  expect(all.result).not.toContain('FS-313 landed')
+  expect(all.result).not.toContain('FS-301 committed')
+  expect(all.result).not.toContain('Goal: finish the Mac setup.')
+  const other: any = await $.tool.call({ tool: 'mcp__coter-kit__recall', query: 'lane', project: 'jobsnearme' })
+  expect(other.result).not.toContain('FS-313')
+  const mine: any = await $.tool.call({ tool: 'mcp__coter-kit__recall', query: 'backtest' })
+  expect(mine.result).toContain('Bots trade paper only')
+})
+
+t('RV-003 F3: notes in any script are told apart, and recall finds them', async ($, on) => {
+  stubAll(on)
+  await start($)
+  const out: any = await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'decision', text: '周二发布' }, { kind: 'decision', text: '周五发布' }, { kind: 'fact', text: 'Ship on 周二' }, { kind: 'fact', text: 'Ship on 周五' }] })
+  expect(out.result).toContain('Saved 4 note(s)')
+  const found: any = await $.tool.call({ tool: 'mcp__coter-kit__recall', query: '周五' })
+  expect(found.result).toContain('周五发布')
+})
+
+test('RV-003 F4: a sync that could not get this session\'s notes out says so, even if the push worked', { options: REMOTE }, async ($: any, on: any) => {
+  stubAll(on, { undelivered: true, forkReply: 'Goal: x' })
+  await start($)
+  const out: any = await $.command.run({ command: 'handoff', args: '' })
+  expect(out.text).toContain("not pushed yet")
+})
+
+t('RV-003 F5: a merge naming a note that does not exist is refused, not crashed on, and a note the user kept stays theirs', async ($, on) => {
+  stubAll(on, { files: reviewBrain() })
+  await start($)
+  const bad: any = await $.tool.call({ tool: REVIEW, action: 'verdicts', verdicts: [{ ref: 'p1', verdict: 'merge', reason: 'r', evidence: 'e', with: ['nope42'], replacement: { text: 't' } }] })
+  expect(bad.result).toContain('p1: a merge names notes that do not exist: nope42')
+  // The user keeps r1 against the reviewer, then a merge tries to take it in
+  await $.tool.call({ tool: REVIEW, action: 'verdicts', verdicts: [{ ref: 'r1', verdict: 'reject', reason: 'Wrong', evidence: 'package.json' }] })
+  const ui = await $.ui.mount({ ...pane('coter-brain'), surface: 'desktop' })
+  await ui.press({ key: 'keep-r1' })
+  const merge: any = await $.tool.call({ tool: REVIEW, action: 'verdicts', verdicts: [{ ref: 'p1', verdict: 'merge', reason: 'r', evidence: 'e', with: ['r1'], replacement: { text: 'Merged' } }] })
+  expect(merge.result).toContain('p1: a merge may only take in notes from the review queue')
+})
+
+t('RV-003 F6: a beat is written without waiting on the usage lookup', async ($, on) => {
+  const { files } = stubAll(on, { usageHangs: true })
+  await start($)
+  await $.prompt.submit({ text: 'go' })
+  expect(liveOf(files).beats.length).toBe(1)
+})
+
+// ---------------------------------------------------------------- 16. RV-004 (Codex, round 4)
+
+test('RV-004 F1: a remote configured with credentials never reaches HANDOFF.md', { options: { ...OPTS, brainRemote: 'https://alex:ghp_abcdefghijklmnopqrstuvwxyz0123@github.com/coterboat/coter-kit.git' } }, async ($: any, on: any) => {
+  const { files } = stubAll(on, { forkReply: 'Goal: x' })
+  await start($)
+  await $.command.run({ command: 'handoff', args: '' })
+  const file = files.get('/brain/HANDOFF.md') ?? ''
+  expect(file).toContain('--config brainRemote=https://github.com/coterboat/coter-kit.git')
+  expect(file).not.toContain('ghp_')
+  expect(file).not.toContain('alex:')
+})
+
+t('RV-004 F2: a waiting link keeps no query string at all, whatever its parameters are called', async ($, on) => {
+  const { files } = stubAll(on)
+  await start($)
+  await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'waiting', ref: 'Q2', text: 'Review it', link: 'https://preview.example/review?ticket=R4m9pZ7qW2s8N6vK&view=full' }] })
+  const written = journal(files)
+  expect(written).toContain('"link":"https://preview.example/review"')
+  expect(written).not.toContain('R4m9pZ7qW2s8N6vK')
+})
+
+t('RV-004 F3 and F4: an answer closes its question even if it repeats a decision, and is filed under that question\'s project', async ($, on) => {
+  stubAll(on)
+  await start($)
+  await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'decision', text: 'Use layout B' }] })
+  const q: any = await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'waiting', ref: 'Q3', text: 'Which layout for the modal?' }] })
+  const q3 = String(q.result.match(/Saved 1 note\(s\): (\S+)\./)[1])
+  await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'decision', text: 'Use layout B', resolves: q3 }] })
+  const waiting: any = await $.command.run({ command: 'waiting', args: '' })
+  expect(waiting.text).not.toContain('Which layout for the modal?')
+  // Another project's question, answered from here
+  const other: any = await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'waiting', ref: 'JNM-9', project: 'jobsnearme', text: 'Which SMS provider?' }] })
+  const j9 = String(other.result.match(/Saved 1 note\(s\): (\S+)\./)[1])
+  await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'decision', text: 'Twilio Verify for SMS', resolves: j9 }] })
+  const here: any = await $.tool.call({ tool: 'mcp__coter-kit__recall', query: 'twilio verify', project: 'jobsnearme' })
+  expect(here.result).toMatch(/decision · jobsnearme .*Twilio Verify for SMS/)
+})
+
+t('RV-004 F5: a usage lookup that never answers does not hold up the end of a turn', async ($, on) => {
+  const { files, clock } = stubAll(on, { usageHangs: true })
+  await start($)
+  await $.prompt.submit({ text: 'go' })
+  await longTurn($, clock, MIN)
+  await clock.advance(2_000)
+  expect(liveOf(files).state).toBe('your_move')
 })

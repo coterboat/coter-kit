@@ -1,0 +1,10 @@
+{
+  "sensitive": [
+    { "glob": "hooks/brain.js", "why": "the brain: notes every session reads, synced through git" },
+    { "glob": "hooks/review.js", "why": "the reviewer's rules about what may change the user's notes" },
+    { "glob": "hooks/redact.js", "why": "what keeps credentials out of the brain" },
+    { "glob": "hooks/waiting.js", "why": "links written to the brain" },
+    { "glob": "hooks/live.js", "why": "the status-file contract other tools read" },
+    { "glob": "skills/outside-review/scripts/**", "why": "what leaves this machine for another lab" }
+  ]
+}

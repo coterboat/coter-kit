@@ -1,3 +1,6 @@
 # Written by Claude Code when the mod loads with --plugin-dir
 .claude-plugin/types/
 tsconfig.json
+
+# Review packets are rebuilt by packet.mjs; the inbox keeps each one's sha256
+docs/reviews/packets/
