@@ -1,0 +1,4 @@
+{"op":"status","ref":"pxcv1fmn","status":"superseded","at":1791058191309,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"pxcv1gev","status":"superseded","at":1791058191309,"device":"alexs-macbook-pro"}
+{"id":"tsx5ad7j","at":1791058191310,"device":"alexs-macbook-pro","session":"72f06c7d-cf72-42b6-8ff1-ce10ade37706","project":"jobsnearme","kind":"waiting","text":"Run `npm install` in the jobsnearme main checkout: pdfjs-dist and jszip are missing there, so typecheck fails in main (the worktrees have their own installs)","ref":"JNM-npm","status":"active","source":"claude"}
+{"id":"tsx5bj3z","at":1791058191311,"device":"alexs-macbook-pro","session":"72f06c7d-cf72-42b6-8ff1-ce10ade37706","project":"jobsnearme","kind":"waiting","text":"Set up Google OAuth for jobsnearme sign-in (a dev account or Juvo's), as decided 10-2","ref":"JNM-oauth","status":"active","source":"claude"}
