@@ -85,6 +85,12 @@ export function liveRecord(s, now) {
     build_broken_since: iso(s.brokenSince),
     needs_you: s.needs,
     minutes_today: minutesToday(s, now),
+    // What the session has used at API prices and how full its context is, and the account's
+    // rate-limit windows: what a routing choice is weighed against (docs/routing.md)
+    usage: s.usage
+      ? { cost_usd: typeof s.usage.cost?.usd === 'number' ? Math.round(s.usage.cost.usd * 100) / 100 : null, context_pct: s.usage.context?.percent ?? null, context_tokens: s.usage.context?.tokens ?? null }
+      : null,
+    rate_limits: (s.usage?.rateLimits || []).map((r) => ({ kind: r.kind, percent_used: r.percentUsed, resets_at: r.resetsAt || null })),
     last_beat_at: iso(s.beats.length ? s.beats[s.beats.length - 1][0] : 0),
     beats: recentBeats(s.beats, now),
     turns: recentTurns(s.turns, now),
@@ -119,6 +125,9 @@ export function glance(records, now) {
     const parts = [(MARK[r.state] || '·') + ' ' + (r.project || '?') + (r.worktree ? ' · ' + r.worktree : ''), LABEL[r.state] || r.state, short(now - ms(r.state_since))]
     if (r.checklist) parts.push(r.checklist.done + '/' + r.checklist.total + (r.checklist.current ? ' ' + r.checklist.current : ''))
     if (r.build_broken_since) parts.push('build broken ' + short(now - ms(r.build_broken_since)))
+    if (r.usage && (r.usage.cost_usd != null || r.usage.context_pct != null)) {
+      parts.push([r.usage.cost_usd != null ? '$' + r.usage.cost_usd.toFixed(2) : '', r.usage.context_pct != null ? 'context ' + Math.round(r.usage.context_pct) + '%' : ''].filter(Boolean).join(' · '))
+    }
     if (r.scheduled) parts.push('scheduled')
     return { state: r.state, text: parts.join('  ') }
   })
@@ -130,5 +139,8 @@ export function glance(records, now) {
   const today = records.filter((r) => ms(r.updated_at) >= startOfDay(now))
   const you = today.reduce((sum, r) => sum + (r.minutes_today?.you || 0), 0)
   const claude = today.reduce((sum, r) => sum + (r.minutes_today?.claude || 0), 0)
-  return { rows, waiting, you, claude, died: records.filter((r) => liveness(r, now) === 'died' && now - ms(r.updated_at) < 3_600_000).length }
+  // The account's windows are the same in every session: take the freshest reading
+  const freshest = [...records].sort((a, b) => ms(b.updated_at) - ms(a.updated_at)).find((r) => r.rate_limits?.length)
+  const limits = (freshest?.rate_limits || []).map((l) => l.kind.replace(/_/g, '-') + ' ' + Math.round(l.percent_used) + '%').join(', ')
+  return { rows, waiting, you, claude, limits, died: records.filter((r) => liveness(r, now) === 'died' && now - ms(r.updated_at) < 3_600_000).length }
 }

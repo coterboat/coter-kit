@@ -30,6 +30,8 @@ Every Claude Code session with coter-kit writes one small JSON file describing i
 | `checks`, `build_broken_since` | The last automatic check (`{ state, summary, at }`), and since when the build has been broken, or `null` |
 | `needs_you` | Per project: `{ waiting, waiting_refs, handoff, review }`. These are the same for every session of the project, so count each project once |
 | `minutes_today` | `{ you, claude }`: your time and Claude's since local midnight (definitions in `build-plan.md`, "Billable time") |
+| `usage` | `{ cost_usd, context_pct, context_tokens }`: what the session has used so far at API prices (as `/cost` totals it; on a Max plan that counts toward limits and isn't billed), and how full its context is |
+| `rate_limits` | The account's windows from the last API response: `[{ kind, percent_used, resets_at }]`, such as `five_hour` and `seven_day`. They're the same in every session, so take the freshest |
 | `last_beat_at`, `beats`, `turns` | The raw material for timesheets, for the last 36 hours. `beats` are `[at, credited ms]`, `turns` are `[start, end]` in epoch ms. Sum `beats[i][1]` across every session's file for your time; per-session credits already exclude time counted in another session |
 
 ## Privacy

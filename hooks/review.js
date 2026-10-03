@@ -54,7 +54,7 @@ export function isUnsettled(e, replacementText, now = Date.now()) {
 // the last week without a verdict (handoffs and waiting items are the user's, not the reviewer's)
 export function reviewQueue(now = Date.now()) {
   return [...brain.entries.values()]
-    .filter((e) => e.kind !== 'handoff' && e.kind !== 'waiting' && !e.review)
+    .filter((e) => e.kind !== 'handoff' && e.kind !== 'waiting' && e.kind !== 'route' && !e.review)
     .filter((e) => e.status === 'pending' || (e.status === 'active' && now - e.at <= QUEUE_DAYS * 86_400_000))
     .sort((a, b) => a.at - b.at)
 }

@@ -32,8 +32,10 @@ import {
   REMEMBER_TOOL,
   RECALL_TOOL,
   REFRESH_EVERY_MS,
+  ROUTE_WHERE,
 } from './brain.js'
 import { formatWaiting } from './waiting.js'
+import { formatRoutes } from './routes.js'
 import { liveRoot, dayOf, beatCredit, liveRecord, liveness, lastBeatIn, glance, KEEP_DAYS } from './live.js'
 import { REVIEW_TOOL, VERDICTS, reviewQueue, queueText, recordVerdicts, picks, challenges, applyVerdict, applyPicks, keepAsIs, userDecides, score, isGuarded } from './review.js'
 
@@ -95,7 +97,7 @@ let branch = ''
 let publishTimer = null
 let heartbeatTimer = null
 let othersNeedingYou = [] // other live sessions on this machine waiting on the user, for the band
-const LIVE_COMMANDS = ['catchup', 'glance', 'waiting', 'brain', 'checklist', 'checks', 'snapshot', 'handoff']
+const LIVE_COMMANDS = ['catchup', 'glance', 'waiting', 'brain', 'checklist', 'checks', 'snapshot', 'handoff', 'routes']
 
 // The session's setup, started once (see prepare)
 let ready = null
@@ -494,7 +496,7 @@ const CHECKLIST_SPEC = {
 const REMEMBER_SPEC = {
   name: 'remember',
   description:
-    "Save something to the user's long-term memory, shared across their sessions, repositories and machines. Use it when the user states a preference or corrects how you work (preference), uses shorthand you should learn (term, written as \"<term>\" = meaning), makes a lasting decision about the project (decision, with the reason), leaves work open (thread), or you learn something non-obvious about the project (fact). Every question or decision the user owes you an answer on, with or without a link (a mockup or page to review, a spec question, a sign-off), is its own waiting note, never a thread: it is what /waiting, the band and catch-up count. Give it a short ref (such as \"Q8\") and its link when there is one; when they answer, save the answer as a decision with resolves set to the waiting note's id. One short sentence per note. Preferences and terms wait for the user's review unless confirmed is true, which you set only when the user explicitly asked you to remember it. To retire a note that is no longer true or a thread that is finished, pass its id as resolves (with a replacing note, or kind 'thread' and text 'done').",
+    "Save something to the user's long-term memory, shared across their sessions, repositories and machines. Use it when the user states a preference or corrects how you work (preference), uses shorthand you should learn (term, written as \"<term>\" = meaning), makes a lasting decision about the project (decision, with the reason), leaves work open (thread), or you learn something non-obvious about the project (fact). Every question or decision the user owes you an answer on, with or without a link (a mockup or page to review, a spec question, a sign-off), is its own waiting note, never a thread: it is what /waiting, the band and catch-up count. Give it a short ref (such as \"Q8\") and its link when there is one; when they answer, save the answer as a decision with resolves set to the waiting note's id. One short sentence per note. Preferences and terms wait for the user's review unless confirmed is true, which you set only when the user explicitly asked you to remember it. To retire a note that is no longer true or a thread that is finished, pass its id as resolves (with a replacing note, or kind 'thread' and text 'done'). When you choose where a piece of work runs (here, a new session, subagents, cloud, a scheduled task, another model), save it as kind route with where set, the task and why in text; when it is done, save the outcome as kind route with resolves set to that note (time, usage, what went well or not). A waiting item or a route for another project takes project, its repository name.",
   inputSchema: {
     type: 'object',
     properties: {
@@ -510,6 +512,8 @@ const REMEMBER_SPEC = {
             resolves: { type: 'string', description: 'Id of an earlier note this replaces or finishes' },
             link: { type: 'string', description: 'waiting only, optional: the http(s) URL of what to review' },
             ref: { type: 'string', description: 'waiting only: a short label, such as "Q8"' },
+            where: { type: 'string', enum: ROUTE_WHERE, description: 'route only: where the work runs' },
+            project: { type: 'string', description: 'waiting and route only: file it under another project, by its repository name' },
           },
           required: ['kind', 'text'],
         },
@@ -658,7 +662,9 @@ function liveSelf() {
 async function publishNow($) {
   if (!liveFile) return
   try {
-    await $.fs.write(liveFile, JSON.stringify(liveRecord(liveSelf(), await $.clock.now())) + '\n')
+    // What the session has used, and the account's rate-limit windows, for routing choices
+    const usage = await $.session.usage().catch(() => null)
+    await $.fs.write(liveFile, JSON.stringify(liveRecord({ ...liveSelf(), usage }, await $.clock.now())) + '\n')
   } catch (err) {
     $.ui.log('live status not written: ' + (err?.message || err))
   }
@@ -828,6 +834,7 @@ export function register(on, options = {}) {
       { name: 'brain', description: 'Review what Claude learned about working with you', argumentHint: '[sync|digest]', immediate: true },
       { name: 'handoff', description: 'Leave this conversation for the next session to pick up, on any machine', argumentHint: '[anything to add]' },
       { name: 'catchup', description: 'What happened since your last message, at a glance', immediate: true },
+      { name: 'routes', description: 'Where work was sent (here, new session, subagents, cloud, schedules) and how it went', argumentHint: '[all]' },
       { name: 'glance', description: 'Every running session on this machine: what needs you, what is working, today\'s time', immediate: true },
       { name: 'waiting', description: 'What is waiting on you: mockups to review and questions to answer, with links', argumentHint: '[all]' },
     ]) {
@@ -1061,8 +1068,14 @@ export function register(on, options = {}) {
     const shipped = handoff ? await shipHandoff($, handoff) : ''
     return {
       result:
-        'Saved ' + added.length + ' note(s): ' + added.map((n) => n.id).join(', ') + '.' + (waiting ? ' ' + waiting + ' wait for the user to review them in /brain.' : '') + shipped + notFound,
+        'Saved ' + added.length + ' note(s): ' + added.map((n) => n.id).join(', ') + '.' + (retired.length ? ' Retired ' + retired.join(', ') + '.' : '') + (waiting ? ' ' + waiting + ' wait for the user to review them in /brain.' : '') + shipped + notFound,
     }
+  })
+
+  // The route log: each routing choice, and its outcome once it has one
+  on('command.run', { command: 'routes' }, async ($, e) => {
+    if (!brain.dir) return { text: 'Memory is unavailable in this session.' }
+    return { text: formatRoutes([...brain.entries.values()], { project: env.project, all: (e.args || '').trim() === 'all' }) }
   })
 
   // Every running session on this machine, what needs the user first
@@ -1072,7 +1085,8 @@ export function register(on, options = {}) {
     await publishNow($)
     const g = glance(await readLive($, now), now)
     const head = g.rows.length + ' session(s) running' + (g.waiting ? ' · ' + g.waiting + ' waiting on you (/waiting)' : '') + ' · today: you ' + span(g.you * 60_000) + ', Claude ' + span(g.claude * 60_000)
-    const lines = [head, ...g.rows.map((r) => r.text)]
+    const lines = [head + (g.limits ? ' · used: ' + g.limits : ''), ...g.rows.map((r) => r.text)]
+    if (g.rows.some((r) => r.text.includes('$'))) lines.push('($ is usage at API prices; on a Max plan it counts toward your limits, it is not billed)')
     if (g.died) lines.push('(' + g.died + ' session(s) stopped without closing in the last hour)')
     return { text: lines.join('\n') }
   })

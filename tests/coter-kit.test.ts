@@ -25,6 +25,7 @@ type Opts = {
   pullFails?: boolean
   missingFiles?: string[]
   hostname?: string
+  usage?: Record<string, unknown>
 }
 
 // An in-memory file system and stubs for everything coter-kit asks Claude Code for.
@@ -108,6 +109,7 @@ function stubAll(on: any, opts: Opts = {}) {
   on('classic.PreCompact', () => ({}))
   on('classic.Notification', () => ({}))
   on('session.end', ($: any, e: any) => ({ sessionId: e.sessionId }))
+  if (opts.usage) on('session.usage', () => ({ value: opts.usage }))
   on('prompt.submit', ($: any, e: any) => ({ text: e.text, context: e.context }))
   on('tool.call', () => ({ result: 'ok' }))
   on('turn.start', ($: any, e: any) => ({ turnId: e.turnId }))
@@ -1202,6 +1204,73 @@ t('"done" with resolves retires the note and saves nothing of its own', async ($
   const id = String(first.result.match(/Saved 1 note\(s\): (\S+)\./)[1])
   const out: any = await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'thread', text: 'done', resolves: id }] })
   expect(out.result).toBe('Retired ' + id + '.')
+  const two: any = await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'thread', text: 'Next lane' }] })
+  const next = String(two.result.match(/Saved 1 note\(s\): (\S+)\./)[1])
+  const mixed: any = await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'thread', text: 'done', resolves: next }, { kind: 'fact', text: 'Something new' }] })
+  expect(mixed.result).toContain('Retired ' + next + '.')
   expect(journal(files)).not.toContain('"text":"done"')
   expect(await snapshot($)).not.toContain('Waiting on the county list')
+})
+
+// ---------------------------------------------------------------- 12. Where work runs
+
+t('a routing choice and its outcome are logged, and /routes shows them in pairs', async ($, on) => {
+  stubAll(on)
+  await start($)
+  const out: any = await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'route', where: 'new-session', text: 'home Now strip: separate repo, and this context is large' }] })
+  const id = String(out.result.match(/Saved 1 note\(s\): (\S+)\./)[1])
+  await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'route', where: 'subagent', text: 'Docs lookup on plugin auto-update: one fact needed back' }] })
+  await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'route', text: 'outcome: built in 2h from the brief alone, no questions back', resolves: id }] })
+  await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'route', where: 'cloud', project: 'jobsnearme', text: 'Overnight e2e matrix on the pushed branch' }] })
+  const routes: any = await $.command.run({ command: 'routes', args: '' })
+  expect(routes.text).toContain('new-session: home Now strip: separate repo, and this context is large')
+  expect(routes.text).toContain('  → ' )
+  expect(routes.text).toContain('outcome: built in 2h from the brief alone')
+  expect(routes.text).toContain('subagent: Docs lookup on plugin auto-update')
+  expect(routes.text).toContain('  → open')
+  expect(routes.text).not.toContain('Overnight e2e matrix')
+  const all: any = await $.command.run({ command: 'routes', args: 'all' })
+  expect(all.text).toContain('cloud · jobsnearme: Overnight e2e matrix on the pushed branch')
+  // Every session is told where work runs, with the latest outcomes
+  const text = await snapshot($)
+  expect(text).toContain('## Where work runs')
+  expect(text).toContain('Recent outcomes:\n- outcome: built in 2h from the brief alone')
+})
+
+t('a waiting item can be filed under the project it belongs to', async ($, on) => {
+  stubAll(on)
+  await start($)
+  await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'waiting', ref: 'JNM-npm', project: 'jobsnearme', text: 'Run npm install in the main checkout' }] })
+  const here: any = await $.command.run({ command: 'waiting', args: '' })
+  expect(here.text).not.toContain('npm install')
+  const all: any = await $.command.run({ command: 'waiting', args: 'all' })
+  expect(all.text).toContain('Waiting on you (jobsnearme): 1')
+})
+
+t('route notes are records, not claims: the reviewer and the digest leave them alone', async ($, on) => {
+  const { clock } = stubAll(on, { forkReply: '{"kind": "route", "text": "should have used cloud", "scope": "project"}' })
+  await start($)
+  await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'route', where: 'here', text: 'Small fix, needs this context' }] })
+  const queue: any = await $.tool.call({ tool: 'mcp__coter-kit__review', action: 'list' })
+  expect(queue.result).not.toContain('Small fix')
+  await eightTurns($)
+  await clock.advance(2_000)
+  const routes: any = await $.command.run({ command: 'routes', args: '' })
+  expect(routes.text).not.toContain('should have used cloud')
+})
+
+t("each session's usage and the account's windows reach the status file and /glance", async ($, on) => {
+  const { files, clock } = stubAll(on, {
+    usage: { startedAt: 0, context: { window: 200000, tokens: 128000, percent: 64 }, rateLimits: [{ kind: 'five_hour', percentUsed: 42, source: 'api' }, { kind: 'seven_day', percentUsed: 12.6, source: 'api' }], cost: { usd: 1.234, id: 'x' } },
+  })
+  await start($)
+  await $.prompt.submit({ text: 'go' })
+  await clock.advance(2_000)
+  const rec = liveOf(files)
+  expect(rec.usage).toEqual({ cost_usd: 1.23, context_pct: 64, context_tokens: 128000 })
+  expect(rec.rate_limits[0]).toEqual({ kind: 'five_hour', percent_used: 42, resets_at: null })
+  const out: any = await $.command.run({ command: 'glance', args: '' })
+  expect(out.text).toContain('used: five-hour 42%, seven-day 13%')
+  expect(out.text).toContain('$1.23 · context 64%')
+  expect(out.text).toContain('usage at API prices')
 })

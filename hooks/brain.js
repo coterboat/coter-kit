@@ -18,12 +18,14 @@ import { waitingFields, waitingSection } from './waiting.js'
 
 export const REMEMBER_TOOL = 'mcp__coter-kit__remember'
 export const RECALL_TOOL = 'mcp__coter-kit__recall'
-export const KINDS = ['preference', 'term', 'decision', 'thread', 'fact', 'handoff', 'waiting']
+export const KINDS = ['preference', 'term', 'decision', 'thread', 'fact', 'handoff', 'waiting', 'route']
+// Where a piece of work was sent (docs/routing.md); a 'route' note records the choice, then its outcome
+export const ROUTE_WHERE = ['here', 'new-session', 'subagent', 'cloud', 'remote', 'scheduled', 'routine', 'workflow', 'other-model']
 const NEEDS_REVIEW = new Set(['preference', 'term'])
 // A handoff is for whichever session picks the work up next, in any project or on any machine
 const GLOBAL_KINDS = new Set(['preference', 'term', 'handoff'])
 // An unanswered 'waiting' item (waiting.js) leaves the list after a month
-const TTL_DAYS = { thread: 21, decision: 180, fact: 180, handoff: 7, waiting: 30 }
+const TTL_DAYS = { thread: 21, decision: 180, fact: 180, handoff: 7, waiting: 30, route: 180 }
 const MAX_TEXT = { handoff: 4000 }
 const DAY = 86_400_000
 const CONTEXT_BUDGET = 13000
@@ -182,7 +184,10 @@ export async function remember(io, notes, { source = 'claude' } = {}) {
     if (!kind || !text) continue
     const confirmed = note.confirmed === true && !fromDigest
     // The reviewer runs in coter-kit's folder but rewrites notes of every project
-    const project = GLOBAL_KINDS.has(kind) || note.scope === 'global' ? '' : source === 'review' && typeof note.project === 'string' ? note.project : env.project
+    // A waiting item or a route can be filed under another project by its repository name, and
+    // the reviewer rewrites notes of every project from coter-kit's folder
+    const named = typeof note.project === 'string' && note.project.trim() ? note.project.trim().slice(0, 40) : null
+    const project = named && (kind === 'waiting' || kind === 'route' || source === 'review') ? named : GLOBAL_KINDS.has(kind) || note.scope === 'global' ? '' : env.project
     const replaced = !fromDigest && note.resolves ? brain.entries.get(note.resolves) : null
     // "done" with resolves retires the note it names; it isn't a note of its own
     if (note.resolves && /^done[.!]?$/i.test(text)) {
@@ -205,6 +210,7 @@ export async function remember(io, notes, { source = 'claude' } = {}) {
       text,
       // A 'waiting' item keeps its link and short ref (waiting.js)
       ...(kind === 'waiting' ? waitingFields(note) : {}),
+      ...(kind === 'route' && ROUTE_WHERE.includes(note.where) ? { where: note.where } : {}),
       status: (NEEDS_REVIEW.has(kind) || fromDigest) && !confirmed ? 'pending' : 'active',
       source,
       // Lineage and authorship, for the reviewer's anti-churn rules (review.js)
@@ -326,6 +332,18 @@ export async function brainContext(io, { lean = false } = {}) {
           list(elsewhere, (e) => '[' + e.project + ' · ' + ago(e.updatedAt || e.at) + '] ' + clip(e.text, OTHER_PROJECT_LINE)),
       )
     }
+  }
+
+  if (!lean) {
+    // Where work runs (docs/routing.md), with the latest outcomes so each session learns from them
+    const outcomes = live.filter((e) => e.kind === 'route' && e.replaces).slice(0, 3)
+    sections.push(
+      '## Where work runs\n' +
+        'Before a substantial piece of work, pick where it runs and say why in one line: here (it needs this session\'s context and is short), a new local session (a separate repo or product, or this context is large), subagents (searches or checks that fan out and only need a conclusion), cloud (long autonomous work on a pushed repo that doesn\'t need this machine; no brain there), or a scheduled task (recurring, needs this machine). Check /glance for usage and the 5-hour window before fanning out. Record the choice with ' +
+        REMEMBER_TOOL + " kind 'route' (where, the task, why), and when it's done the outcome as kind 'route' with resolves set to it (time, usage, what went well or not). /routes lists them; the playbook is " +
+        join(io.pluginRoot || '', 'docs/routing.md') + '.' +
+        (outcomes.length ? '\nRecent outcomes:\n' + outcomes.map((e) => '- ' + clip(e.text, 160)).join('\n') : ''),
+    )
   }
 
   const pending = lean ? 0 : pendingEntries().length

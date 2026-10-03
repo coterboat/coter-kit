@@ -11,6 +11,7 @@ A personal Claude Code plugin for the CLI and the desktop app. It answers one pr
 | **Checklist** | Claude keeps a live task list with its `checklist` tool. A band above the prompt shows progress, the current step, what Claude is doing right now, and failing checks. The ▸ at its start opens every step in the band and ▾ folds it back (click it, or ctrl+x tab then Enter in the terminal); it stays the way you left it, across sessions. `/checklist` opens the list in a pane. |
 | **Live status** | Every session writes a small status file (state, checklist step, what needs you, your time and Claude's) so other tools read it instead of transcripts: `/glance`, undertone, the home dashboard, a phone notifier. The band says when another session here needs you. Format: `docs/live-status.md`. |
 | **Reviewer** | `/coter-kit:review-brain` checks the notes waiting in `/brain`, and what went live this week, against the code, git and other sessions' logs, and gives each a verdict with its evidence. You apply its picks with one press. Rules that stop the newest sentence from always winning are enforced in code (`docs/build-plan.md`). |
+| **Where work runs** | Every session is told when to work here, open a new session, fan out to subagents, use the cloud or a scheduled task (`docs/routing.md`). Each choice is logged as a `route` note with its reason, then its outcome and usage; `/routes` lists them, and the latest outcomes reach every session, so the playbook learns from what happened. |
 
 ## How the brain avoids rotting
 
@@ -58,7 +59,8 @@ Claude is told all of this at session start, along with when to call `recall`, w
 | `/brain digest` | Digest this session now |
 | `/waiting`, `/waiting all` | What is waiting on you, with links: mockups to review, questions to answer, sign-offs. Claude adds an item whenever it publishes something for you to look at or asks a decision you may answer later, and resolves it when you answer. Kept in the brain, so every session and machine sees the same list; this project's items by default, `all` for every project. The band above the prompt shows the count. |
 | `/handoff [note]` | Leave this conversation for the next session to pick up, on any machine: a summary with next steps, saved to the brain, written to `HANDOFF.md` on the `brain` branch, and pushed at once. Every session with coter-kit, including ones already open (within 2 minutes), shows it in the band and picks it up when you say so; it is a plan written earlier, so Claude checks it against the repo first. |
-| `/glance` | Every running session on this machine, what needs you first: needs your OK, your move, working, idle, with the checklist step, a broken build, and today's time, yours and Claude's |
+| `/glance` | Every running session on this machine, what needs you first: needs your OK, your move, working, idle, with the checklist step, a broken build, each session's usage and context, your 5-hour and 7-day windows, and today's time, yours and Claude's |
+| `/routes`, `/routes all` | Where work was sent (here, a new session, subagents, cloud, a schedule, another model), why, and how it went |
 | `/catchup` | Back in a long session: since your last message, how long and how much work, the checklist, checks and what's waiting on you, then up to six lines (Done, Doing, Decided, Needs you, Next) from the session's own transcript. Works while Claude is mid-turn. The band offers it after 30 minutes of work without you. |
 | `/snapshot` | Show everything Claude is given at session start |
 | `/checklist` | Open the task checklist |
@@ -129,7 +131,7 @@ When you release, bump `version` in `.claude-plugin/plugin.json`. Installed copi
 claude --plugin-dir .                        # load it for one session, reloads on save
 claude plugin validate --strict .claude-plugin/plugin.json   # `.` checks only the marketplace manifest
 node --check hooks/*.js                       # validate does not catch syntax errors
-claude plugin test                            # 73 tests, no session or network needed
+claude plugin test                            # 77 tests, no session or network needed
 ```
 
 If `claude plugin test` says hooks modules are turned off in this process, run it with `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` set. Some builds ignore that setting and leave it to a server-side switch; the Claude Code inside the desktop app (`$CLAUDE_CODE_EXECPATH` in its sessions) runs the tests.
