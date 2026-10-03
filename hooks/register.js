@@ -50,6 +50,7 @@ const LOCKED = /MSB3027|MSB3021|being used by another process/
 
 // Checklist and live activity, drawn above the prompt
 let checklist = { title: '', items: [] } // items: { text, status: pending|active|done|blocked }
+let expanded = false // the band lists every step, not just the current one; kept across sessions
 let activity = ''
 let working = false
 
@@ -358,6 +359,16 @@ async function quickCheck($, file) {
 // ---------------------------------------------------------------- 3. Checklist
 
 const ICON = { done: '✓', active: '▸', pending: '○', blocked: '✗' }
+const STATUS_COLOR = { done: 'green', active: 'cyan', blocked: 'red' }
+
+// One step as the band and the /checklist pane draw it
+function stepRow(Text, it, { indent = '', width = 0 } = {}) {
+  const line = indent + ICON[it.status] + ' ' + it.text
+  const props = width ? { wrap: 'truncate', children: [clip(line, width)] } : { wrap: 'wrap', children: [line] }
+  if (STATUS_COLOR[it.status]) props.color = STATUS_COLOR[it.status]
+  if (it.status === 'done') props.dimColor = true
+  return Text(props)
+}
 const STATUS_ALIASES = { completed: 'done', in_progress: 'active', 'in-progress': 'active', todo: 'pending', failed: 'blocked' }
 
 function normalizeItems(items) {
@@ -507,6 +518,7 @@ async function setUp($, options) {
   }
   const saved = await $.store.get('checklist:' + env.sessionId)
   if (saved && Array.isArray(saved.items)) checklist = saved
+  expanded = (await $.store.get('checklist:expanded')) === true
 
   try {
     env.home = norm((await $.env.get('USERPROFILE')) || (await $.env.get('HOME')) || '')
@@ -809,8 +821,8 @@ export function register(on, options = {}) {
     return {}
   })
 
-  // The band above the prompt: progress, current step, what Claude is doing, checks,
-  // and a quiet note when there is something to review
+  // The band above the prompt: progress and the current step (or, expanded, every step),
+  // what Claude is doing, checks, and a quiet note when there is something to review
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const hasList = checklist.items.length > 0
     const showChecks = checkView.state === 'running' || checkView.state === 'fail'
@@ -819,7 +831,7 @@ export function register(on, options = {}) {
     const asks = !working && brain.dir ? waitingOnUser(env.project).length : 0
     if (!hasList && !working && !showChecks && !toReview && !handoff && !asks) return next(e)
 
-    const { Box, Text } = $.ui.resolve(e)
+    const { Box, Text, Button } = $.ui.resolve(e)
     const width = Math.max(20, (e.props.bodyColumns || 80) - 2)
     const rows = []
 
@@ -827,16 +839,30 @@ export function register(on, options = {}) {
       const done = checklist.items.filter((it) => it.status === 'done').length
       const current = checklist.items.find((it) => it.status === 'active') || checklist.items.find((it) => it.status === 'pending')
       const head = (checklist.title ? checklist.title + '  ' : '') + done + '/' + checklist.items.length
+      // A click, or ctrl+x tab then Enter in the terminal, opens or folds the list
+      const toggle = Button({
+        key: 'checklist-toggle',
+        label: expanded ? '▾' : '▸',
+        plain: true,
+        autoFocus: true,
+        onPress: async () => {
+          expanded = !expanded
+          redraw($)
+          await $.store.set('checklist:expanded', expanded)
+        },
+      })
       rows.push(
         Box({
           flexDirection: 'row',
           columnGap: 1,
           children: [
+            toggle,
             Text({ color: done === checklist.items.length ? 'green' : 'cyan', bold: true, children: [head] }),
-            Text({ wrap: 'truncate', children: [current ? ICON[current.status] + ' ' + current.text : 'all done'] }),
+            ...(expanded ? [] : [Text({ wrap: 'truncate', children: [current ? '· ' + current.text : 'all done'] })]),
           ],
         }),
       )
+      if (expanded) for (const it of checklist.items) rows.push(stepRow(Text, it, { indent: '  ', width }))
     }
     if (working && activity) rows.push(Text({ dimColor: true, wrap: 'truncate', children: [clip('now: ' + activity, width)] }))
     if (showChecks) {
@@ -855,8 +881,9 @@ export function register(on, options = {}) {
     if (asks) rows.push(Text({ dimColor: true, wrap: 'truncate', children: [clip(asks + ' waiting on you · /waiting', width)] }))
 
     const others = await next(e)
-    const maxRows = e.props.maxRows || 4
-    return Box({ flexDirection: 'column', children: [...rows.slice(0, maxRows), ...(others ? [others] : [])] })
+    // Expanded, every step shows; past maxRows the engine scrolls the band ("n more")
+    const shown = expanded ? rows : rows.slice(0, e.props.maxRows || 4)
+    return Box({ flexDirection: 'column', children: [...shown, ...(others ? [others] : [])] })
   })
 
   // The /checklist pane: every step, plus the latest check result
@@ -866,13 +893,7 @@ export function register(on, options = {}) {
     const children = []
     if (checklist.title) children.push(Text({ bold: true, children: [clip(checklist.title, width)] }))
     if (!checklist.items.length) children.push(Text({ dimColor: true, children: ['No checklist yet. Claude adds one for multi-step tasks.'] }))
-    const STATUS_COLOR = { done: 'green', active: 'cyan', blocked: 'red' }
-    for (const it of checklist.items) {
-      const props = { wrap: 'wrap', children: [ICON[it.status] + ' ' + it.text] }
-      if (STATUS_COLOR[it.status]) props.color = STATUS_COLOR[it.status]
-      if (it.status === 'done') props.dimColor = true
-      children.push(Text(props))
-    }
+    for (const it of checklist.items) children.push(stepRow(Text, it))
     children.push(Text({ children: [' '] }))
     if (working && activity) children.push(Text({ dimColor: true, children: [clip('now: ' + activity, width)] }))
     if (checkView.state !== 'idle') {

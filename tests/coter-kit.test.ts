@@ -252,9 +252,41 @@ t("Claude's checklist tool draws progress and the current step above the prompt"
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ ...BAND, surface })
     expect(await ui.find({ type: 'Text', text: 'Commute route  1/3' })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: '▸ Add the route layer' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: '· Add the route layer' })).toBeDefined()
     await ui.unmount()
   }
+})
+
+t('the band opens to every step and folds back, and remembers which across sessions', async ($, on) => {
+  const { store } = stubAll(on)
+  await start($)
+  const items = Array.from({ length: 7 }, (_, i) => ({ text: 'Step ' + (i + 1), status: i < 2 ? 'done' : i === 2 ? 'active' : 'pending' }))
+  await $.tool.call({ tool: 'mcp__coter-kit__checklist', title: 'Big job', items })
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ ...BAND, surface })
+    expect(await ui.find({ type: 'Text', text: '· Step 3' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Step 7/ })).toBeUndefined()
+    await ui.press({ key: 'checklist-toggle' })
+    // Every step, past the band's 4 rows: the engine scrolls the rest
+    expect(await ui.find({ type: 'Text', text: '  ✓ Step 1' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: '  ▸ Step 3' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: '  ○ Step 7' })).toBeDefined()
+    expect(store.get('checklist:expanded')).toBe(true)
+    await ui.press({ key: 'checklist-toggle' })
+    expect(await ui.find({ type: 'Text', text: /Step 7/ })).toBeUndefined()
+    expect(store.get('checklist:expanded')).toBe(false)
+    await ui.unmount()
+  }
+})
+
+t('a session opens the band the way it was last left', async ($, on) => {
+  const { store } = stubAll(on)
+  store.set('checklist:expanded', true)
+  await start($)
+  await $.tool.call({ tool: 'mcp__coter-kit__checklist', items: [{ text: 'One', status: 'done' }, { text: 'Two', status: 'active' }] })
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: '  ✓ One' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: '  ▸ Two' })).toBeDefined()
 })
 
 t('the band shows what Claude is doing while it works', async ($, on) => {

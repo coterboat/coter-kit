@@ -8,7 +8,7 @@ A personal Claude Code plugin for the CLI and the desktop app. It answers one pr
 | **Snapshot** | On startup, `/resume`, `/clear` and after compaction, gives Claude the branch, uncommitted files, last 8 commits, the stack, the last check results, and the brain. `/snapshot` shows exactly what Claude gets. |
 | **Checks** | Remembers which files Claude edits. Before Claude finishes a turn, it runs that project's typecheck or build. If they fail, Claude is sent back to fix them, at most 2 rounds, and never twice for the same failure. Python syntax errors are reported right after the edit. |
 | **Waiting on you** | Mockups, pages and questions Claude is waiting on you for, each with its link, in the brain. `/waiting` lists them; an answer resolves them; unanswered ones drop off after 30 days. |
-| **Checklist** | Claude keeps a live task list with its `checklist` tool. A band above the prompt shows progress, the current step, what Claude is doing right now, and failing checks. `/checklist` opens the full list. |
+| **Checklist** | Claude keeps a live task list with its `checklist` tool. A band above the prompt shows progress, the current step, what Claude is doing right now, and failing checks. The ▸ at its start opens every step in the band and ▾ folds it back (click it, or ctrl+x tab then Enter in the terminal); it stays the way you left it, across sessions. `/checklist` opens the list in a pane. |
 
 ## How the brain avoids rotting
 
@@ -123,7 +123,7 @@ When you release, bump `version` in `.claude-plugin/plugin.json`. Installed copi
 claude --plugin-dir .                        # load it for one session, reloads on save
 claude plugin validate --strict .claude-plugin/plugin.json   # `.` checks only the marketplace manifest
 node --check hooks/*.js                       # validate does not catch syntax errors
-claude plugin test                            # 39 tests, no session or network needed
+claude plugin test                            # 43 tests, no session or network needed
 ```
 
 If `claude plugin test` says hooks modules are turned off in this process, run it with `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` set. Some builds ignore that setting and leave it to a server-side switch; the Claude Code inside the desktop app (`$CLAUDE_CODE_EXECPATH` in its sessions) runs the tests.
