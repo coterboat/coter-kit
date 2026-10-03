@@ -1,6 +1,6 @@
 # Handoff
 
-From home on alexs-macbook-pro, 2026-10-03 20:22 UTC (id u9pl3sd4).
+From home on alexs-macbook-pro, 2026-10-03 20:35 UTC (id upll8fcz).
 
 Sessions with coter-kit pick this up by themselves, including ones already open. Without it yet, install it first, in a terminal:
 
@@ -11,15 +11,14 @@ claude plugin install coter-kit@coter-kit --config brainRemote=https://github.co
 
 ---
 
-Goal: home Phase 1 (BRIEF.md in coterboat/home): the Now strip, one local page on 127.0.0.1 ranking what needs Alex right now, built by plain code (no model calls) from coter-kit's live status files, the coter-brain journal (read-only) and GitHub via `gh api`. Each item has a one-line evidence and a link to its source.
+Goal: home (github.com/coterboat/home, private): Alex's launchpad. Phase 1 is the Now strip, one local page ranking what needs Alex right now, built by plain code (no model calls) from coter-kit's live status files, the coter-brain journal (read-only) and GitHub via `gh api`.
 
-Where it stands: Built and verified on the Mac. Commit 79d08a9 on branch claude/blissful-booth-8e36ba in the worktree ~/Documents/GitHub/home/.claude/worktrees/blissful-booth-8e36ba. NOT pushed: the GitHub repo coterboat/home doesn't exist yet. `npm test`: 23/23 pass (one reader per source against fixtures/, plus ranking, snooze/dismiss/restore, offMachine). Checked on the page at http://127.0.0.1:4800 (`npm start`): 22 real items in the right order; a synthetic needs_ok (test instance on :4801 with a scratch live dir) ranked above an 11h waiting note; dismiss and restore by click and by keys wrote append-only records; POST guards return 403/415/421; light, dark and phone width look right. log/ui.jsonl in the repo is still empty (tests used a scratch log).
+Where it stands: Done, pushed and always on. main = 3fee858 on GitHub and in the main checkout ~/Documents/GitHub/home (tracks origin/main). A LaunchAgent (com.coterboat.home, ~/Library/LaunchAgents) runs that checkout's server.mjs on http://127.0.0.1:4800 at login with /opt/homebrew/bin/node. Verified: it comes back after kill -9, gh works under launchd (all three sources green), and a git pull in the main checkout restarts it on the new code by itself (exit 75 when server.mjs or lib/ changes). `npm test`: 25/25. Each project's open waiting notes fold into one row (ref chips) that opens to the questions, each with its own open/snooze/dismiss; 'Snooze all' on a group writes one record naming every question; a restore takes back only the keys it names. Checked on the page: fold, open state remembered after reload, keys j/k/l/h/s, snooze of one question and its restore.
 
-Decisions: needs_ok first, then the longest wait (BRIEF.md). An idle session waits on Alex from the end of its last turn; idle with no turns isn't an item. Scheduled runs never make your_move. GitHub: PRs and review requests untouched for 30 days are dropped (otherwise year-old Copilot drafts top the strip); a default-branch failure counts only when coterboat's push/run is in the failing streak, for repos pushed in the last 7 days; a streak running past the first 30 runs is re-read per workflow, and the item key is anchored on the last green run so a dismiss sticks. Waiting notes dedupe per project on trim+lowercase (the brief's rule, slightly looser than coter-kit's sameText). Checklist words live under item.private and offMachine() drops them.
+Decisions: Alex 10-3: fold and expand the waiting notes; always-on via LaunchAgent from the main checkout; repo private. `/now` keeps `items` flat (for phone pushes or Grok Bot later) and adds `rows` (folded) for the page. Worktrees run their own copy as `home-dev` on 4801 (.claude/launch.json); `home` attaches to the always-on 4800.
 
 Next steps:
-1. Alex: answer home-repo (create coterboat/home private + push), home-group (fold waiting notes per project?), home-always-on (LaunchAgent?).
-2. Claude, on the Mac, once home-repo is a yes: `gh repo create coterboat/home --private`, push the branch as main.
-3. Alex: live with the strip for a week, then Phase 2 (project tiles, Sessions panel, PC state over webhook/Tailscale).
+1. Alex: live with the strip for a week (BRIEF.md), then decide Phase 2: project tiles, Sessions panel, PC state over a webhook or Tailscale.
+2. Claude, when changing home: work in a worktree, test on 4801, push to main, then `git -C ~/Documents/GitHub/home pull --ff-only`. The LaunchAgent picks it up (`npm run status` / `npm run restart` in the main checkout if not).
 
-Gotchas: coter-kit's status files gained `usage` and `rate_limits` on 10-3. That's fine: the real-files test checks only that the fixture's fields are still there. JoinOurPlace's 'Deploy API' workflow (ctarveriii/JoinOurPlace) has failed all 13 runs on main since 9-1 and tops the strip; dismiss it if it's known. The page re-renders only when items change, so browser-tool element refs can go stale between reads.
+Gotchas: `touch` doesn't trigger the restart-on-change (macOS's watcher ignores timestamp-only changes); real writes and pulls do. The log is ~/Library/Logs/home.log. JoinOurPlace's 'Deploy API' has never passed on main (13 runs since 9-1) and tops the strip until Alex dismisses it. The worktree branch claude/blissful-booth-8e36ba tracks origin/main; push it with `git push origin claude/blissful-booth-8e36ba:main`.
