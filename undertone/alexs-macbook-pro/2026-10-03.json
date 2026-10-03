@@ -18,7 +18,7 @@
     "concurrent": {
       "activeMin": 36,
       "laneMin": 51,
-      "blockedMin": 54,
+      "blockedMin": 60,
       "brokenMin": {},
       "sessions": 10,
       "turns": 9,
@@ -28,16 +28,16 @@
       "last": "16:43"
     },
     "jobsnearme": {
-      "activeMin": 294,
-      "laneMin": 315,
+      "activeMin": 324,
+      "laneMin": 349,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 2,
-      "turns": 37,
-      "commits": 24,
+      "turns": 41,
+      "commits": 27,
       "pushes": 1,
       "first": "12:43",
-      "last": "17:36"
+      "last": "18:05"
     },
     "coter-kit": {
       "activeMin": 118,
