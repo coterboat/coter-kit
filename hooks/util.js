@@ -8,6 +8,7 @@ export const env = {
   sessionRoot: '',
   sessionId: '',
   project: '', // the repository's name, the same on every machine
+  worktree: '', // the worktree's folder name when the session runs in one, else ''
   device: '',
   home: '',
 }

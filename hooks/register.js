@@ -34,6 +34,8 @@ import {
   REFRESH_EVERY_MS,
 } from './brain.js'
 import { formatWaiting } from './waiting.js'
+import { liveRoot, dayOf, beatCredit, liveRecord, liveness, lastBeatIn, glance, KEEP_DAYS } from './live.js'
+import { REVIEW_TOOL, VERDICTS, reviewQueue, queueText, recordVerdicts, picks, challenges, applyVerdict, applyPicks, keepAsIs, userDecides, score, isGuarded } from './review.js'
 
 const CHECKLIST_TOOL = 'mcp__coter-kit__checklist'
 const PANE = 'coter-checklist'
@@ -78,6 +80,22 @@ let turnStartedAt = 0
 const NOT_THE_USER = new Set(['task-notification', 'scheduled-trigger', 'peer', 'peer-send-message', 'projects-relay', 'coordinator', 'observer', 'observer-activity'])
 // The band offers /catchup after this much work without the user
 const CATCHUP_AFTER_MS = 30 * 60_000
+
+// The live status file (live.js): this session's state as other tools read it
+let liveFile = ''
+let liveState = 'idle' // working | needs_ok | your_move | idle | ended
+let liveStateSince = 0
+let openedAt = 0
+let lastEventAt = 0
+let beats = [] // [at, credit]: the user's beats and the time each one earned
+let turns = [] // [start, end] of each finished main-thread turn
+let lastTurnEnd = 0
+let brokenSince = 0
+let branch = ''
+let publishTimer = null
+let heartbeatTimer = null
+let othersNeedingYou = [] // other live sessions on this machine waiting on the user, for the band
+const LIVE_COMMANDS = ['catchup', 'glance', 'waiting', 'brain', 'checklist', 'checks', 'snapshot', 'handoff']
 
 // The session's setup, started once (see prepare)
 let ready = null
@@ -356,8 +374,11 @@ async function runChecks($, targets) {
   await $.store.set('checks', stored)
   if (failures.length) {
     checkView = { state: 'fail', summary: failures.map((f) => f.name).join(', ') + ' failed', at: Date.now() }
+    // How long the build has been broken is what the home dashboard ranks on
+    brokenSince ||= await $.clock.now()
   } else if (passed.length) {
     checkView = { state: 'pass', summary: passed.join(', ') + ' passed', at: Date.now() }
+    brokenSince = 0
   } else {
     checkView = { state: 'skipped', summary: 'no checks for these files', at: Date.now() }
   }
@@ -444,6 +465,7 @@ function describeTool(e) {
 
 function redraw($) {
   $.ui.invalidate('ui.render')
+  publish($)
 }
 
 // ---------------------------------------------------------------- tool specs
@@ -494,6 +516,36 @@ const REMEMBER_SPEC = {
       },
     },
     required: ['notes'],
+  },
+}
+
+const REVIEW_SPEC = {
+  name: 'review',
+  description:
+    "The outside reviewer's desk, for the review-brain skill only; do not use it otherwise. action 'list' returns the notes to review: everything waiting in /brain, and live notes from the last week without a verdict, with ids and tags. action 'verdicts' records one verdict per note: accept, reject, rewrite, merge, retire or ask. Every verdict but ask needs evidence (a file:line, a commit, a session and time, or the id of the note it repeats). Changing a live note also needs a steelman: the strongest case for keeping it as it is. rewrite and merge need a replacement; merge names the other notes in with. A reject of an exact duplicate names the live note in duplicateOf. A verdict against the user's own note is kept as a challenge, and a topic replaced twice in a week is frozen: the user decides both. Nothing is applied until the user presses for it in /brain, except exact duplicates.",
+  inputSchema: {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: ['list', 'verdicts'] },
+      verdicts: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            ref: { type: 'string', description: "The note's id" },
+            verdict: { type: 'string', enum: VERDICTS },
+            reason: { type: 'string', description: 'One short sentence' },
+            evidence: { type: 'string', description: 'What shows it: a file:line, a commit, a session and time, or the id of the note it repeats' },
+            steelman: { type: 'string', description: 'For a verdict that changes a live note: the best case for keeping it' },
+            replacement: { type: 'object', properties: { kind: { type: 'string', enum: KINDS }, text: { type: 'string' } }, description: 'For rewrite and merge: the note that replaces it' },
+            with: { type: 'array', items: { type: 'string' }, description: 'For merge: the other notes the replacement absorbs' },
+            duplicateOf: { type: 'string', description: 'For reject: the live note this one repeats word for word' },
+          },
+          required: ['ref', 'verdict'],
+        },
+      },
+    },
+    required: ['action'],
   },
 }
 
@@ -554,6 +606,146 @@ const CATCHUP_PROMPT = (away) =>
   'Next: the next step, and who takes it\n' +
   'Use exact names (files, branches, specs, commands). No preamble and no closing line.'
 
+// ---------------------------------------------------------------- live status file
+
+// Every record in today's and yesterday's folders, this session's included
+async function readLive($, now) {
+  const root = liveRoot(env.home)
+  const records = []
+  for (const day of new Set([dayOf(now), dayOf(now - 86_400_000)])) {
+    for (const f of await listDir($, join(root, day))) {
+      if (f.kind !== 'file' || !f.name.endsWith('.json')) continue
+      const rec = safeJson(await readText($, join(root, day + '/' + f.name)))
+      if (rec && rec.v) records.push(rec)
+    }
+  }
+  return records
+}
+
+// This session as liveRecord (live.js) reads it
+function liveSelf() {
+  const asks = brain.dir ? waitingOnUser(env.project) : []
+  const handoff = brain.dir ? waitingHandoffs()[0] : null
+  return {
+    id: env.sessionId,
+    device: env.device,
+    project: env.project,
+    worktree: env.worktree,
+    folder: env.sessionRoot,
+    branch,
+    openedAt,
+    lastEventAt,
+    state: liveState,
+    stateSince: liveStateSince,
+    scheduled: unattended,
+    checklist,
+    checks: checkView,
+    brokenSince,
+    needs: brain.dir
+      ? {
+          waiting: asks.length,
+          waiting_refs: asks.map((e) => e.ref).filter(Boolean).slice(0, 12),
+          handoff: handoff ? { id: handoff.id, from: handoff.from || '', device: handoff.device, at: new Date(handoff.at).toISOString() } : null,
+          review: pendingEntries().length,
+        }
+      : null,
+    beats,
+    turns,
+    turnStartedAt,
+  }
+}
+
+async function publishNow($) {
+  if (!liveFile) return
+  try {
+    await $.fs.write(liveFile, JSON.stringify(liveRecord(liveSelf(), await $.clock.now())) + '\n')
+  } catch (err) {
+    $.ui.log('live status not written: ' + (err?.message || err))
+  }
+}
+
+// At most one write a second, however many changes come in; the write reads the state then
+function publish($) {
+  if (!liveFile || publishTimer) return
+  publishTimer = $.clock.after(1_000, async () => {
+    publishTimer = null
+    await publishNow($)
+  })
+}
+
+async function setLiveState($, state) {
+  const now = await $.clock.now()
+  if (state !== liveState) {
+    liveState = state
+    liveStateSince = now
+  }
+  lastEventAt = now
+  publish($)
+}
+
+// One of the user's beats (a message, a kit command, an answered permission prompt) and the
+// time before it that counts as theirs (live.js, beatCredit)
+async function userBeat($) {
+  if (unattended || !liveFile) return
+  const now = await $.clock.now()
+  const elsewhere = lastBeatIn(await readLive($, now), env.sessionId)
+  const own = beats.length ? beats[beats.length - 1][0] : 0
+  beats.push([now, beatCredit(now, { lastBeatAnywhere: Math.max(elsewhere, own), lastTurnEnd, openedAt })])
+  lastEventAt = now
+  publish($)
+}
+
+async function currentBranch($) {
+  const r = await run($, ['git', '-C', env.sessionRoot, 'rev-parse', '--abbrev-ref', 'HEAD'], { timeoutMs: 5_000 })
+  return r.exitCode === 0 ? r.stdout.trim() : ''
+}
+
+// Day folders past a week go; the name is checked so nothing else is ever removed
+async function pruneLive($, now) {
+  if (!env.home) return
+  const root = liveRoot(env.home)
+  const cutoff = dayOf(now - KEEP_DAYS * 86_400_000)
+  for (const d of await listDir($, root)) {
+    if (d.kind !== 'dir' || !/^\d{4}-\d{2}-\d{2}$/.test(d.name) || d.name >= cutoff) continue
+    const path = join(root, d.name)
+    await run($, env.isWindows ? ['cmd', '/d', '/s', '/c', 'rmdir', '/s', '/q', path] : ['rm', '-rf', path], { timeoutMs: 10_000 })
+  }
+}
+
+// Other running sessions here that are waiting on the user, for the band
+function needingYou(records, now) {
+  return records.filter(
+    (r) => r.id !== env.sessionId && !r.scheduled && liveness(r, now) === 'live' && (r.state === 'needs_ok' || (r.state === 'your_move' && now - Date.parse(r.state_since) >= 2 * 60_000)),
+  )
+}
+
+// Opens this session's record (a resumed session picks its old one back up) and keeps it beating
+async function startLive($) {
+  const now = await $.clock.now()
+  openedAt = now
+  liveStateSince = now
+  lastEventAt = now
+  const mine = (await readLive($, now)).find((r) => r.id === env.sessionId)
+  if (mine) {
+    openedAt = Date.parse(mine.opened_at) || now
+    beats = Array.isArray(mine.beats) ? mine.beats : []
+    turns = Array.isArray(mine.turns) ? mine.turns : []
+    lastTurnEnd = turns.length ? turns[turns.length - 1][1] : 0
+  }
+  liveFile = join(liveRoot(env.home), dayOf(openedAt) + '/' + env.sessionId.replace(/[^\w-]/g, '') + '.json')
+  branch = await currentBranch($)
+  await pruneLive($, now)
+  heartbeatTimer?.cancel()
+  heartbeatTimer = $.clock.every(60_000, async () => {
+    branch = await currentBranch($)
+    const at = await $.clock.now()
+    othersNeedingYou = needingYou(await readLive($, at), at)
+    await publishNow($)
+    $.ui.invalidate('ui.render')
+  })
+  await publishNow($)
+}
+
 // ---------------------------------------------------------------- handoffs
 
 // Writes the readable copy and pushes at once: the next session may be on another machine
@@ -574,6 +766,7 @@ async function setUp($, options) {
   env.sessionId = await $.session.id()
   const repo = await $.session.repo().catch(() => null)
   env.project = basename(repo?.root || env.sessionRoot) || 'scratch'
+  env.worktree = repo?.root && norm(repo.root) !== env.sessionRoot ? basename(env.sessionRoot) : ''
   for (const candidate of env.isWindows ? ['python', 'py'] : ['python3', 'python']) {
     const r = await run($, [candidate, '--version'], { timeoutMs: 5_000 })
     if (r.exitCode === 0) {
@@ -606,6 +799,11 @@ async function setUp($, options) {
     brain.dir = ''
     $.ui.log('brain unavailable: ' + (err?.message || err))
   }
+  try {
+    if (env.home) await startLive($)
+  } catch (err) {
+    $.ui.log('live status unavailable: ' + (err?.message || err))
+  }
 }
 
 // Runs setUp once, for whichever comes first: a session may raise the startup SessionStart,
@@ -620,7 +818,7 @@ export function register(on, options = {}) {
   on('session.start', async ($, e, next) => {
     await prepare($, options)
 
-    for (const spec of [CHECKLIST_SPEC, REMEMBER_SPEC, RECALL_SPEC]) await $.tool.register(spec)
+    for (const spec of [CHECKLIST_SPEC, REMEMBER_SPEC, RECALL_SPEC, REVIEW_SPEC]) await $.tool.register(spec)
 
     // Commands last: a name clash throws, and nothing after it in this hook would run
     for (const spec of [
@@ -630,6 +828,7 @@ export function register(on, options = {}) {
       { name: 'brain', description: 'Review what Claude learned about working with you', argumentHint: '[sync|digest]', immediate: true },
       { name: 'handoff', description: 'Leave this conversation for the next session to pick up, on any machine', argumentHint: '[anything to add]' },
       { name: 'catchup', description: 'What happened since your last message, at a glance', immediate: true },
+      { name: 'glance', description: 'Every running session on this machine: what needs you, what is working, today\'s time', immediate: true },
       { name: 'waiting', description: 'What is waiting on you: mockups to review and questions to answer, with links', argumentHint: '[all]' },
     ]) {
       try {
@@ -648,6 +847,11 @@ export function register(on, options = {}) {
     if (e.source === 'clear') {
       checklist = { title: '', items: [] }
       env.sessionId = await $.session.id()
+      beats = []
+      turns = []
+      lastTurnEnd = 0
+      liveState = 'idle'
+      if (env.home) await startLive($)
       redraw($)
     }
     let snapshot = ''
@@ -687,6 +891,7 @@ export function register(on, options = {}) {
       workSinceLook = 0
       if (turnStartedAt) turnStartedAt = lastLookAt
       await saveLook($)
+      await userBeat($)
     }
     const extra = []
     try {
@@ -712,6 +917,34 @@ export function register(on, options = {}) {
       activity = describeTool(e)
       redraw($)
     }
+    const result = await next(e)
+    // The call came back while the session waited on a permission prompt: the user answered it
+    if (!e.agentId && liveState === 'needs_ok') {
+      await userBeat($)
+      await setLiveState($, 'working')
+    }
+    return result
+  })
+
+  // A permission prompt is waiting on the user
+  on('classic.Notification', async ($, e, next) => {
+    if (/permission/i.test(String(e.notification_type || '') + ' ' + String(e.message || ''))) await setLiveState($, 'needs_ok')
+    return next(e)
+  })
+
+  on('session.end', async ($, e, next) => {
+    heartbeatTimer?.cancel()
+    publishTimer?.cancel()
+    publishTimer = null
+    liveState = 'ended'
+    liveStateSince = await $.clock.now()
+    await publishNow($)
+    return next(e)
+  })
+
+  // The kit's commands are the user looking, so they count as beats
+  on('command.run', async ($, e, next) => {
+    if (LIVE_COMMANDS.includes(e.command)) await userBeat($)
     return next(e)
   })
 
@@ -815,16 +1048,33 @@ export function register(on, options = {}) {
   on('tool.call', { tool: 'mcp__coter-kit__remember' }, async ($, e) => {
     if (!brain.dir) return { result: 'Memory is unavailable in this session.' }
     const notes = Array.isArray(e.notes) ? e.notes : []
+    // A note another session wrote moments ago may not be loaded yet: take it in before resolving
+    if (notes.some((n) => n.resolves && !brain.entries.has(n.resolves))) await refresh(ioFor($))
+    const missing = notes.map((n) => n.resolves).filter((id) => id && !brain.entries.has(id))
     const added = await remember(ioFor($), notes)
     redraw($)
-    if (!added.length) return { result: 'Nothing new to save (already known, or empty).' }
+    const notFound = missing.length ? ' Could not find ' + missing.join(', ') + ' to resolve, so nothing was retired: check the id with ' + RECALL_TOOL + '.' : ''
+    const retired = notes.filter((n) => n.resolves && !missing.includes(n.resolves) && /^done[.!]?$/i.test(String(n.text || '').trim())).map((n) => n.resolves)
+    if (!added.length) return { result: (retired.length ? 'Retired ' + retired.join(', ') + '.' : 'Nothing new to save (already known, or empty).') + notFound }
     const waiting = added.filter((n) => n.status === 'pending').length
     const handoff = added.find((n) => n.kind === 'handoff')
     const shipped = handoff ? await shipHandoff($, handoff) : ''
     return {
       result:
-        'Saved ' + added.length + ' note(s): ' + added.map((n) => n.id).join(', ') + '.' + (waiting ? ' ' + waiting + ' wait for the user to review them in /brain.' : '') + shipped,
+        'Saved ' + added.length + ' note(s): ' + added.map((n) => n.id).join(', ') + '.' + (waiting ? ' ' + waiting + ' wait for the user to review them in /brain.' : '') + shipped + notFound,
     }
+  })
+
+  // Every running session on this machine, what needs the user first
+  on('command.run', { command: 'glance' }, async ($) => {
+    if (!env.home) return { text: 'The live status file is unavailable in this session.' }
+    const now = await $.clock.now()
+    await publishNow($)
+    const g = glance(await readLive($, now), now)
+    const head = g.rows.length + ' session(s) running' + (g.waiting ? ' · ' + g.waiting + ' waiting on you (/waiting)' : '') + ' · today: you ' + span(g.you * 60_000) + ', Claude ' + span(g.claude * 60_000)
+    const lines = [head, ...g.rows.map((r) => r.text)]
+    if (g.died) lines.push('(' + g.died + ' session(s) stopped without closing in the last hour)')
+    return { text: lines.join('\n') }
   })
 
   // Back in a long session: the kit's own facts, then six lines from the transcript
@@ -853,6 +1103,26 @@ export function register(on, options = {}) {
     return { text: reply.text.trim() + '\n\n' + (await shipHandoff($, handoff)).trim() }
   })
 
+  on('tool.call', { tool: REVIEW_TOOL }, async ($, e) => {
+    if (!brain.dir) return { result: 'Memory is unavailable in this session.' }
+    if (e.action === 'list') {
+      await refresh(ioFor($))
+      const queue = reviewQueue()
+      return { result: queue.length + ' note(s) to review:\n' + queueText(queue) }
+    }
+    if (e.action === 'verdicts') {
+      const r = await recordVerdicts(ioFor($), e.verdicts)
+      redraw($)
+      return {
+        result:
+          'Recorded ' + r.recorded + ' verdict(s); they wait for the user in /brain.' +
+          (r.auto.length ? ' Dropped as exact duplicates: ' + r.auto.join(', ') + '.' : '') +
+          (r.refused.length ? ' Refused (fix and send again): ' + r.refused.join('; ') : ''),
+      }
+    }
+    return { result: "action must be 'list' or 'verdicts'" }
+  })
+
   on('tool.call', { tool: 'mcp__coter-kit__recall' }, async ($, e) => {
     if (!brain.dir) return { result: 'Memory is unavailable in this session.' }
     try {
@@ -867,15 +1137,23 @@ export function register(on, options = {}) {
   on('turn.start', async ($, e, next) => {
     working = true
     activity = 'Thinking'
-    if (!e.agentId) turnStartedAt = await $.clock.now()
+    if (!e.agentId) {
+      turnStartedAt = await $.clock.now()
+      await setLiveState($, 'working')
+    }
     redraw($)
     return next(e)
   })
 
   on('turn.complete', async ($, e, next) => {
     if (e.agentId) return next(e)
-    workSinceLook += turnStartedAt ? (await $.clock.now()) - turnStartedAt : e.durationMs || 0
+    const endedAt = await $.clock.now()
+    workSinceLook += turnStartedAt ? endedAt - turnStartedAt : e.durationMs || 0
+    if (turnStartedAt) turns.push([turnStartedAt, endedAt])
+    lastTurnEnd = endedAt
     turnStartedAt = 0
+    // A scheduled run never waits on the user
+    await setLiveState($, unattended ? 'idle' : 'your_move')
     await saveLook($)
     working = false
     activity = ''
@@ -948,7 +1226,8 @@ export function register(on, options = {}) {
     const asks = !working && brain.dir ? waitingOnUser(env.project).length : 0
     const away = unattended ? 0 : await workWithoutYou($)
     const offerCatchup = lastLookAt > 0 && away >= CATCHUP_AFTER_MS
-    if (!hasList && !working && !showChecks && !toReview && !handoff && !asks && !offerCatchup) return next(e)
+    const elsewhere = othersNeedingYou[0]
+    if (!hasList && !working && !showChecks && !toReview && !handoff && !asks && !offerCatchup && !elsewhere) return next(e)
 
     const { Box, Text, Button } = $.ui.resolve(e)
     const width = Math.max(20, (e.props.bodyColumns || 80) - 2)
@@ -996,9 +1275,18 @@ export function register(on, options = {}) {
     if (handoff) {
       rows.push(Text({ color: 'cyan', wrap: 'truncate', children: [clip('handoff waiting from ' + (handoff.from || 'a session') + ' on ' + handoff.device + ' (' + ago(handoff.at) + ') · say "pick it up"', width)] }))
     }
-    if (toReview) rows.push(Text({ dimColor: true, wrap: 'truncate', children: [clip('brain: ' + toReview + ' new thing(s) learned · /brain to review', width)] }))
+    if (toReview) {
+      const ready = picks().length
+      const hint = ready ? ready + " of the reviewer's picks ready" : toReview >= 15 ? '/coter-kit:review-brain can sort them' : ''
+      rows.push(Text({ dimColor: true, wrap: 'truncate', children: [clip('brain: ' + toReview + ' to review · /brain' + (hint ? ' · ' + hint : ''), width)] }))
+    }
     if (asks) rows.push(Text({ dimColor: true, wrap: 'truncate', children: [clip(asks + ' waiting on you · /waiting', width)] }))
     if (offerCatchup) rows.push(Text({ color: 'cyan', wrap: 'truncate', children: [clip('catch up: /catchup · ' + span(away) + ' of work since your last message', width)] }))
+    if (elsewhere) {
+      const who = elsewhere.project + (elsewhere.worktree ? ' · ' + elsewhere.worktree : '')
+      const more = othersNeedingYou.length > 1 ? ' (+' + (othersNeedingYou.length - 1) + ' more)' : ''
+      rows.push(Text({ color: 'yellow', wrap: 'truncate', children: [clip('elsewhere: ' + who + (elsewhere.state === 'needs_ok' ? ' needs your OK' : ' is your move') + more + ' · /glance', width)] }))
+    }
 
     const others = await next(e)
     // Expanded, every step shows; past maxRows the engine scrolls the band ("n more")
@@ -1053,25 +1341,66 @@ export function register(on, options = {}) {
       : brain.remote
         ? 'not synced yet this session'
         : 'local only'
+    const label = (n) => clip(n.kind + (n.project ? ' · ' + n.project : '') + (n.source === 'digest' ? ' · digest' : '') + ': ' + n.text, width)
+    // The reviewer's verdict under a note, with why, and whether it is the user's call alone
+    const verdictLine = (n) => {
+      const v = n.review
+      if (!v || v.by === 'user') return null
+      // The flags come first, so a narrow pane never cuts off whose call it is
+      const flags = [isGuarded(n) ? 'yours: your call' : '', v.frozen ? 'unsettled: your call' : ''].filter(Boolean).join(', ')
+      const text = '  ↳ reviewer: ' + v.verdict + (flags ? ' (' + flags + ')' : '') + (v.reason ? ' · ' + v.reason : '') + (v.evidence ? ' · ' + v.evidence : '') + (v.replacement ? ' → "' + v.replacement.text + '"' : '')
+      return Text({ key: 'why-' + n.id, dimColor: true, wrap: 'wrap', children: [clip(text, 500)] })
+    }
+    const ready = picks()
+    const challenged = challenges()
     const children = [
       Text({ bold: true, children: [active + ' notes in use · ' + pending.length + ' to review · ' + sync] }),
       Text({ dimColor: true, wrap: 'truncate', children: ['Profile: ' + join(brain.dir, 'profile.md')] }),
-      Text({ children: [' '] }),
     ]
-    if (!pending.length) children.push(Text({ dimColor: true, children: ['Nothing to review. New preferences and vocabulary show up here.'] }))
+    const tally = score()
+    if (tally) children.push(Text({ dimColor: true, children: [tally] }))
+    if (ready.length) {
+      children.push(
+        Button({
+          key: 'apply-picks',
+          label: "Apply the reviewer's picks (" + ready.length + ')',
+          plain: true,
+          onPress: async () => (await applyPicks(ioFor($)), redraw($)),
+        }),
+      )
+    }
+    children.push(Text({ children: [' '] }))
+    if (!pending.length) children.push(Text({ dimColor: true, children: ['Nothing to review. New preferences, vocabulary and digest notes show up here.'] }))
     for (const p of pending.slice(0, 15)) {
+      const keep = async () => (await userDecides(ioFor($), brain.entries.get(p.id), 'keep'), await setStatus(ioFor($), p.id, 'active'), redraw($))
+      const drop = async () => (await userDecides(ioFor($), brain.entries.get(p.id), 'drop'), await setStatus(ioFor($), p.id, 'rejected'), redraw($))
       children.push(
         Box({
           key: 'row-' + p.id,
           flexDirection: 'row',
           columnGap: 1,
-          children: [
-            Button({ key: 'keep-' + p.id, label: 'keep', plain: true, onPress: async () => (await setStatus(ioFor($), p.id, 'active'), redraw($)) }),
-            Button({ key: 'drop-' + p.id, label: 'drop', plain: true, onPress: async () => (await setStatus(ioFor($), p.id, 'rejected'), redraw($)) }),
-            Text({ wrap: 'wrap', children: [clip(p.kind + (p.project ? ' · ' + p.project : '') + (p.source === 'digest' ? ' · digest' : '') + ': ' + p.text, width)] }),
-          ],
+          children: [Button({ key: 'keep-' + p.id, label: 'keep', plain: true, onPress: keep }), Button({ key: 'drop-' + p.id, label: 'drop', plain: true, onPress: drop }), Text({ wrap: 'wrap', children: [label(p)] })],
         }),
       )
+      const why = verdictLine(p)
+      if (why) children.push(why)
+    }
+    // Live notes the reviewer wants changed: carry out its verdict, or keep the note as it is
+    if (challenged.length) {
+      children.push(Text({ children: [' '] }), Text({ bold: true, children: ['The reviewer would change ' + challenged.length + ' live note(s)'] }))
+      for (const c of challenged.slice(0, 10)) {
+        const take = async () => (await applyVerdict(ioFor($), brain.entries.get(c.id)), redraw($))
+        const stand = async () => (await keepAsIs(ioFor($), brain.entries.get(c.id)), redraw($))
+        children.push(
+          Box({
+            key: 'live-' + c.id,
+            flexDirection: 'row',
+            columnGap: 1,
+            children: [Button({ key: 'take-' + c.id, label: c.review.verdict, plain: true, onPress: take }), Button({ key: 'stand-' + c.id, label: 'keep', plain: true, onPress: stand }), Text({ wrap: 'wrap', children: [label(c)] })],
+          }),
+        )
+        children.push(verdictLine(c))
+      }
     }
     return Box({ flexDirection: 'column', children })
   })

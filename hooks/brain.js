@@ -41,6 +41,7 @@ export const brain = {
   unseen: [], // ids that other sessions wrote after this one loaded, not yet shown to Claude
   lastPull: 0, // when the brain was last re-read (and pulled, with a remote)
   lastSync: null, // { ok, at, error, arrived }
+  overrules: [], // the user's disagreements with the reviewer (review.js)
   syncTimer: null,
   refreshing: null,
 }
@@ -72,7 +73,7 @@ export function redact(text) {
 
 const slug = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 32)
 const newId = () => Date.now().toString(36).slice(-5) + Math.random().toString(36).slice(2, 5)
-const sameText = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+export const sameText = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 
 // Clones or creates the brain, brings it up to date, and loads it
 export async function initBrain(io, options = {}) {
@@ -131,11 +132,30 @@ export async function loadBrain(io) {
     }
   }
   ops.sort((a, b) => a.at - b.at)
+  const overrules = []
   for (const op of ops) {
     const entry = entries.get(op.ref)
     if (entry && op.op === 'status') entries.set(op.ref, { ...entry, status: op.status, updatedAt: op.at })
+    // The reviewer's latest verdict on a note (review.js), and the user's disagreements with it
+    if (entry && op.op === 'review') entries.set(op.ref, { ...entry, review: op })
+    if (op.op === 'overrule') overrules.push(op)
+  }
+  // Notes saved before 0.7.0 don't say they answer a question. The answer was written in the
+  // same remember call that retired the question, so it is the decision from that machine
+  // saved within a few seconds of it
+  for (const op of ops) {
+    if (op.op !== 'status' || op.status !== 'superseded' || entries.get(op.ref)?.kind !== 'waiting') continue
+    for (const e of entries.values()) {
+      if (!e.answers && e.kind === 'decision' && e.device === op.device && Math.abs(op.at - e.at) < 5_000) entries.set(e.id, { ...e, answers: op.ref })
+    }
   }
   brain.entries = entries
+  brain.overrules = overrules
+}
+
+// Review and overrule lines, written as they are (review.js decides what they say)
+export async function appendOps(io, rows) {
+  await append(io, rows)
 }
 
 // ---------------------------------------------------------------- writing
@@ -161,7 +181,14 @@ export async function remember(io, notes, { source = 'claude' } = {}) {
     const text = clip(redact(String(note.text || '').trim()), MAX_TEXT[kind] || 400)
     if (!kind || !text) continue
     const confirmed = note.confirmed === true && !fromDigest
-    const project = GLOBAL_KINDS.has(kind) || note.scope === 'global' ? '' : env.project
+    // The reviewer runs in coter-kit's folder but rewrites notes of every project
+    const project = GLOBAL_KINDS.has(kind) || note.scope === 'global' ? '' : source === 'review' && typeof note.project === 'string' ? note.project : env.project
+    const replaced = !fromDigest && note.resolves ? brain.entries.get(note.resolves) : null
+    // "done" with resolves retires the note it names; it isn't a note of its own
+    if (note.resolves && /^done[.!]?$/i.test(text)) {
+      if (replaced) rows.push(setStatusRow(replaced.id, 'superseded'))
+      continue
+    }
     const dupe = [...brain.entries.values()].find(
       (e) => e.kind === kind && (e.project || '') === project && sameText(e.text) === sameText(text) && (e.status !== 'rejected' || fromDigest),
     )
@@ -180,13 +207,15 @@ export async function remember(io, notes, { source = 'claude' } = {}) {
       ...(kind === 'waiting' ? waitingFields(note) : {}),
       status: (NEEDS_REVIEW.has(kind) || fromDigest) && !confirmed ? 'pending' : 'active',
       source,
+      // Lineage and authorship, for the reviewer's anti-churn rules (review.js)
+      ...(replaced ? { replaces: replaced.id } : {}),
+      ...(confirmed ? { confirmed: true } : {}),
+      ...(replaced && replaced.kind === 'waiting' ? { answers: replaced.id } : {}),
     }
     brain.entries.set(entry.id, entry)
     rows.push(entry)
     added.push(entry)
-    if (note.resolves && !fromDigest && brain.entries.has(note.resolves)) {
-      rows.push(setStatusRow(note.resolves, 'superseded'))
-    }
+    if (replaced) rows.push(setStatusRow(replaced.id, 'superseded'))
   }
   await append(io, rows)
   return added

@@ -7,9 +7,9 @@ Started 2026-10-03. The goal: you jump into a session that has run for four hour
 | # | What | Done when | Status |
 | :- | :- | :- | :- |
 | M1 | **Catch-up.** `/catchup` says what happened since your last message, in six lines. The band offers it when a session worked a long stretch without you. One rule for questions: every question you owe an answer to is a `waiting` note. | Back in a 4-hour session, you know what's done, what's decided and what needs you in under a minute | done in 0.6.1 |
-| M2 | **Live status file.** Every session writes a small JSON file of its state (project, worktree, working or idle, checklist step, what needs you, checks, active minutes). `/glance` reads them all: one row per running session on this machine. | undertone, `/glance` and later the phone read one file instead of parsing the brain | next |
-| M3 | **review-brain.** A daily outside review of the notes waiting in `/brain` and the ones that went live without review, with a verdict and evidence for each, under the authority split and the anti-churn rules below | A week of runs where you overrule few verdicts, and none of them is "it replaced something that was right" | planned |
-| M4 | **Timesheets.** Active minutes per project per day, from turns and tool calls, written to the brain one file per machine, plus `/timesheet` | A client week totals right across the PC and the Mac | planned |
+| M2 | **Live status file.** Every session writes a small JSON file of its state (project, worktree, state, checklist step, what needs you, checks, your minutes and Claude's). `/glance` reads them all: one row per running session on this machine. Shaped for the home dashboard (`coterboat/home`) and Grok Bot, so they read state instead of spending credits to work it out. | undertone, `/glance`, home and the phone read one file instead of parsing the brain or transcripts | done in 0.7.0 (`docs/live-status.md`) |
+| M3 | **review-brain.** A daily outside review of the notes waiting in `/brain` and the ones that went live without review, with a verdict and evidence for each, under the authority split and the anti-churn rules below | A week of runs where you overrule few verdicts, and none of them is "it replaced something that was right" | built in 0.7.0; the daily schedule waits on your OK |
+| M4 | **Timesheets.** Your time and Claude's time per project per day (definitions below), written to the brain one file per machine, plus `/timesheet` | A client week totals right across the PC and the Mac, and you trust it enough to send | planned |
 | M5 | **Phone.** Undertone's bridge pushes "needs you" to your phone when a call goes unanswered for a few minutes | You pick the service (ntfy or Pushover), since it sends data out | your call |
 
 undertone's own items (its session owns them, and this repo doesn't touch its files):
@@ -24,13 +24,25 @@ undertone's own items (its session owns them, and this repo doesn't touch its fi
 - The band shows `catch up: /catchup · 2h 10m without you` when you come back to a session that worked 30 minutes or more since your last message.
 - Questions: the remember tool and the session instructions say that any question or decision you owe, with or without a link, is a `waiting` note, never a thread. That fixes the jobsnearme case, where 7 open questions were saved as a thread, so `/waiting` and undertone's drone missed them. `waiting` stays as it is: catch-up and glance show it, they don't replace it.
 
+## Billable time (decided 10-3; M2 records it, M4 rolls it up)
+
+You said it: the thinking is the real work. Claude can run all night; you can't bill the night. So there are two clocks, and only one of them is hours.
+
+**Your time is the billable base.** Every interaction of yours is a beat: a message you send, a kit command you run. Each beat counts the time before it, back to the later of your previous beat (in any session on this machine) and the end of that session's last Claude turn, capped at 15 minutes. That counts your reading, thinking, testing and typing before each message, and it can't double-count two sessions open side by side: a beat only counts back to your previous one, wherever that was. A gap longer than 15 minutes counts 15 (you were probably on it, but not for an hour). Scheduled runs never count. This is the same rule WakaTime uses for editors, with the 15-minute timeout.
+
+**Claude's time is leverage, never hours.** It's the minutes a main-thread turn is running, per project. It shows what you got for your time (a 4-hour day of yours drove 31 hours of Claude), and it's the number that tells you a client belongs on milestone pricing.
+
+**Hours you bill** are your time per project per day, rounded up to the next 6 minutes (0.1 h, the usual billing unit), plus manual lines for what the kit can't see: calls, meetings, testing on your phone. `/timesheet` shows all three columns (yours, Claude's, adjustments) and asks you to confirm a week before it's final.
+
+**The pricing rule this suggests.** Hourly clients get your hours. When a project's Claude time runs well past your time week after week (5x is a good flag), hourly pay undercounts what you deliver, so quote that client's next piece of work as a fixed-scope milestone and use the timesheet to price it. The home dashboard and coter-kit use these exact definitions, so the numbers agree everywhere.
+
 ## M3: review-brain
 
 **How it fires.** A desktop scheduled task, like `concurrent-bots-loop`, at 7:00 every morning in the coter-kit folder, running `/coter-kit:review-brain`. It needs the Mac awake and the app open. You can also run it yourself any time, and the band suggests it once 15 or more notes are waiting in `/brain`. A scheduled run gets the lean brain and no digest (0.6.0), and the skill reads the journal directly.
 
 **What it does for each note.** It checks for duplicates (including paraphrases) and for contradictions with what's already there. It checks the claim against evidence the writer didn't have: the repo's code and git history (read-only), other sessions' logs, and whether a newer note about the same lane replaced it. The verdict is one of accept, reject, rewrite, merge, retire or ask, each with one line of evidence (`file:line`, a commit, a transcript time). Verdicts are saved as `review` lines in its own journal file. `/brain` shows each verdict next to its keep and drop buttons, and one button applies the reviewer's picks.
 
-**Authority.** On its own it does only what it can prove: exact duplicates, threads replaced by a newer one from the same lane, and expired items. Everything else waits for your one press, including anything that challenges something already live. If you don't overrule it in a category for two weeks, it gets that category.
+**Authority.** On its own it does only what code can prove: it drops an exact duplicate of a live note. Everything else waits for your one press in `/brain`, including retiring a thread a newer one replaced and anything that challenges a live note. If you don't overrule it in a category for two weeks, it gets that category.
 
 **Anti-churn rules**, so the newest sentence doesn't keep winning:
 
