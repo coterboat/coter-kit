@@ -307,7 +307,7 @@ export async function brainContext(io, { lean = false } = {}) {
   ]
   if (!lean) {
     usage.push(
-      "- When you publish something for the user to review (a mockup, a page) or ask them a decision they may answer later, add a 'waiting' note with link (its URL) and ref (a short label such as \"Q8\"). When they answer, resolve it with a decision note. They see the list with /waiting.",
+      "- Every question or decision they owe you an answer on, with or without a link (a mockup or page to review, a spec question, a sign-off), is its own 'waiting' note with a short ref (such as \"Q8\") and its link when there is one; never a thread. When they answer, resolve it with a decision note. /waiting, the band and /catchup count these.",
       '- This memory stays current while the session runs: what their other sessions and machines write is taken in every ' + REFRESH_EVERY_MS / 60_000 + ' minutes, and anything new reaches you beside their next message, under "New in working memory".',
       '- Call ' + RECALL_TOOL + ' before asking them something they may already have told you, and whenever they mention work from another session or machine ("pick up where I left off", "what was I doing on the PC"): it fetches the latest from their other machines first.',
       '- If they say memory looks out of date, /brain sync pulls and pushes it now; what arrives reaches you with their next message, so there is no need to /clear or start over.',

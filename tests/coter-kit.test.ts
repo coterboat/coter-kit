@@ -24,6 +24,7 @@ type Opts = {
   forkReply?: string
   pullFails?: boolean
   missingFiles?: string[]
+  hostname?: string
 }
 
 // An in-memory file system and stubs for everything coter-kit asks Claude Code for.
@@ -85,6 +86,7 @@ function stubAll(on: any, opts: Opts = {}) {
       return { value: { exitCode: 1, stdout: '', stderr: '  File "bad.py", line 2\nSyntaxError: invalid syntax' } }
     }
     if (argv[0] === 'git' && argv.includes('pull') && opts.pullFails) return { value: { exitCode: 1, stdout: '', stderr: 'CONFLICT (content): Merge conflict in HANDOFF.md' } }
+    if (argv[0] === 'hostname') return opts.hostname ? { value: { exitCode: 0, stdout: opts.hostname + '\n', stderr: '' } } : { value: { exitCode: 1, stdout: '', stderr: 'no' } }
     if (argv[0] === 'git' && argv.includes('ls-files')) return { value: { exitCode: 0, stdout: (opts.missingFiles ?? []).join('\n'), stderr: '' } }
     if (argv[0] === 'git' && argv.includes('status')) return { value: { exitCode: 0, stdout: '## main...origin/main [ahead 1]\n M src/app.ts\n', stderr: '' } }
     if (argv[0] === 'git' && argv.includes('log')) return { value: { exitCode: 0, stdout: 'abc1234 2 hours ago  Add commute route\ndef5678 1 day ago  Fix pins', stderr: '' } }
@@ -805,4 +807,90 @@ t('other projects show one short line each: their newest thread', async ($, on) 
   expect(section).toContain('…')
   expect(section).not.toContain('FS-301 committed')
   expect(section).toContain('[ironVeil · 2h ago] Iron Veil m3 sprites waiting on ludo.ai')
+})
+
+// ---------------------------------------------------------------- 9. Catch-up
+
+const HOUR = 3_600_000
+const longTurn = async ($: any, clock: any, ms: number, id = 't1') => {
+  await $.turn.start({ turnId: id })
+  await clock.advance(ms)
+  await $.turn.complete({ turnId: id, answer: 'ok', durationMs: ms, isAborted: false, usage: null })
+}
+
+t('after a long stretch without you, the band offers /catchup, which gives the facts then six lines, and stops offering it', async ($, on) => {
+  const { forks, clock } = stubAll(on, { forkReply: 'Done: FS-314 landed, tests green\nNeeds you: Q19 intro prompts' })
+  await start($)
+  await $.prompt.submit({ text: 'build the signup wave, back in a few hours' })
+  await $.tool.call({ tool: 'mcp__coter-kit__checklist', title: 'Signup wave', items: [{ text: 'FS-314', status: 'done' }, { text: 'FS-315', status: 'active' }] })
+  await longTurn($, clock, 2 * HOUR)
+
+  let band = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await band.find({ type: 'Text', text: 'catch up: /catchup · 2h 00m of work since your last message' })).toBeDefined()
+  await band.unmount()
+
+  const out: any = await $.command.run({ command: 'catchup', args: '' })
+  expect(out.text).toContain('Since your last message, 2h 00m ago: 2h 00m of work')
+  expect(out.text).toContain('Checklist: Signup wave 1/2 · ▸ FS-315')
+  expect(out.text).toContain('Done: FS-314 landed, tests green')
+  expect(out.text).toContain('Needs you: Q19 intro prompts')
+  expect(forks[0]).toContain('back after 2h 00m')
+  expect(forks[0]).toContain('Decided: choices made that they did not make themselves')
+
+  band = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  expect(await band.find({ type: 'Text', text: /catch up/ })).toBeUndefined()
+})
+
+t('a short stretch is not worth a catch-up', async ($, on) => {
+  const { clock } = stubAll(on)
+  await start($)
+  await $.prompt.submit({ text: 'quick fix' })
+  await longTurn($, clock, 10 * 60_000)
+  await $.tool.call({ tool: 'mcp__coter-kit__checklist', items: [{ text: 'One', status: 'done' }] })
+  const band = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await band.find({ type: 'Text', text: /catch up/ })).toBeUndefined()
+})
+
+t("background deliveries and other sessions' messages are not you looking", async ($, on) => {
+  const { clock } = stubAll(on)
+  await start($)
+  await $.prompt.submit({ text: 'coordinate the lanes' })
+  await longTurn($, clock, HOUR)
+  await $.prompt.submit({ text: '<task-notification>lane 2 done</task-notification>', origin: { kind: 'task-notification' } })
+  await $.prompt.submit({ text: 'lane 3 is blocked', origin: { kind: 'peer' } })
+  const band = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await band.find({ type: 'Text', text: /catch up: \/catchup · 1h 00m/ })).toBeDefined()
+})
+
+t('a /loop or routine firing counts as a scheduled run and gets the lean brain', async ($, on) => {
+  stubAll(on, { files: fullBrain() })
+  await start($)
+  await $.classic.SessionStart({ source: 'startup' })
+  const first: any = await $.prompt.submit({ text: 'check the deploy', origin: { kind: 'scheduled-trigger' } })
+  const text = first.context.join('\n')
+  expect(text).toContain('for a run nobody is watching')
+  expect(text).not.toContain('Goal: finish the Mac setup.')
+})
+
+t('every question you owe is a waiting note, link or not, and Claude is told so', async ($, on) => {
+  stubAll(on)
+  await start($)
+  const text = await snapshot($)
+  expect(text).toContain('with or without a link')
+  expect(text).toContain('never a thread')
+})
+
+t('a restarted or resumed session still knows when you last spoke', async ($, on) => {
+  const { store } = stubAll(on)
+  store.set('look:sess-1', { lastLookAt: Date.now() - 3 * HOUR, workSinceLook: 2 * HOUR })
+  await start($)
+  const band = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await band.find({ type: 'Text', text: 'catch up: /catchup · 2h 00m of work since your last message' })).toBeDefined()
+})
+
+t("a Mac with no HOSTNAME set is named after the machine, so the desktop app and the terminal agree", async ($, on) => {
+  const { files } = stubAll(on, { hostname: 'Alexs-MacBook-Pro' })
+  await start($)
+  await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'fact', text: 'Named by the machine' }] })
+  expect([...files.keys()].some((k) => k.startsWith('/brain/journal/alexs-macbook-pro/'))).toBe(true)
 })

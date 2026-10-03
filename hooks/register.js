@@ -8,7 +8,7 @@
 //   4. Brain     - what Claude learns about working with you, shared across sessions,
 //                  repositories and machines (see brain.js). /brain reviews it.
 
-import { env, norm, dirname, basename, isAbs, join, within, ago, clip, safeJson } from './util.js'
+import { env, norm, dirname, basename, isAbs, join, within, ago, span, clip, safeJson } from './util.js'
 import {
   brain,
   initBrain,
@@ -70,6 +70,15 @@ let brainOnFirstPrompt = false
 let unattended = false
 const SCHEDULED_RUN = /^\s*<scheduled-task[\s>]/
 
+// Catch-up: when the user last sent a message, and how much work the session did since
+let lastLookAt = 0
+let workSinceLook = 0
+let turnStartedAt = 0
+// Prompts that aren't the user looking: background deliveries, other sessions, schedules
+const NOT_THE_USER = new Set(['task-notification', 'scheduled-trigger', 'peer', 'peer-send-message', 'projects-relay', 'coordinator', 'observer', 'observer-activity'])
+// The band offers /catchup after this much work without the user
+const CATCHUP_AFTER_MS = 30 * 60_000
+
 // The session's setup, started once (see prepare)
 let ready = null
 
@@ -130,7 +139,13 @@ function ioFor($) {
 
 // A name for this machine that is the same in every session on it
 async function deviceName($) {
-  const named = (await $.env.get('COMPUTERNAME')) || (await $.env.get('HOSTNAME'))
+  let named = (await $.env.get('COMPUTERNAME')) || (await $.env.get('HOSTNAME'))
+  // macOS sets neither, and each Claude Code host (the desktop app, the terminal) keeps its own
+  // store, so the machine's own name keeps one Mac from showing up as two devices
+  if (!named) {
+    const r = await run($, ['hostname', '-s'], { timeoutMs: 5_000 })
+    if (r.exitCode === 0) named = r.stdout.trim()
+  }
   if (named) return named.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 32)
   let saved = await $.store.get('device')
   if (!saved) {
@@ -457,7 +472,7 @@ const CHECKLIST_SPEC = {
 const REMEMBER_SPEC = {
   name: 'remember',
   description:
-    "Save something to the user's long-term memory, shared across their sessions, repositories and machines. Use it when the user states a preference or corrects how you work (preference), uses shorthand you should learn (term, written as \"<term>\" = meaning), makes a lasting decision about the project (decision, with the reason), leaves work open (thread), or you learn something non-obvious about the project (fact). When you publish something for the user to review (a mockup, a page) or ask a decision they may answer later, add it as waiting, with link (its URL) and ref (a short label such as \"Q8\"); when they answer, save the answer as a decision with resolves set to the waiting note's id. One short sentence per note. Preferences and terms wait for the user's review unless confirmed is true, which you set only when the user explicitly asked you to remember it. To retire a note that is no longer true or a thread that is finished, pass its id as resolves (with a replacing note, or kind 'thread' and text 'done').",
+    "Save something to the user's long-term memory, shared across their sessions, repositories and machines. Use it when the user states a preference or corrects how you work (preference), uses shorthand you should learn (term, written as \"<term>\" = meaning), makes a lasting decision about the project (decision, with the reason), leaves work open (thread), or you learn something non-obvious about the project (fact). Every question or decision the user owes you an answer on, with or without a link (a mockup or page to review, a spec question, a sign-off), is its own waiting note, never a thread: it is what /waiting, the band and catch-up count. Give it a short ref (such as \"Q8\") and its link when there is one; when they answer, save the answer as a decision with resolves set to the waiting note's id. One short sentence per note. Preferences and terms wait for the user's review unless confirmed is true, which you set only when the user explicitly asked you to remember it. To retire a note that is no longer true or a thread that is finished, pass its id as resolves (with a replacing note, or kind 'thread' and text 'done').",
   inputSchema: {
     type: 'object',
     properties: {
@@ -471,7 +486,7 @@ const REMEMBER_SPEC = {
             scope: { type: 'string', enum: ['project', 'global'], description: 'Decisions, threads and facts default to this project' },
             confirmed: { type: 'boolean' },
             resolves: { type: 'string', description: 'Id of an earlier note this replaces or finishes' },
-            link: { type: 'string', description: "waiting only: the http(s) URL of what to review" },
+            link: { type: 'string', description: 'waiting only, optional: the http(s) URL of what to review' },
             ref: { type: 'string', description: 'waiting only: a short label, such as "Q8"' },
           },
           required: ['kind', 'text'],
@@ -495,6 +510,49 @@ const RECALL_SPEC = {
     required: ['query'],
   },
 }
+
+// ---------------------------------------------------------------- catch-up
+
+// Kept per session, so an app restart or a resumed session still knows when the user last spoke
+async function saveLook($) {
+  if (env.sessionId) await $.store.set('look:' + env.sessionId, { lastLookAt, workSinceLook })
+}
+
+// Work the session did since the user's last message, the turn under way included
+async function workWithoutYou($) {
+  return workSinceLook + (turnStartedAt ? (await $.clock.now()) - turnStartedAt : 0)
+}
+
+// What the kit already knows, no model needed: the clock, the checklist, checks, what needs them
+function catchupHeader(now, work) {
+  const lines = [lastLookAt ? 'Since your last message, ' + span(now - lastLookAt) + ' ago: ' + span(work) + ' of work' : 'Since this session started: ' + span(work) + ' of work']
+  if (checklist.items.length) {
+    const done = checklist.items.filter((it) => it.status === 'done').length
+    const current = checklist.items.find((it) => it.status === 'active') || checklist.items.find((it) => it.status === 'pending')
+    const blocked = checklist.items.filter((it) => it.status === 'blocked').length
+    lines.push('Checklist: ' + (checklist.title ? checklist.title + ' ' : '') + done + '/' + checklist.items.length + (current ? ' · ' + ICON[current.status] + ' ' + current.text : ' · all done') + (blocked ? ' · ' + blocked + ' blocked' : ''))
+  }
+  if (checkView.state === 'fail' || checkView.state === 'pass') lines.push('Checks: ' + (checkView.state === 'fail' ? '✗ ' : '✓ ') + checkView.summary + ' (' + ago(checkView.at) + ')')
+  if (brain.dir) {
+    const asks = waitingOnUser(env.project).length
+    const handoff = waitingHandoffs()[0]
+    const review = pendingEntries().length
+    if (asks) lines.push('Waiting on you: ' + asks + ' (/waiting)')
+    if (handoff) lines.push('Handoff waiting from ' + (handoff.from || 'a session') + ' on ' + handoff.device + ' (' + ago(handoff.at) + ')')
+    if (review) lines.push('To review: ' + review + ' in /brain')
+  }
+  return lines.join('\n')
+}
+
+const CATCHUP_PROMPT = (away) =>
+  '[coter-kit catch-up. This is an automated request, not the user; your reply is shown to them as-is.]\n' +
+  'The user is back' + (away ? ' after ' + away : '') + ' and wants to know where things stand at a glance, not an essay. Cover only what happened since their last message. Reply with at most six short lines, each starting with one of these labels, and leave out any label with nothing under it:\n' +
+  'Done: what was finished, and whether it was verified\n' +
+  'Doing: what is under way right now\n' +
+  'Decided: choices made that they did not make themselves\n' +
+  'Needs you: each question or decision waiting on them, one per line, with its ref if it has one\n' +
+  'Next: the next step, and who takes it\n' +
+  'Use exact names (files, branches, specs, commands). No preamble and no closing line.'
 
 // ---------------------------------------------------------------- handoffs
 
@@ -526,6 +584,8 @@ async function setUp($, options) {
   const saved = await $.store.get('checklist:' + env.sessionId)
   if (saved && Array.isArray(saved.items)) checklist = saved
   expanded = (await $.store.get('checklist:expanded')) === true
+  const look = await $.store.get('look:' + env.sessionId)
+  if (look && typeof look.lastLookAt === 'number') ({ lastLookAt, workSinceLook } = look)
 
   try {
     env.home = norm((await $.env.get('USERPROFILE')) || (await $.env.get('HOME')) || '')
@@ -569,6 +629,7 @@ export function register(on, options = {}) {
       { name: 'snapshot', description: 'Show the project snapshot and memory coter-kit gives Claude' },
       { name: 'brain', description: 'Review what Claude learned about working with you', argumentHint: '[sync|digest]', immediate: true },
       { name: 'handoff', description: 'Leave this conversation for the next session to pick up, on any machine', argumentHint: '[anything to add]' },
+      { name: 'catchup', description: 'What happened since your last message, at a glance', immediate: true },
       { name: 'waiting', description: 'What is waiting on you: mockups to review and questions to answer, with links', argumentHint: '[all]' },
     ]) {
       try {
@@ -616,11 +677,17 @@ export function register(on, options = {}) {
   on('prompt.submit', async ($, e, next) => {
     fixRounds = 0
     lastFailureSig = ''
-    if (!promptSeen && SCHEDULED_RUN.test(e.text)) {
+    if (!promptSeen && (e.origin?.kind === 'scheduled-trigger' || SCHEDULED_RUN.test(e.text))) {
       unattended = true
       refreshTimer?.cancel()
     }
     promptSeen = true
+    if (!unattended && !NOT_THE_USER.has(e.origin?.kind)) {
+      lastLookAt = await $.clock.now()
+      workSinceLook = 0
+      if (turnStartedAt) turnStartedAt = lastLookAt
+      await saveLook($)
+    }
     const extra = []
     try {
       if (brainOnFirstPrompt) {
@@ -760,6 +827,22 @@ export function register(on, options = {}) {
     }
   })
 
+  // Back in a long session: the kit's own facts, then six lines from the transcript
+  on('command.run', { command: 'catchup' }, async ($) => {
+    const now = await $.clock.now()
+    const work = await workWithoutYou($)
+    const header = catchupHeader(now, work)
+    const reply = await $.model.fork({ prompt: CATCHUP_PROMPT(lastLookAt ? span(now - lastLookAt) : '') })
+    const body = reply.isAnswered ? reply.text.trim() : reply.reason === 'nothing-to-fork' ? 'Nothing has happened in this conversation yet.' : 'Could not summarize the conversation (' + reply.reason + ').'
+    // Reading the catch-up is looking: the band stops offering it
+    lastLookAt = now
+    workSinceLook = 0
+    if (turnStartedAt) turnStartedAt = now
+    await saveLook($)
+    redraw($)
+    return { text: header + '\n\n' + body }
+  })
+
   on('command.run', { command: 'handoff' }, async ($, e) => {
     if (!brain.dir) return { text: 'Memory is unavailable in this session, so there is nowhere to leave a handoff.' }
     const reply = await $.model.fork({ prompt: HANDOFF_PROMPT((e.args || '').trim()) })
@@ -784,12 +867,16 @@ export function register(on, options = {}) {
   on('turn.start', async ($, e, next) => {
     working = true
     activity = 'Thinking'
+    if (!e.agentId) turnStartedAt = await $.clock.now()
     redraw($)
     return next(e)
   })
 
   on('turn.complete', async ($, e, next) => {
     if (e.agentId) return next(e)
+    workSinceLook += turnStartedAt ? (await $.clock.now()) - turnStartedAt : e.durationMs || 0
+    turnStartedAt = 0
+    await saveLook($)
     working = false
     activity = ''
     redraw($)
@@ -859,7 +946,9 @@ export function register(on, options = {}) {
     const toReview = !working && brain.dir ? pendingEntries().length : 0
     const handoff = !working && brain.dir ? waitingHandoffs()[0] : null
     const asks = !working && brain.dir ? waitingOnUser(env.project).length : 0
-    if (!hasList && !working && !showChecks && !toReview && !handoff && !asks) return next(e)
+    const away = unattended ? 0 : await workWithoutYou($)
+    const offerCatchup = lastLookAt > 0 && away >= CATCHUP_AFTER_MS
+    if (!hasList && !working && !showChecks && !toReview && !handoff && !asks && !offerCatchup) return next(e)
 
     const { Box, Text, Button } = $.ui.resolve(e)
     const width = Math.max(20, (e.props.bodyColumns || 80) - 2)
@@ -909,6 +998,7 @@ export function register(on, options = {}) {
     }
     if (toReview) rows.push(Text({ dimColor: true, wrap: 'truncate', children: [clip('brain: ' + toReview + ' new thing(s) learned · /brain to review', width)] }))
     if (asks) rows.push(Text({ dimColor: true, wrap: 'truncate', children: [clip(asks + ' waiting on you · /waiting', width)] }))
+    if (offerCatchup) rows.push(Text({ color: 'cyan', wrap: 'truncate', children: [clip('catch up: /catchup · ' + span(away) + ' of work since your last message', width)] }))
 
     const others = await next(e)
     // Expanded, every step shows; past maxRows the engine scrolls the band ("n more")

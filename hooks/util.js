@@ -33,6 +33,13 @@ export const ago = (ms) => {
   if (s < 86400) return Math.round(s / 3600) + 'h ago'
   return Math.round(s / 86400) + 'd ago'
 }
+// A length of time: "under a minute", "14m", "2h 10m"
+export const span = (ms) => {
+  const m = Math.round(ms / 60_000)
+  if (m < 1) return 'under a minute'
+  if (m < 60) return m + 'm'
+  return Math.floor(m / 60) + 'h ' + String(m % 60).padStart(2, '0') + 'm'
+}
 export const clip = (text, max) => (text.length > max ? text.slice(0, max - 1) + '…' : text)
 
 export function safeJson(text) {
