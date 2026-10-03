@@ -8,6 +8,14 @@
       "name": "coter-kit",
       "source": "./",
       "description": "Project snapshot, automatic checks after edits, a live task checklist, and a working memory shared across sessions, repos and machines"
+    },
+    {
+      "name": "undertone",
+      "source": {
+        "source": "github",
+        "repo": "coterboat/undertone"
+      },
+      "description": "Plays your Claude Code sessions as music: each session is a voice with its own call, commits resolve the chord, a broken build holds a sour note, open questions hum underneath"
     }
   ],
   "description": "coterboat's personal Claude Code plugins"
