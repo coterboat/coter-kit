@@ -29,6 +29,8 @@ type Opts = {
   pullBusy?: boolean
   now?: number
   undelivered?: boolean
+  failWrites?: string // writes to a path containing this are refused
+  dropFirstWrite?: string // the first write to a path containing this is lost, as if another session overwrote it
   usageHangs?: boolean
 }
 
@@ -74,7 +76,13 @@ function stubAll(on: any, opts: Opts = {}) {
     if (path.endsWith('/profile.seed.md')) return { value: '# Profile\n- Prefers short summaries' }
     return files.has(path) ? { value: files.get(path) } : { deny: 'no such file' }
   })
-  on('fs.write', ($: any, e: any) => (files.set(unix(e.path), e.text), { value: undefined }))
+  let dropped = false
+  on('fs.write', ($: any, e: any) => {
+    if (opts.failWrites && unix(e.path).includes(opts.failWrites)) return { deny: 'no space left on device' }
+    if (opts.dropFirstWrite && !dropped && unix(e.path).includes(opts.dropFirstWrite)) { dropped = true; return { value: undefined } }
+    files.set(unix(e.path), e.text)
+    return { value: undefined }
+  })
   on('fs.exists', ($: any, e: any) => {
     const path = unix(e.path)
     return { value: files.has(path) || [...files.keys()].some((k) => k.startsWith(path + '/')) }
@@ -1650,14 +1658,13 @@ t('M4: add and remove manual lines; they live in this machine\'s file and count 
 
 t('M4: a week is confirmed only once it is over, records the hours, and shows what changed after', async ($, on) => {
   const { files } = stubAll(on, { now: WED, hostname: 'mac', files: BRAIN })
-  otherMachine(files, 'bld', { updated_at: new Date(2026, 9, 1).toISOString(), days: { '2026-09-29': day(50, 0) } })
   await start($)
   const early: any = await $.command.run({ command: 'timesheet', args: 'confirm' })
   expect(early.text).toContain('runs until Sunday night')
+  otherMachine(files, 'bld', { updated_at: new Date(2026, 9, 5, 9).toISOString(), days: { '2026-09-29': day(50, 0) } })
   const done: any = await $.command.run({ command: 'timesheet', args: 'confirm last' })
   expect(done.text).toContain('Confirmed the week of 2026-09-28')
   expect(done.text).toContain('0.9 h') // 50 minutes bill as 54
-  expect(done.text).toContain('bld last wrote before the week ended')
   expect(sheetOf(files).confirmed['2026-09-28'].billed_min).toEqual({ work: 54 })
   const again: any = await $.command.run({ command: 'timesheet', args: 'last' })
   expect(again.text).toContain('confirmed 2026-10-07')
@@ -1665,4 +1672,48 @@ t('M4: a week is confirmed only once it is over, records the hours, and shows wh
   otherMachine(files, 'bld', { days: { '2026-09-29': day(70, 0) } })
   const changed: any = await $.command.run({ command: 'timesheet', args: 'last' })
   expect(changed.text).toContain('changed since you confirmed: work 0.9 h -> 1.2 h')
+})
+
+t('RV-005 F5: a machine whose hours are not here yet blocks the confirm, unless you say anyway', async ($, on) => {
+  const { files } = stubAll(on, { now: WED, hostname: 'mac', files: { ...BRAIN, '/brain/journal/pc/2026-10-02-pc.jsonl': '{}\n' } })
+  otherMachine(files, 'bld', { updated_at: new Date(2026, 9, 1).toISOString(), days: { '2026-09-29': day(50, 0) } })
+  await start($)
+  const blocked: any = await $.command.run({ command: 'timesheet', args: 'confirm last' })
+  expect(blocked.text).toContain('Not confirmed')
+  expect(blocked.text).toContain('bld')
+  expect(blocked.text).toContain('pc')
+  expect(sheetOf(files).confirmed).toEqual({})
+  const forced: any = await $.command.run({ command: 'timesheet', args: 'confirm last anyway' })
+  expect(forced.text).toContain('Confirmed the week of 2026-09-28')
+  expect(Object.keys(sheetOf(files).confirmed)).toEqual(['2026-09-28'])
+})
+
+t('RV-005 F4: a write that fails is not reported as done, and nothing is synced', async ($, on) => {
+  const { files, ran } = stubAll(on, { now: WED, hostname: 'mac', files: BRAIN, failWrites: 'timesheets/' })
+  await start($)
+  const added: any = await $.command.run({ command: 'timesheet', args: 'add work 1h call' })
+  expect(added.text).toContain('Not saved')
+  expect(added.text).not.toContain('Added')
+  expect(files.has('/brain/timesheets/mac.json')).toBe(false)
+  const gitCommits = ran.filter((a) => a[0] === 'git' && a.includes('commit')).length
+  const confirm: any = await $.command.run({ command: 'timesheet', args: 'confirm last' })
+  expect(confirm.text).toContain('Not saved')
+  expect(ran.filter((a) => a[0] === 'git' && a.includes('commit')).length).toBe(gitCommits)
+})
+
+t('RV-005 F1: a line that another session\'s write wiped is written again until it is there', async ($, on) => {
+  const { files } = stubAll(on, { now: WED, hostname: 'mac', files: BRAIN, dropFirstWrite: 'timesheets/mac.json' })
+  await start($)
+  const added: any = await $.command.run({ command: 'timesheet', args: 'add work 1h call' })
+  expect(added.text).toContain('Added')
+  expect(sheetOf(files).adjustments).toMatchObject([{ project: 'work', min: 60 }])
+})
+
+t('RV-005 F3: a session resumed after its beats left the 36-hour window still gets them into the file', async ($, on) => {
+  const { files } = stubAll(on, { now: WED, hostname: 'mac', files: BRAIN })
+  const old = WED - 40 * 3_600_000 // Monday 20:00
+  const rec = { v: 1, tool: 'claude', id: 'sess-1', device: 'mac', project: 'work', worktree: '', state: 'ended', scheduled: false, opened_at: new Date(old - MIN).toISOString(), updated_at: new Date(old + MIN).toISOString(), state_since: new Date(old).toISOString(), beats: [[old, 10 * MIN]], turns: [], minutes_today: { you: 0, claude: 0 } }
+  files.set('/home/.claude/coter-kit/live/' + localDay(old) + '/sess-1.json', JSON.stringify(rec))
+  await start($)
+  expect(sheetOf(files).days[localDay(old)].work.you_ms).toBe(10 * MIN)
 })

@@ -119,18 +119,40 @@ test('the sheet prints three columns and the hours to bill, and flags a client w
   assert.match(text, /not confirmed/)
 })
 
-test('confirming: a week that is not over cannot be confirmed; a stale machine is named; a change since is shown', () => {
+test('confirming: a week that is not over cannot be confirmed; a machine that is stale or missing blocks it unless the owner says anyway; a change since is shown', () => {
   const day = { '2026-09-29': { a: { you_ms: 30 * MIN, claude_ms: 0, claude_wall_ms: 0, scheduled_ms: 0 } } }
   const mac = { device: 'mac', updated_at: at(5, 1), days: day }
   const bld = { device: 'bld', updated_at: at(1, 1), days: {} }
   assert.equal(confirmCheck([mac], '2026-09-28', at(2, 12)).ok, false) // Friday: the week is still running
-  const done = confirmCheck([mac, bld], '2026-09-28', at(5, 12))
-  assert.equal(done.ok, true)
-  assert.deepEqual(done.stale, ['bld']) // last wrote before the week ended
-  assert.equal(done.record.billed_min.a, 30)
+  const alone = confirmCheck([mac], '2026-09-28', at(5, 12))
+  assert.equal(alone.ok, true)
+  assert.equal(alone.record.billed_min.a, 30)
+  // bld wrote its file before the week ended; pc has notes this week but no file here at all (RV-005 F5)
+  const roster = [{ device: 'pc', last: '2026-10-02' }, { device: 'old', last: '2026-09-01' }, { device: 'mac', last: '2026-10-04' }]
+  const blocked = confirmCheck([mac, bld], '2026-09-28', at(5, 12), { roster })
+  assert.equal(blocked.ok, false)
+  assert.deepEqual(blocked.missing.sort(), ['bld', 'pc'])
+  assert.match(blocked.reason, /anyway/)
+  assert.equal(confirmCheck([mac, bld], '2026-09-28', at(5, 12), { roster, force: true }).ok, true)
   const after = sheetFor([{ ...mac, confirmed: { '2026-09-28': { at: at(5, 12), billed_min: { a: 30 } } } }], '2026-09-28')
   assert.equal(after.confirmed.changed.length, 0)
   const grown = sheetFor([{ ...mac, days: { '2026-09-29': { a: { you_ms: 40 * MIN, claude_ms: 0, claude_wall_ms: 0, scheduled_ms: 0 } } }, confirmed: { '2026-09-28': { at: at(5, 12), billed_min: { a: 30 } } } }], '2026-09-28')
   assert.deepEqual(grown.confirmed.changed, [{ project: 'a', was: 30, now: 42 }])
   assert.match(formatSheet(grown), /changed since you confirmed/)
+})
+
+test('RV-005 F6: a project called __proto__ is refused, and in synced data it pollutes nothing', () => {
+  assert.equal(parseAdjustment('__proto__ 1h x', at(7, 12)).ok, false)
+  const evil = JSON.parse('{"device":"x","days":{"2026-10-05":{"__proto__":{"you_ms":60000},"real":{"you_ms":60000}}},"adjustments":[{"id":"q","date":"2026-10-05","project":"__proto__","min":60}]}')
+  const s = sheetFor([evil], '2026-10-05')
+  assert.equal({}.adjust_min, undefined)
+  assert.equal({}.days, undefined)
+  assert.deepEqual(Object.keys(s.projects), ['real'])
+  assert.equal(dayTotals([rec({ project: '__proto__', beats: [[at(5, 9), MIN]] })], '2026-10-05').adjust_min, undefined)
+  assert.equal({}.you_ms, undefined)
+})
+
+test('the sheet\'s footer does not promise more than one machine\'s clock', () => {
+  const text = formatSheet(sheetFor([{ device: 'mac', days: {} }], '2026-10-05'))
+  assert.match(text, /never counted twice on one machine/)
 })

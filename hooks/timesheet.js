@@ -30,6 +30,8 @@ const FIELDS = ['you_ms', 'claude_ms', 'claude_wall_ms', 'scheduled_ms']
 export const KEEP_DAYS = 400
 
 const ms = (v) => (typeof v === 'number' ? v : v ? Date.parse(v) : 0)
+// A project called __proto__ would write to Object.prototype where names are used as keys (RV-005 F6)
+const unsafe = (name) => name === '__proto__'
 const empty = () => ({ you_ms: 0, claude_ms: 0, claude_wall_ms: 0, scheduled_ms: 0 })
 
 // A date 'YYYY-MM-DD' as local midnight
@@ -72,7 +74,7 @@ export function dayTotals(records, date) {
   const byProject = {}
   const seen = new Set()
   for (const r of records) {
-    if (!r || !r.project || seen.has(r.id)) continue
+    if (!r || !r.project || unsafe(r.project) || seen.has(r.id)) continue
     seen.add(r.id)
     const t = (out[r.project] = out[r.project] || empty())
     // The user's time: a beat counts on the day it happened, and a beat just after midnight only
@@ -101,6 +103,7 @@ export function updateMachine(prior, { device, records, now, lookBackDays = 7 })
     const kept = days[date] || {}
     const merged = {}
     for (const project of new Set([...Object.keys(kept), ...Object.keys(fresh)])) {
+      if (unsafe(project)) continue
       merged[project] = {}
       for (const f of FIELDS) merged[project][f] = Math.max(kept[project]?.[f] || 0, fresh[project]?.[f] || 0)
     }
@@ -123,12 +126,13 @@ export function sheetFor(files, monday) {
   for (const f of files) {
     for (const date of dates) {
       for (const [name, t] of Object.entries(f.days?.[date] || {})) {
+        if (unsafe(name)) continue
         const p = proj(name)
         const d = (p.days[date] = p.days[date] || empty())
         for (const k of FIELDS) { d[k] += t[k] || 0; p[k] += t[k] || 0 }
       }
     }
-    for (const a of f.adjustments || []) if (dates.includes(a.date)) proj(a.project).adjust_min += a.min
+    for (const a of f.adjustments || []) if (dates.includes(a.date) && !unsafe(a.project)) proj(a.project).adjust_min += a.min
   }
   const total = { you_ms: 0, claude_ms: 0, adjust_min: 0, billed_min: 0 }
   for (const p of Object.values(projects)) {
@@ -148,16 +152,27 @@ export function sheetFor(files, monday) {
   return { week: monday, from: dates[0], to: dates[6], dates, devices: files.map((f) => f.device), projects, total, confirmed }
 }
 
-// May this week be confirmed now? It has to be over, and a machine whose file stopped before the
-// week ended is named, since its last hours may still be on that machine
-export function confirmCheck(files, monday, now) {
+// May this week be confirmed now? It has to be over. A machine whose file stopped before the week
+// ended, or one with notes this week (`roster`: [{ device, last: 'YYYY-MM-DD' }], from the brain's
+// journal folders) but no timesheet here at all, may still hold hours this sheet can't see, so
+// either blocks the confirm unless the owner says so (`force`) (RV-005 F5)
+export function confirmCheck(files, monday, now, { roster = [], force = false } = {}) {
   const end = dateMs(addDays(monday, 7))
   if (now < end) return { ok: false, reason: 'The week of ' + monday + ' runs until Sunday night. Confirm it from Monday.' }
   const sheet = sheetFor(files, monday)
   const stale = files.filter((f) => ms(f.updated_at) < end).map((f) => f.device)
+  const absent = roster.filter((r) => r.last >= monday && !files.some((f) => f.device === r.device)).map((r) => r.device)
+  const missing = [...stale, ...absent]
+  if (missing.length && !force) {
+    return {
+      ok: false,
+      missing,
+      reason: 'Not confirmed: ' + [stale.length ? stale.join(', ') + ' last wrote before the week ended' : '', absent.length ? absent.join(', ') + ' worked this week but ' + (absent.length > 1 ? 'have' : 'has') + ' no timesheet here yet' : ''].filter(Boolean).join('; ') + '. Their hours may be missing: /brain sync, or update coter-kit on that machine. To confirm without them: /timesheet confirm' + (monday === weekOf(dayOf(now)) ? '' : ' last') + ' anyway.',
+    }
+  }
   const billed_min = {}
   for (const [name, p] of Object.entries(sheet.projects)) if (p.billed_min) billed_min[name] = p.billed_min
-  return { ok: true, stale, sheet, record: { at: new Date(now).toISOString(), billed_min } }
+  return { ok: true, missing, sheet, record: { at: new Date(now).toISOString(), billed_min } }
 }
 
 // /timesheet add <project> <duration> [date] <note>: 45m, 1.5h or 90 (minutes); negative to take time off.
@@ -169,6 +184,7 @@ export function parseAdjustment(text, now) {
   const [, project, num, unit, date, note] = m
   const raw = Number(num) * ((unit || 'm').toLowerCase() === 'h' ? 60 : 1)
   const min = Math.sign(raw) * Math.ceil(Math.abs(raw) / BILL_UNIT_MIN - 1e-9) * BILL_UNIT_MIN
+  if (unsafe(project)) return bad(project + ' cannot be a project name.')
   if (!min) return bad('That is no time at all.')
   if (Math.abs(min) > 24 * 60) return bad('A line is at most 24 hours; split it by day.')
   const day = date || dayOf(now)
@@ -205,6 +221,6 @@ export function formatSheet(s, { days = false } = {}) {
     if (p.you_ms && p.claude_ms >= RATIO_FLAG * p.you_ms) lines.push(n + ': Claude ran ' + (p.claude_ms / p.you_ms).toFixed(1) + 'x your time; hourly pay undercounts it, so price the next piece as a milestone')
   }
   if (s.confirmed?.changed?.length) lines.push('changed since you confirmed: ' + s.confirmed.changed.map((c) => c.project + ' ' + hours(c.was) + ' -> ' + hours(c.now)).join(', '))
-  lines.push('', 'yours: time before each of your messages and commands, up to 15m each, never counted twice · Claude: minutes a turn ran, summed over sessions · bill: yours rounded up to 0.1 h per project per day, plus adjustments')
+  lines.push('', 'yours: time before each of your messages and commands, up to 15m each, never counted twice on one machine · Claude: minutes a turn ran, summed over sessions · bill: yours rounded up to 0.1 h per project per day, plus adjustments')
   return lines.join('\n')
 }

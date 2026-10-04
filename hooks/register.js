@@ -766,6 +766,8 @@ async function startLive($) {
     lastTurnEnd = turns.length ? turns[turns.length - 1][1] : 0
   }
   liveFile = join(liveRoot(env.home), dayOf(openedAt) + '/' + env.sessionId.replace(/[^\w-]/g, '') + '.json')
+  // A resumed session's old beats may be past the 36 hours the file keeps: roll them up before the first write drops them (RV-005 F3)
+  await saveTimesheet($, null, { own: false })
   branch = await currentBranch($)
   refreshUsageSoon($)
   await pruneLive($, now)
@@ -800,27 +802,50 @@ async function readTimesheets($) {
 const sameSheet = (a, b) => JSON.stringify({ ...a, updated_at: 0 }) === JSON.stringify({ ...b, updated_at: 0 })
 
 // Rolls this machine's live records up into its file, which only this machine writes. `change`
-// edits the file's own adjustments or confirmations first. The file is written only when
-// something in it changed, so the brain doesn't gather a commit a minute.
-async function saveTimesheet($, change = null) {
+// edits the file's own adjustments or confirmations first, and `holds` says whether that edit is
+// in the file: another session on this machine may have written it between this one's read and
+// write (no lock: LOCK-1), so a change is checked by reading the file back and made again up to
+// 3 times (RV-005 F1). The file is written only when something in it changed, so the brain doesn't
+// gather a commit a minute. Returns { file, saved }; saved is false when it could not be written.
+async function saveTimesheet($, change = null, { holds = null, own = true } = {}) {
   if (!brain.dir || !env.device) return null
   const now = await $.clock.now()
   lastTimesheetAt = now
-  await publishNow($)
+  if (own) await publishNow($)
   const path = join(timesheetDir(), env.device + '.json')
-  // The slow read first, then the file itself, so another session's edit to it has the least time to slip in between
-  const records = await readLive($, now)
-  const prior = safeJson(await readText($, path))
-  const base = prior && prior.days ? prior : null
-  const next = updateMachine(change ? change(base || { adjustments: [], confirmed: {}, days: {} }) : base, { device: env.device, records, now })
-  if (!prior || !sameSheet(prior, next)) {
+  let next = null
+  for (let attempt = 0; attempt < 3; attempt++) {
+    // The slow read first, then the file itself, so another session's edit has the least time to slip in between
+    const records = await readLive($, now)
+    const prior = safeJson(await readText($, path))
+    const base = prior && prior.days ? prior : null
+    next = updateMachine(change ? change(base || { adjustments: [], confirmed: {}, days: {} }) : base, { device: env.device, records, now })
+    if (prior && sameSheet(prior, next)) return { file: next, saved: true }
     try {
       await $.fs.write(path, JSON.stringify(next, null, 1) + '\n')
     } catch (err) {
       $.ui.log('timesheet not written: ' + (err?.message || err))
+      return { file: next, saved: false }
     }
+    const back = safeJson(await readText($, path))
+    if (back && (!holds || holds(back))) return { file: next, saved: true }
   }
-  return next
+  return { file: next, saved: false }
+}
+
+// Every machine with notes in the brain's journal, and the date of its latest file
+async function journalRoster($) {
+  const out = []
+  for (const d of await listDir($, join(brain.dir, 'journal'))) {
+    if (d.kind !== 'dir') continue
+    let last = ''
+    for (const f of await listDir($, join(brain.dir, 'journal/' + d.name))) {
+      const m = /^(\d{4}-\d{2}-\d{2})-/.exec(f.name)
+      if (m && m[1] > last) last = m[1]
+    }
+    if (last) out.push({ device: d.name, last })
+  }
+  return out
 }
 
 // The text of /timesheet: a week (this one, or `last`), three columns, and the hours to bill
@@ -841,31 +866,37 @@ async function timesheetCommand($, args) {
     return sync && !sync.ok ? ' (saved on this machine; the push failed, /brain sync retries)' : ''
   }
 
+  const notSaved = (what) => 'Not saved: ' + what + ' could not be written to the brain on this machine (see the log). Nothing was changed or synced.'
   if (verb === 'add') {
     const line = parseAdjustment(rest, now)
     if (!line.ok) return { text: line.reason }
     const id = 'a' + now.toString(36).slice(-4) + Math.random().toString(36).slice(2, 4)
-    await saveTimesheet($, (f) => ({ ...f, adjustments: [...(f.adjustments || []), { id, date: line.date, project: line.project, min: line.min, note: line.note, at: new Date(now).toISOString() }] }))
+    const entry = { id, date: line.date, project: line.project, min: line.min, note: line.note, at: new Date(now).toISOString() }
+    const r = await saveTimesheet($, (f) => ({ ...f, adjustments: [...(f.adjustments || []).filter((a) => a.id !== id), entry] }), { holds: (f) => (f.adjustments || []).some((a) => a.id === id) })
+    if (!r?.saved) return { text: notSaved('the line') }
     return { text: 'Added ' + id + ': ' + line.project + ' ' + (line.min > 0 ? '+' : '-') + span(Math.abs(line.min) * 60_000) + ' on ' + line.date + (line.note ? ' (' + line.note + ')' : '') + ' (a line rounds up to 0.1 h). Remove it with /timesheet remove ' + id + '.' + (await pushed()) }
   }
   if (verb === 'remove') {
     const id = words[0] || ''
     const own = await saveTimesheet($)
-    if (!(own?.adjustments || []).some((a) => a.id === id)) return { text: 'No line ' + (id || '(none given)') + ' in this machine\'s file. A line can be removed only on the machine that added it.' }
-    await saveTimesheet($, (f) => ({ ...f, adjustments: f.adjustments.filter((a) => a.id !== id) }))
+    if (!(own?.file.adjustments || []).some((a) => a.id === id)) return { text: 'No line ' + (id || '(none given)') + ' in this machine\'s file. A line can be removed only on the machine that added it.' }
+    const r = await saveTimesheet($, (f) => ({ ...f, adjustments: f.adjustments.filter((a) => a.id !== id) }), { holds: (f) => !(f.adjustments || []).some((a) => a.id === id) })
+    if (!r?.saved) return { text: notSaved('the removal') }
     return { text: 'Removed ' + id + '.' + (await pushed()) }
   }
   if (verb === 'confirm') {
     const own = await saveTimesheet($)
-    const check = confirmCheck(await filesWith(own), monday, now)
+    const check = confirmCheck(await filesWith(own?.file), monday, now, { roster: await journalRoster($), force: words.includes('anyway') })
     if (!check.ok) return { text: check.reason }
-    await saveTimesheet($, (f) => ({ ...f, confirmed: { ...(f.confirmed || {}), [monday]: { ...check.record, device: env.device } } }))
+    const r = await saveTimesheet($, (f) => ({ ...f, confirmed: { ...(f.confirmed || {}), [monday]: { ...check.record, device: env.device } } }), { holds: (f) => !!f.confirmed?.[monday] })
+    if (!r?.saved) return { text: notSaved('the confirmation') }
     const lines = ['Confirmed the week of ' + monday + ': ' + Object.entries(check.record.billed_min).map(([p, m]) => p + ' ' + (m / 60).toFixed(1) + ' h').join(', ') + ' (total ' + (check.sheet.total.billed_min / 60).toFixed(1) + ' h).']
-    if (check.stale.length) lines.push(check.stale.join(', ') + ' last wrote before the week ended, so its last hours may not be here yet. /brain sync, then /timesheet shows anything that changes.')
+    if (check.missing.length) lines.push('Confirmed without ' + check.missing.join(', ') + ': /timesheet shows anything that changes when their hours arrive.')
     return { text: lines.join('\n') + (await pushed()) }
   }
   const own = await saveTimesheet($)
-  return { text: formatSheet(sheetFor(await filesWith(own), monday), { days: words.includes('days') }) }
+  const sheet = formatSheet(sheetFor(await filesWith(own?.file), monday), { days: words.includes('days') })
+  return { text: sheet + (own && !own.saved ? '\n(This machine\'s file could not be written, so other machines will not see these hours yet.)' : '') }
 }
 
 // ---------------------------------------------------------------- handoffs
