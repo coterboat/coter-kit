@@ -768,6 +768,109 @@ t('/waiting shows this project by default and every project with "all"', async (
   expect(all.text).toContain('Q3 · Approve the new stop-loss rule')
 })
 
+// Three questions another session left, newest first: one with set answers, one without, one more
+const OWED = [
+  fromPC({ id: 'qa', at: Date.now() - 60_000, ref: 'M4-Q2', kind: 'waiting', text: 'Ship 0.10.0?', options: ['Ship it', 'Hold', 'later', 'Ship it'] }),
+  fromPC({ id: 'qb', at: Date.now() - 120_000, ref: 'mine-mac', kind: 'waiting', text: 'Run mine-history on the Mac' }),
+  fromPC({ id: 'qc', at: Date.now() - 180_000, ref: 'Q9', kind: 'waiting', text: 'Which font?', link: 'https://claude.ai/artifact/f1' }),
+]
+const owedFiles = { '/brain/.git/HEAD': 'ref', '/brain/profile.md': '# Profile', '/brain/journal/pc/2026-10-02-pc-session.jsonl': OWED.map((r) => JSON.stringify(r)).join('\n') + '\n' }
+
+// Someone at the question card, as a plugin of its own: a plugin's own hooks never answer the card
+// it opens. Picks the recommendation, then Later, then closes the card.
+const AT_THE_CARD = {
+  name: 'at-the-card',
+  register(on: any) {
+    on('tool.call', { tool: 'AskUserQuestion' }, ($: any, e: any) => {
+      const q = e.questions[0]
+      const pick = q.question.startsWith('Ship') ? q.options[0].label : q.question.startsWith('Run') ? 'Later' : ''
+      return pick ? { result: { answers: { [q.question]: pick } } } : { deny: 'the dialog was dismissed' }
+    })
+  },
+}
+// Types an answer to the first card; the next one never opens
+const TYPES_AN_ANSWER = {
+  name: 'types-an-answer',
+  register(on: any) {
+    on('tool.call', { tool: 'AskUserQuestion' }, ($: any, e: any) => {
+      const q = e.questions[0]
+      if (!q.question.startsWith('Ship')) throw new Error('no question card on this surface')
+      return { result: { answers: { [q.question]: 'ship after the PC is updated' } } }
+    })
+  },
+}
+
+test('/waiting asks each item in a question card: an answer resolves it, Later keeps it, closing the card stops', { options: OPTS, plugins: [AT_THE_CARD] } as any, (async ($: any, on: any) => {
+  const { files } = stubAll(on, { files: owedFiles })
+  await start($)
+  const out: any = await $.command.run({ command: 'waiting', args: '' })
+  // The recommendation was picked: its mark is the card's, not part of the answer
+  expect(out.text).toContain('Answered 1')
+  expect(out.text).toContain('M4-Q2 → Ship it')
+  expect(out.text).toContain('Later: mine-mac')
+  expect(out.text).toContain('Q9 · Which font?')
+
+  // The answer is a decision that resolves the item, with the question in it
+  const rows = journal(files).split('\n').filter(Boolean).map((l) => JSON.parse(l))
+  const answer = rows.find((r) => r.kind === 'decision')
+  expect(answer.text).toBe('M4-Q2: Ship it (answer to "Ship 0.10.0?", given in /waiting)')
+  expect(answer.answers).toBe('qa')
+  const left: any = await $.command.run({ command: 'waiting', args: 'list' })
+  expect(left.text).toContain('Waiting on you (work): 2')
+  expect(left.text).not.toContain('Ship 0.10.0?')
+}) as any)
+
+test('a typed answer is saved as typed, and where there is no card /waiting prints the list', { options: OPTS, plugins: [TYPES_AN_ANSWER] } as any, (async ($: any, on: any) => {
+  const { files } = stubAll(on, { files: owedFiles })
+  await start($)
+  const out: any = await $.command.run({ command: 'waiting', args: '' })
+  expect(out.text).toContain('M4-Q2 → ship after the PC is updated')
+  expect(out.text).toContain('Waiting on you (work): 2')
+  expect(journal(files)).toContain('M4-Q2: ship after the PC is updated')
+}) as any)
+
+t('a waiting note keeps two or three short, distinct answers, or none', async ($, on) => {
+  const { files } = stubAll(on)
+  await start($)
+  await $.tool.call({
+    tool: 'mcp__coter-kit__remember',
+    notes: [
+      { kind: 'waiting', ref: 'Q1', text: 'Which stop-loss?', options: [' 5%  trailing ', '5% TRAILING', 'Later', 42, 'Fixed 3%', 'x'.repeat(80), 'a fourth'] },
+      { kind: 'waiting', ref: 'Q2', text: 'Only one answer', options: ['Yes'] },
+    ],
+  })
+  const rows = journal(files).split('\n').filter(Boolean).map((l) => JSON.parse(l))
+  expect(rows.find((r) => r.ref === 'Q1').options).toEqual(['5% trailing', 'Fixed 3%', 'x'.repeat(39) + '…'])
+  expect(rows.find((r) => r.ref === 'Q2').options).toBeUndefined()
+})
+
+t('an answer tapped on the home dashboard resolves its item, once, and only a live waiting item', async ($, on) => {
+  const answers = '/home/.claude/coter-kit/answers/'
+  const { files } = stubAll(on, {
+    files: {
+      ...owedFiles,
+      [answers + 'qa.json']: JSON.stringify({ v: 1, id: 'qa', answer: 'Hold (Recommended)', at: '2026-10-04T12:00:00Z', from: 'home' }),
+      // Named for one item, about another: ignored
+      [answers + 'qb.json']: JSON.stringify({ v: 1, id: 'qc', answer: 'Yes' }),
+      // Not JSON, an unknown id, and a note that is not a question
+      [answers + 'qc.json']: 'not json',
+      [answers + 'nope.json']: JSON.stringify({ v: 1, id: 'nope', answer: 'Yes' }),
+      [answers + 'f1.json']: JSON.stringify({ v: 1, id: 'f1', answer: 'Drop it' }),
+      '/brain/journal/pc/2026-10-01-older.jsonl': JSON.stringify(fromPC({ id: 'f1', kind: 'fact', text: 'A fact, not a question' })) + '\n',
+    },
+  })
+  await start($)
+  const out: any = await $.command.run({ command: 'waiting', args: 'list' })
+  expect(out.text).not.toContain('Ship 0.10.0?')
+  expect(out.text).toContain('Waiting on you (work): 2')
+  const decisions = () => journal(files).split('\n').filter(Boolean).map((l) => JSON.parse(l)).filter((r) => r.kind === 'decision')
+  expect(decisions().map((r) => r.text)).toEqual(['M4-Q2: Hold (answer to "Ship 0.10.0?", given in the home dashboard)'])
+  expect(journal(files)).not.toContain('"ref":"f1","status":"superseded"')
+  // The file stays; its item is answered, so it is not taken again
+  await $.command.run({ command: 'waiting', args: 'list' })
+  expect(decisions().length).toBe(1)
+})
+
 // ---------------------------------------------------------------- 8. Who is there, and what else is in flight
 
 const SCHEDULED = '<scheduled-task name="concurrent-bots-loop" file="/x/SKILL.md">\nThis is an automated run of a scheduled task. The user is not present.'

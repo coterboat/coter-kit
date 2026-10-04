@@ -1,5 +1,7 @@
 # How we build
 
+Standing order through 2026-10-18: `docs/grok-review-2026-10-04.md` in coter-kit. Do the repo you were opened in. coter-kit and undertone are in use, not under construction. Do not open a milestone, review arc, or cleanup on them unless the user asks in this conversation. Wheat from chaff is what they used. This standard's tiers still apply, including full for privacy, consent, money, auth, and deleting data.
+
 This is the house standard for every project. It is lifted from what jobsnearme's pipeline proved between August and October 2026: 89 outside review rounds, 308 findings, 3 retros and 3 red-team passes. What caught real defects is kept. What only reviewed itself is left behind. Every session sees a short form of this standard, and coter-kit's `outside-review` skill runs the review loop.
 
 ## Principles

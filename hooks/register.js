@@ -28,6 +28,7 @@ import {
   arrivalsContext,
   waitingHandoffs,
   waitingOnUser,
+  isLive,
   writeHandoffFile,
   HANDOFF_PROMPT,
   KINDS,
@@ -36,7 +37,7 @@ import {
   REFRESH_EVERY_MS,
   ROUTE_WHERE,
 } from './brain.js'
-import { formatWaiting } from './waiting.js'
+import { formatWaiting, waitingCard, cardAnswer, answerNote, answersRoot, outsideAnswer, LATER } from './waiting.js'
 import { formatRoutes } from './routes.js'
 import { updateMachine, sheetFor, weekOf, confirmCheck, parseAdjustment, formatSheet, validSheet } from './timesheet.js'
 import { liveRoot, dayOf, beatCredit, liveRecord, liveness, lastBeatIn, glance, KEEP_DAYS } from './live.js'
@@ -503,7 +504,7 @@ const CHECKLIST_SPEC = {
 const REMEMBER_SPEC = {
   name: 'remember',
   description:
-    "Save something to the user's long-term memory, shared across their sessions, repositories and machines. Use it when the user states a preference or corrects how you work (preference), uses shorthand you should learn (term, written as \"<term>\" = meaning), makes a lasting decision about the project (decision, with the reason), leaves work open (thread), or you learn something non-obvious about the project (fact). Every question or decision the user owes you an answer on, with or without a link (a mockup or page to review, a spec question, a sign-off), is its own waiting note, never a thread: it is what /waiting, the band and catch-up count. Give it a short ref (such as \"Q8\") and its link when there is one; when they answer, save the answer as a decision with resolves set to the waiting note's id. One short sentence per note. Preferences and terms wait for the user's review unless confirmed is true, which you set only when the user explicitly asked you to remember it. To retire a note that is no longer true or a thread that is finished, pass its id as resolves (with a replacing note, or kind 'thread' and text 'done'). When you choose where a piece of work runs (here, a new session, subagents, cloud, a scheduled task, another model), save it as kind route with where set, the task and why in text; when it is done, save the outcome as kind route with resolves set to that note (time, usage, what went well or not). A waiting item or a route for another project takes project, its repository name.",
+    "Save something to the user's long-term memory, shared across their sessions, repositories and machines. Use it when the user states a preference or corrects how you work (preference), uses shorthand you should learn (term, written as \"<term>\" = meaning), makes a lasting decision about the project (decision, with the reason), leaves work open (thread), or you learn something non-obvious about the project (fact). Every question or decision the user owes you an answer on, with or without a link (a mockup or page to review, a spec question, a sign-off), is its own waiting note, never a thread: it is what /waiting, the band and catch-up count. Give it a short ref (such as \"Q8\") and its link when there is one, and when the question has set answers, options: two or three short ones, your pick first, which /waiting and the home dashboard show as choices to click; when they answer, save the answer as a decision with resolves set to the waiting note's id. One short sentence per note. Preferences and terms wait for the user's review unless confirmed is true, which you set only when the user explicitly asked you to remember it. To retire a note that is no longer true or a thread that is finished, pass its id as resolves (with a replacing note, or kind 'thread' and text 'done'). When you choose where a piece of work runs (here, a new session, subagents, cloud, a scheduled task, another model), save it as kind route with where set, the task and why in text; when it is done, save the outcome as kind route with resolves set to that note (time, usage, what went well or not). A waiting item or a route for another project takes project, its repository name.",
   inputSchema: {
     type: 'object',
     properties: {
@@ -519,6 +520,7 @@ const REMEMBER_SPEC = {
             resolves: { type: 'string', description: 'Id of an earlier note this replaces or finishes' },
             link: { type: 'string', description: 'waiting only, optional: the http(s) URL of what to review' },
             ref: { type: 'string', description: 'waiting only: a short label, such as "Q8"' },
+            options: { type: 'array', items: { type: 'string' }, description: 'waiting only, optional: 2 or 3 short answers the user can click, your recommendation first (Later and a typed answer are always offered)' },
             where: { type: 'string', enum: ROUTE_WHERE, description: 'route only: where the work runs' },
             project: { type: 'string', description: 'waiting and route only: file it under another project, by its repository name' },
           },
@@ -970,6 +972,7 @@ async function setUp($, options) {
       try {
         const arrived = await refreshIfStale(ioFor($), REFRESH_EVERY_MS / 2)
         if (arrived.length) redraw($)
+        await takeAnswers($)
       } catch (err) {
         $.ui.log('brain refresh failed: ' + (err?.message || err))
       }
@@ -983,6 +986,59 @@ async function setUp($, options) {
   } catch (err) {
     $.ui.log('live status unavailable: ' + (err?.message || err))
   }
+}
+
+// ---------------------------------------------------------------- answering what waits on the user
+
+// /waiting's cards, one item at a time. An answer is saved at once, as a decision that resolves the
+// item; Later skips it. Closing the card (or a surface that has none) stops, and lists what is left.
+async function clickThrough($, items, all) {
+  const answered = []
+  const later = []
+  let stopped = -1
+  for (const [i, item] of items.entries()) {
+    const card = waitingCard(item, { project: env.project })
+    let answer
+    try {
+      answer = cardAnswer(await $.ui.ask(card.question, { header: card.header, options: card.options }))
+    } catch {
+      stopped = i
+      break
+    }
+    if (!answer || answer.toLowerCase() === LATER.toLowerCase()) {
+      later.push(item)
+      continue
+    }
+    await remember(ioFor($), [answerNote(item, answer, '/waiting')])
+    answered.push((item.ref || item.text.slice(0, 40)) + ' → ' + answer)
+  }
+  redraw($)
+  const left = stopped < 0 ? [] : items.slice(stopped)
+  if (!answered.length && !later.length) return formatWaiting(left, { project: env.project, all })
+  const out = []
+  if (answered.length) out.push('Answered ' + answered.length + ' (saved as decisions, which every session and machine gets):', ...answered.map((a) => '- ' + a))
+  if (later.length) out.push('Later: ' + later.map((x) => x.ref || x.text.slice(0, 40)).join(', '))
+  if (left.length) out.push('', formatWaiting(left, { project: env.project, all }))
+  return out.join('\n')
+}
+
+// Answers given on the home dashboard (docs/live-status.md, "Answering from outside a session"): one
+// file per item, named by its id. Only a live waiting item is answered this way, so a file whose item
+// is already answered is left alone, and nothing here deletes anything.
+async function takeAnswers($) {
+  if (!brain.dir || unattended || !env.home) return
+  const root = answersRoot(env.home)
+  const notes = []
+  for (const f of await listDir($, root)) {
+    const id = f.kind === 'file' && f.name.endsWith('.json') ? f.name.slice(0, -5) : ''
+    const item = id ? brain.entries.get(id) : null
+    if (!item || item.kind !== 'waiting' || !isLive(item, Date.now())) continue
+    const answer = outsideAnswer(safeJson(await readText($, root + '/' + f.name)), id)
+    if (answer) notes.push(answerNote(item, answer, 'the home dashboard'))
+  }
+  if (!notes.length) return
+  await remember(ioFor($), notes)
+  redraw($)
 }
 
 // Runs setUp once, for whichever comes first: a session may raise the startup SessionStart,
@@ -1010,7 +1066,7 @@ export function register(on, options = {}) {
       { name: 'routes', description: 'Where work was sent (here, new session, subagents, cloud, schedules) and how it went', argumentHint: '[all]' },
       { name: 'glance', description: 'Every running session on this machine: what needs you, what is working, today\'s time', immediate: true },
       { name: 'timesheet', description: 'Your time, Claude\'s and your adjustments this week, and the hours to bill', argumentHint: '[last|days|add <project> <time> <note>|remove <id>|confirm]', immediate: true },
-      { name: 'waiting', description: 'What is waiting on you: mockups to review and questions to answer, with links', argumentHint: '[all]' },
+      { name: 'waiting', description: 'What is waiting on you, one card at a time: click an answer, or Later. "list" prints it with links instead', argumentHint: '[all] [list]' },
     ]) {
       try {
         await $.command.register(spec)
@@ -1398,11 +1454,22 @@ export function register(on, options = {}) {
     return {}
   })
 
-  // /waiting: plain text, so it reads the same in the terminal, the desktop app and on a phone
+  // /waiting: each item as a question card to click through. "list", or a surface with no card,
+  // gets the plain-text list, which reads the same in the terminal, the desktop app and on a phone
   on('command.run', { command: 'waiting' }, async ($, e) => {
     if (!brain.dir) return { text: 'Memory is unavailable in this session.' }
-    const all = (e.args || '').trim().toLowerCase() === 'all'
-    return { text: formatWaiting(waitingOnUser(env.project, all), { project: env.project, all }) }
+    const words = (e.args || '').trim().toLowerCase().split(/\s+/)
+    const all = words.includes('all')
+    // Never ask what another session or machine answered a minute ago
+    try {
+      await refreshIfStale(ioFor($), REFRESH_EVERY_MS / 2)
+    } catch (err) {
+      $.ui.log('brain refresh failed: ' + (err?.message || err))
+    }
+    await takeAnswers($)
+    const items = waitingOnUser(env.project, all)
+    if (!items.length || words.includes('list')) return { text: formatWaiting(items, { project: env.project, all }) }
+    return { text: await clickThrough($, items, all) }
   })
 
   on('command.run', { command: 'checklist' }, async ($) => {

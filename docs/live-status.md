@@ -37,3 +37,17 @@ Every Claude Code session with coter-kit writes one small JSON file describing i
 ## Privacy
 
 No prompt text, file paths (not even the session's own folder), commands or note contents. The one piece of your own wording is `checklist.title` and `checklist.current`, so anything that sends a record off the machine (home-agent posting to Grok Bot, a phone push) redacts or drops them.
+
+## Answering from outside a session
+
+`needs_you.waiting` counts the questions you owe. The questions themselves are `waiting` notes in the brain's journal (`~/.claude/coter-brain/journal/**/*.jsonl`), and `/waiting` shows each one as a question card to click. A reader that shows them, such as the home dashboard, can offer the same choices:
+
+- **The question:** a journal row with `kind: "waiting"`. It has `id`, `text` and `project`, and may have `ref` (a short label such as `"Q8"`), `link` and `options`. `options` is two or three short answers, and the first is the recommended one. With no `options`, offer `Yes, or done` and `No, drop it`. Always offer Later (do nothing) and a typed answer.
+- **Still open:** it is open until a later `{ "op": "status", "ref": <id> }` row marks it otherwise, or until it is 30 days old.
+- **The answer:** write `~/.claude/coter-kit/answers/<id>.json`, containing `{ "v": 1, "id": "<id>", "answer": "<the choice or the typed text>", "at": "<ISO time>", "from": "home" }`. Write it to a temporary name and rename it, so a session never reads half a file.
+
+Any coter-kit session on the machine picks it up within two minutes, or at once on `/waiting`. The session saves the answer as a decision that resolves the question, so every session and machine gets it. The answer is redacted and cut to 300 characters.
+
+Only an open `waiting` note can be answered this way. A file for an answered question, an unknown id, or a note that is not a question is ignored, and so is a file whose `id` doesn't match its name. Sessions never delete these files. The writer can remove a file once its question is closed, or leave it.
+
+The folder accepts answers from anything that can write to your home folder. A dashboard reachable from the phone writes only what you tapped, and only over the tailnet.

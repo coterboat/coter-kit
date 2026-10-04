@@ -1,5 +1,7 @@
 # Grok review: is coter-kit a real step, or does it muddy the water?
 
+Superseded for what to do next by `docs/grok-review-2026-10-04.md`. The notes below are the record of that morning. Do not carry them out as current tasks.
+
 2026-10-02. Reviewed the plugin on `main` (0.4.0, plus uncommitted 0.4.1) and the live brain at `~/.claude/coter-brain`. The user agrees with this review and is going to use the kit for a while and see. This file is the record. It is not a work order. Do not start cutting mods, adding a freshness system, or "fixing" the pitfalls below unless they ask.
 
 ## Verdict

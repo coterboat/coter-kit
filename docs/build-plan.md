@@ -1,6 +1,6 @@
 # coter-kit build plan
 
-Started 2026-10-03. The goal: you jump into a session that has run for four hours, or switch machines, and know where things stand at a glance, without reading an essay, re-explaining anything, or correcting notes. Grok's review (`docs/grok-review-2026-10-02.md`) still holds. No fifth mod to supervise the first four, every automatic writer gets a human gate or hard evidence, and anything that isn't used gets cut.
+Started 2026-10-03. The goal: you jump into a session that has run for four hours, or switch machines, and know where things stand at a glance, without reading an essay, re-explaining anything, or correcting notes. Through 2026-10-18 the standing order is `docs/grok-review-2026-10-04.md`: the milestones below are in use, not a queue. Do not open the next one unless the user asks. The 2026-10-02 review is history.
 
 ## Milestones
 
