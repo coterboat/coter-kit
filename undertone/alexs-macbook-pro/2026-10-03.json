@@ -16,28 +16,28 @@
       "last": "19:51"
     },
     "concurrent": {
-      "activeMin": 69,
-      "laneMin": 85,
+      "activeMin": 70,
+      "laneMin": 86,
       "blockedMin": 60,
       "brokenMin": {},
-      "sessions": 18,
-      "turns": 17,
+      "sessions": 19,
+      "turns": 18,
       "commits": 0,
       "pushes": 0,
       "first": "12:43",
-      "last": "22:13"
+      "last": "22:43"
     },
     "jobsnearme": {
-      "activeMin": 594,
-      "laneMin": 627,
+      "activeMin": 624,
+      "laneMin": 657,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 2,
-      "turns": 73,
-      "commits": 59,
+      "turns": 75,
+      "commits": 61,
       "pushes": 1,
       "first": "12:43",
-      "last": "22:35"
+      "last": "23:06"
     },
     "coter-kit": {
       "activeMin": 159,
