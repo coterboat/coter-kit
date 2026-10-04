@@ -16,40 +16,40 @@
       "last": "03:29"
     },
     "jobsnearme": {
-      "activeMin": 224,
-      "laneMin": 230,
+      "activeMin": 252,
+      "laneMin": 258,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 1,
-      "turns": 19,
-      "commits": 18,
+      "turns": 24,
+      "commits": 21,
       "pushes": 0,
       "first": "00:01",
-      "last": "04:06"
+      "last": "04:35"
     },
     "undertone": {
-      "activeMin": 130,
-      "laneMin": 130,
+      "activeMin": 148,
+      "laneMin": 148,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 1,
       "turns": 10,
-      "commits": 7,
-      "pushes": 7,
+      "commits": 8,
+      "pushes": 8,
       "first": "00:26",
-      "last": "04:06"
+      "last": "04:10"
     },
     "concurrent": {
-      "activeMin": 32,
-      "laneMin": 33,
+      "activeMin": 33,
+      "laneMin": 34,
       "blockedMin": 0,
       "brokenMin": {},
-      "sessions": 9,
-      "turns": 8,
+      "sessions": 10,
+      "turns": 9,
       "commits": 0,
       "pushes": 0,
       "first": "00:13",
-      "last": "03:43"
+      "last": "04:13"
     },
     "coter-kit": {
       "activeMin": 76,
@@ -76,16 +76,16 @@
       "last": "02:08"
     },
     "ascendant": {
-      "activeMin": 75,
-      "laneMin": 75,
+      "activeMin": 105,
+      "laneMin": 105,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 1,
-      "turns": 12,
-      "commits": 10,
-      "pushes": 8,
+      "turns": 14,
+      "commits": 16,
+      "pushes": 14,
       "first": "02:51",
-      "last": "04:06"
+      "last": "04:36"
     }
   },
   "sources": {}
