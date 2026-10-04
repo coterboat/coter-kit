@@ -16,16 +16,16 @@
       "last": "03:29"
     },
     "jobsnearme": {
-      "activeMin": 399,
-      "laneMin": 405,
+      "activeMin": 428,
+      "laneMin": 434,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 1,
-      "turns": 35,
-      "commits": 31,
+      "turns": 37,
+      "commits": 32,
       "pushes": 0,
       "first": "00:01",
-      "last": "07:05"
+      "last": "07:36"
     },
     "undertone": {
       "activeMin": 148,
@@ -40,21 +40,21 @@
       "last": "04:10"
     },
     "concurrent": {
-      "activeMin": 38,
-      "laneMin": 39,
+      "activeMin": 39,
+      "laneMin": 40,
       "blockedMin": 0,
       "brokenMin": {},
-      "sessions": 15,
-      "turns": 14,
+      "sessions": 16,
+      "turns": 15,
       "commits": 0,
       "pushes": 0,
       "first": "00:13",
-      "last": "06:43"
+      "last": "07:13"
     },
     "coter-kit": {
       "activeMin": 77,
       "laneMin": 77,
-      "blockedMin": 4,
+      "blockedMin": 34,
       "brokenMin": {},
       "sessions": 3,
       "turns": 3,
@@ -76,16 +76,16 @@
       "last": "02:08"
     },
     "ascendant": {
-      "activeMin": 255,
-      "laneMin": 255,
+      "activeMin": 284,
+      "laneMin": 284,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 1,
-      "turns": 32,
-      "commits": 33,
-      "pushes": 32,
+      "turns": 36,
+      "commits": 39,
+      "pushes": 37,
       "first": "02:51",
-      "last": "07:06"
+      "last": "07:36"
     }
   },
   "sources": {}
