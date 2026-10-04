@@ -32,6 +32,9 @@ export const KEEP_DAYS = 400
 const ms = (v) => (typeof v === 'number' ? v : v ? Date.parse(v) : 0)
 // A project called __proto__ would write to Object.prototype where names are used as keys (RV-005 F6)
 const unsafe = (name) => name === '__proto__'
+// Project names are keys of plain objects, and `constructor` or `toString` must not find the inherited ones (RV-007 F6)
+const has = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key)
+const num = (v) => (Number.isFinite(v) ? v : 0)
 const empty = () => ({ you_ms: 0, claude_ms: 0, claude_wall_ms: 0, scheduled_ms: 0 })
 
 // A date 'YYYY-MM-DD' as local midnight
@@ -76,7 +79,7 @@ export function dayTotals(records, date) {
   for (const r of records) {
     if (!r || !r.project || unsafe(r.project) || seen.has(r.id)) continue
     seen.add(r.id)
-    const t = (out[r.project] = out[r.project] || empty())
+    const t = has(out, r.project) ? out[r.project] : (out[r.project] = empty())
     // The user's time: a beat counts on the day it happened, and a beat just after midnight only
     // the minutes since midnight (RV-001 F8)
     if (!r.scheduled) for (const [at, credit] of r.beats || []) if (at >= from && at < to) t.you_ms += Math.min(credit, at - from)
@@ -84,7 +87,7 @@ export function dayTotals(records, date) {
     const mine = length(clipped)
     t.claude_ms += mine
     if (r.scheduled) t.scheduled_ms += mine
-    ;(byProject[r.project] = byProject[r.project] || []).push(...clipped)
+    ;(has(byProject, r.project) ? byProject[r.project] : (byProject[r.project] = [])).push(...clipped)
   }
   for (const [project, spans] of Object.entries(byProject)) out[project].claude_wall_ms = length(union(spans))
   for (const [project, t] of Object.entries(out)) if (!FIELDS.some((f) => t[f])) delete out[project]
@@ -100,12 +103,12 @@ export function updateMachine(prior, { device, records, now, lookBackDays = 7 })
   for (let i = lookBackDays; i >= 0; i--) {
     const date = addDays(today, -i)
     const fresh = dayTotals(records, date)
-    const kept = days[date] || {}
+    const kept = has(days, date) ? days[date] : {}
     const merged = {}
     for (const project of new Set([...Object.keys(kept), ...Object.keys(fresh)])) {
       if (unsafe(project)) continue
       merged[project] = {}
-      for (const f of FIELDS) merged[project][f] = Math.max(kept[project]?.[f] || 0, fresh[project]?.[f] || 0)
+      for (const f of FIELDS) merged[project][f] = Math.max(has(kept, project) ? num(kept[project][f]) : 0, has(fresh, project) ? num(fresh[project][f]) : 0)
     }
     if (Object.keys(merged).length) days[date] = merged
     else delete days[date]
@@ -122,17 +125,17 @@ export const billedMinutes = (youMs) => Math.ceil(youMs / MIN / BILL_UNIT_MIN) *
 export function sheetFor(files, monday) {
   const dates = weekDates(monday)
   const projects = {}
-  const proj = (name) => (projects[name] = projects[name] || { days: {}, ...empty(), adjust_min: 0, billed_min: 0 })
+  const proj = (name) => (has(projects, name) ? projects[name] : (projects[name] = { days: {}, ...empty(), adjust_min: 0, billed_min: 0 }))
   for (const f of files) {
     for (const date of dates) {
-      for (const [name, t] of Object.entries(f.days?.[date] || {})) {
+      for (const [name, t] of Object.entries(has(f.days || {}, date) ? f.days[date] : {})) {
         if (unsafe(name)) continue
         const p = proj(name)
-        const d = (p.days[date] = p.days[date] || empty())
-        for (const k of FIELDS) { d[k] += t[k] || 0; p[k] += t[k] || 0 }
+        const d = has(p.days, date) ? p.days[date] : (p.days[date] = empty())
+        for (const k of FIELDS) { d[k] += num(t?.[k]); p[k] += num(t?.[k]) }
       }
     }
-    for (const a of f.adjustments || []) if (dates.includes(a.date) && !unsafe(a.project)) proj(a.project).adjust_min += a.min
+    for (const a of f.adjustments || []) if (dates.includes(a.date) && !unsafe(a.project)) proj(a.project).adjust_min += num(a.min)
   }
   const total = { you_ms: 0, claude_ms: 0, adjust_min: 0, billed_min: 0 }
   for (const p of Object.values(projects)) {
@@ -152,16 +155,23 @@ export function sheetFor(files, monday) {
   return { week: monday, from: dates[0], to: dates[6], dates, devices: files.map((f) => f.device), projects, total, confirmed }
 }
 
-// May this week be confirmed now? It has to be over. A machine whose file stopped before the week
-// ended, or one with notes this week (`roster`: [{ device, last: 'YYYY-MM-DD' }], from the brain's
-// journal folders) but no timesheet here at all, may still hold hours this sheet can't see, so
-// either blocks the confirm unless the owner says so (`force`) (RV-005 F5)
+// May this week be confirmed now? It has to be over. A machine that may hold hours this sheet
+// can't see blocks the confirm unless the owner says so (`force`) (RV-005 F5, RV-007 F3/F5):
+//   - one with no file here at all but with notes in the week (`roster`: [{ device, dates }], the
+//     dates of its journal files and undertone summaries in the brain), and
+//   - one whose file stopped before the week ended, if it wrote within the 7 days before the week
+//     or has notes in the week. A retired machine's old file blocks nothing.
+// A machine that has left no note and no file anywhere can't be known; the owner's own count is
+// the check on that.
 export function confirmCheck(files, monday, now, { roster = [], force = false } = {}) {
   const end = dateMs(addDays(monday, 7))
   if (now < end) return { ok: false, reason: 'The week of ' + monday + ' runs until Sunday night. Confirm it from Monday.' }
   const sheet = sheetFor(files, monday)
-  const stale = files.filter((f) => ms(f.updated_at) < end).map((f) => f.device)
-  const absent = roster.filter((r) => r.last >= monday && !files.some((f) => f.device === r.device)).map((r) => r.device)
+  const dates = weekDates(monday)
+  const active = (device) => roster.some((r) => r.device === device && (r.dates || []).some((d) => dates.includes(d)))
+  const recent = (f) => ms(f.updated_at) >= dateMs(monday) - 7 * DAY
+  const stale = files.filter((f) => ms(f.updated_at) < end && (recent(f) || active(f.device))).map((f) => f.device)
+  const absent = roster.filter((r) => !files.some((f) => f.device === r.device) && active(r.device)).map((r) => r.device)
   const missing = [...stale, ...absent]
   if (missing.length && !force) {
     return {

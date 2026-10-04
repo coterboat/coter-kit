@@ -30,7 +30,7 @@ type Opts = {
   now?: number
   undelivered?: boolean
   failWrites?: string // writes to a path containing this are refused
-  dropFirstWrite?: string // the first write to a path containing this is lost, as if another session overwrote it
+  dropWrites?: string // once armed (ctl.drop), the next write to a path containing this is lost, as if another session overwrote it
   usageHangs?: boolean
 }
 
@@ -76,10 +76,10 @@ function stubAll(on: any, opts: Opts = {}) {
     if (path.endsWith('/profile.seed.md')) return { value: '# Profile\n- Prefers short summaries' }
     return files.has(path) ? { value: files.get(path) } : { deny: 'no such file' }
   })
-  let dropped = false
+  const ctl = { drop: false }
   on('fs.write', ($: any, e: any) => {
     if (opts.failWrites && unix(e.path).includes(opts.failWrites)) return { deny: 'no space left on device' }
-    if (opts.dropFirstWrite && !dropped && unix(e.path).includes(opts.dropFirstWrite)) { dropped = true; return { value: undefined } }
+    if (opts.dropWrites && ctl.drop && unix(e.path).includes(opts.dropWrites)) { ctl.drop = false; return { value: undefined } }
     files.set(unix(e.path), e.text)
     return { value: undefined }
   })
@@ -132,7 +132,7 @@ function stubAll(on: any, opts: Opts = {}) {
   on('turn.start', ($: any, e: any) => ({ turnId: e.turnId }))
   on('turn.complete', () => ({ text: '' }))
   on('ui.render', () => ({ type: 'Text', props: {}, children: ['drawn by Claude Code'] }))
-  return { files, store, ran, forks, clock }
+  return { files, store, ran, forks, clock, ctl }
 }
 
 // Every test runs with the brain in /brain
@@ -1701,12 +1701,44 @@ t('RV-005 F4: a write that fails is not reported as done, and nothing is synced'
   expect(ran.filter((a) => a[0] === 'git' && a.includes('commit')).length).toBe(gitCommits)
 })
 
-t('RV-005 F1: a line that another session\'s write wiped is written again until it is there', async ($, on) => {
-  const { files } = stubAll(on, { now: WED, hostname: 'mac', files: BRAIN, dropFirstWrite: 'timesheets/mac.json' })
+t('RV-005 F1 and RV-007 F7: a line that another session\'s write wiped is written again until it is there', async ($, on) => {
+  const { files, ctl } = stubAll(on, { now: WED, hostname: 'mac', files: BRAIN, dropWrites: 'timesheets/mac.json' })
   await start($)
+  expect(files.has('/brain/timesheets/mac.json')).toBe(true) // the session start wrote it: the loss is armed after that
+  ctl.drop = true
   const added: any = await $.command.run({ command: 'timesheet', args: 'add work 1h call' })
+  expect(ctl.drop).toBe(false) // the first write really was lost
   expect(added.text).toContain('Added')
   expect(sheetOf(files).adjustments).toMatchObject([{ project: 'work', min: 60 }])
+})
+
+t('RV-007 F2: a timesheet file that cannot be read is never overwritten', async ($, on) => {
+  const { files } = stubAll(on, { now: WED, hostname: 'mac', files: { ...BRAIN, '/brain/timesheets/mac.json': '{"v":1,"device":"mac","days":{"2026-10-0' } })
+  await start($)
+  const added: any = await $.command.run({ command: 'timesheet', args: 'add work 1h call' })
+  expect(added.text).toContain('Not saved')
+  const shown: any = await $.command.run({ command: 'timesheet', args: '' })
+  expect(shown.text).toContain('could not be read')
+  expect(files.get('/brain/timesheets/mac.json')).toBe('{"v":1,"device":"mac","days":{"2026-10-0')
+})
+
+t('RV-007 F3 and F5: machines named by undertone\'s summaries count too, and only for the weeks they were active', async ($, on) => {
+  const { files } = stubAll(on, { now: WED, hostname: 'mac', files: { ...BRAIN, '/brain/undertone/pc/2026-09-30.json': '{}', '/brain/undertone/oldpc/2026-08-01.json': '{}' } })
+  await start($)
+  const blocked: any = await $.command.run({ command: 'timesheet', args: 'confirm last' })
+  expect(blocked.text).toContain('Not confirmed')
+  expect(blocked.text).toContain('pc ')
+  expect(blocked.text).not.toContain('oldpc')
+  expect(sheetOf(files).confirmed).toEqual({})
+})
+
+t('RV-007 F1: a confirmation is checked for its exact record, not only that some confirmation exists', async ($, on) => {
+  const { files } = stubAll(on, { now: WED, hostname: 'mac', files: BRAIN })
+  files.set('/brain/timesheets/mac.json', JSON.stringify({ v: 1, device: 'mac', updated_at: new Date(WED).toISOString(), days: {}, adjustments: [], confirmed: { '2026-09-28': { at: '2026-10-05T09:00:00.000Z', device: 'mac', billed_min: { work: 6 } } } }))
+  await start($)
+  const again: any = await $.command.run({ command: 'timesheet', args: 'confirm last' })
+  expect(again.text).toContain('Confirmed')
+  expect(sheetOf(files).confirmed['2026-09-28'].at).not.toBe('2026-10-05T09:00:00.000Z') // the new record, not the old one
 })
 
 t('RV-005 F3: a session resumed after its beats left the 36-hour window still gets them into the file', async ($, on) => {

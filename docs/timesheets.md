@@ -29,7 +29,16 @@ Manual lines: `/timesheet add <project> <time> [date] <note>`, for example `1.5h
 
 ## Confirming a week
 
-Weeks run Monday to Sunday. `/timesheet confirm` (or `confirm last`) is refused until the week is over. It records the hours billed per project and names any machine whose file stopped before the week ended, since its last hours may still be on that machine. After that `/timesheet` shows "confirmed", and "changed since you confirmed" if a late sync or a new line moves a project's hours.
+Weeks run Monday to Sunday. `/timesheet confirm` (or `confirm last`) is refused until the week is over. It records the hours billed per project. After that `/timesheet` shows "confirmed", and "changed since you confirmed" if a late sync or a new line moves a project's hours.
+
+It is also refused while a machine may hold hours this machine can't see, and names it. Machines are found from the brain: a machine with notes (journal files, or undertone's daily summaries) on a day of the week but no timesheet here, or one whose file stopped before the week ended (when it wrote in the week before or has notes in the week; a retired machine's old file blocks nothing). `/brain sync`, or update coter-kit on that machine, then try again. `confirm last anyway` confirms without them. A machine that has left no note and no file anywhere can't be seen: check the count of machines yourself.
+
+## Limits, on purpose
+
+- **No lock.** Sessions on one machine share its file (LOCK-1: no machine-wide lock for now). A change you make (`add`, `remove`, `confirm`) is read back and written again, up to 3 times, until it is in the file. Two writes in the same few milliseconds could still lose one; sessions never write it more than every 10 minutes.
+- **A file that can't be read is never replaced.** The command says so and leaves it for you to repair or delete.
+- **Your time is counted per machine,** as the build plan defines it (back to your previous beat "on this machine"). Working on two machines in the same minutes counts on both.
+- **A machine is its name.** Two machines with the same name would share a file, as they already share a journal folder.
 
 ## One clock
 

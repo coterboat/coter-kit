@@ -128,10 +128,10 @@ test('confirming: a week that is not over cannot be confirmed; a machine that is
   assert.equal(alone.ok, true)
   assert.equal(alone.record.billed_min.a, 30)
   // bld wrote its file before the week ended; pc has notes this week but no file here at all (RV-005 F5)
-  const roster = [{ device: 'pc', last: '2026-10-02' }, { device: 'old', last: '2026-09-01' }, { device: 'mac', last: '2026-10-04' }]
+  const roster = [{ device: 'pc', dates: ['2026-09-30', '2026-10-02'] }, { device: 'old', dates: ['2026-09-01'] }, { device: 'mac', dates: ['2026-10-04'] }, { device: 'later', dates: ['2026-10-20'] }]
   const blocked = confirmCheck([mac, bld], '2026-09-28', at(5, 12), { roster })
   assert.equal(blocked.ok, false)
-  assert.deepEqual(blocked.missing.sort(), ['bld', 'pc'])
+  assert.deepEqual(blocked.missing.sort(), ['bld', 'pc']) // 'old' and 'later' had no notes this week (RV-007 F5)
   assert.match(blocked.reason, /anyway/)
   assert.equal(confirmCheck([mac, bld], '2026-09-28', at(5, 12), { roster, force: true }).ok, true)
   const after = sheetFor([{ ...mac, confirmed: { '2026-09-28': { at: at(5, 12), billed_min: { a: 30 } } } }], '2026-09-28')
@@ -155,4 +155,34 @@ test('RV-005 F6: a project called __proto__ is refused, and in synced data it po
 test('the sheet\'s footer does not promise more than one machine\'s clock', () => {
   const text = formatSheet(sheetFor([{ device: 'mac', days: {} }], '2026-10-05'))
   assert.match(text, /never counted twice on one machine/)
+})
+
+test('RV-007 F5: a retired machine\'s old file does not block every week from then on', () => {
+  const mac = { device: 'mac', updated_at: at(5, 1), days: {} }
+  const retired = { device: 'laptop', updated_at: new Date(2026, 5, 1).toISOString(), days: {} } // months before the week
+  assert.equal(confirmCheck([mac, retired], '2026-09-28', at(5, 12), { roster: [] }).ok, true)
+  // ...but the same old file with notes from that machine in the week does
+  assert.equal(confirmCheck([mac, retired], '2026-09-28', at(5, 12), { roster: [{ device: 'laptop', dates: ['2026-09-30'] }] }).ok, false)
+})
+
+test('RV-007 F6: project names that are Object properties (constructor, toString) are ordinary names', () => {
+  for (const name of ['constructor', 'toString', 'hasOwnProperty', 'valueOf']) {
+    const a = parseAdjustment(name + ' 1h call', at(7, 12))
+    assert.equal(a.ok, true, name)
+    const file = { device: 'mac', days: { '2026-10-07': { [name]: { you_ms: 7 * MIN, claude_ms: MIN, claude_wall_ms: MIN, scheduled_ms: 0 } } }, adjustments: [{ id: 'z', date: '2026-10-07', project: name, min: a.min, note: '' }] }
+    const s = sheetFor([file], '2026-10-05')
+    assert.equal(s.projects[name].billed_min, 12 + 60, name)
+    assert.equal(s.total.billed_min, 72, name)
+    const day = dayTotals([rec({ project: name, beats: [[at(7, 9), 9 * MIN]] })], '2026-10-07')
+    assert.equal(day[name].you_ms, 9 * MIN, name)
+    assert.equal(updateMachine(file, { device: 'mac', now: at(7, 18), records: [rec({ project: name, beats: [[at(7, 9), 9 * MIN]] })] }).days['2026-10-07'][name].you_ms, 9 * MIN, name)
+    formatSheet(s)
+  }
+})
+
+test('RV-007 F6: a number in synced data that is not a number counts as nothing, not NaN', () => {
+  const file = { device: 'x', days: { '2026-10-05': { a: { you_ms: 'lots', claude_ms: null } } }, adjustments: [{ id: 'q', date: '2026-10-05', project: 'a', min: 'x' }] }
+  const s = sheetFor([file], '2026-10-05')
+  assert.equal(s.projects.a.billed_min, 0)
+  assert.equal(Number.isNaN(s.total.billed_min), false)
 })
