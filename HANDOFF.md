@@ -1,6 +1,6 @@
 # Handoff
 
-From home on alexs-macbook-pro, 2026-10-04 07:29 UTC (id i3hydrcr).
+From undertone on alexs-macbook-pro, 2026-10-04 16:32 UTC (id 1hcqxu7r).
 
 Sessions with coter-kit pick this up by themselves, including ones already open. Without it yet, install it first, in a terminal:
 
@@ -11,15 +11,39 @@ claude plugin install coter-kit@coter-kit --config brainRemote=https://github.co
 
 ---
 
-Goal: home (github.com/coterboat/home, private): Alex's launchpad per docs/spec.md, built by plain code; models only for hand-offs (Claude Code on the Max plan).
+Goal: undertone (github.com/coterboat/undertone) turns live Claude Code sessions into background music that tells Alex what's happening and what needs him. The current leg is "styles": game-soundtrack-quality genres (after Mass Effect and Stellaris) that keep the signals (calls, sour notes, asks) readable over hours.
 
-Where it stands: pushed and live. main = c97ea32 on GitHub and in ~/Documents/GitHub/home. Two LaunchAgents run that checkout: com.coterboat.home (server, http://127.0.0.1:4800; phone via https://alexs-mac.tail9d147d.ts.net:8443) and com.coterboat.home-runner (hand-offs); both restart on a pull. npm test 58/58. Built 10-4 (Alex: 'make this system what it's meant to be', overriding the brief's week of living with the strip): (M0) npm run shot, a screenshot harness that drives Chrome over DevTools (desktop/phone, light/dark, --viewport, --eval); (M1) projects/<slug>.yaml read by lib/yaml.mjs (a strict YAML subset) and lib/config.mjs, tiles (live sessions, rows on Now, PRs, issues, questions, focus from the newest thread note, today's minutes, links, colour of the most urgent row), usage windows in the header; (M2) #view=sessions with a drawer, finished scheduled runs folded; (M3) #view=project&p=<slug>: rows, sessions, PRs, issues, decisions, threads, facts and a week's timeline; (M4) Hand to Claude: composer -> POST /handoff -> scripts/runner.mjs runs `claude -p` read-only (--tools Read,Grep,Glob, --permission-prompts none, no memory writes; refused without them) in the project's checkout, prompt wrapped in <scheduled-task name="home-handoff">, reply saved word for word with sha256 in log/replies, shown as a Now row and at /reply/<id>. Proven with a stand-in claude in tests, one real run in a worktree and one through the always-on runner (left on Alex's strip as a demo). Every view was checked with npm run shot.
+Where it stands: main is 5db4282 (0.11.0), pushed. The coter-kit plugin is updated on the Mac, which runs a detached bridge on 127.0.0.1:4747.
+- Styles are moods carrying a style:
+  - Late shift: lofi.
+  - Blue hour: jazz, made consonant and nobody's default.
+  - Afterhours: house, home's default.
+  - Far shore: ME1-style synth bed, undertone's default.
+  - Deep field: Stellaris-style, coter-kit's default.
+- Space-style sounds are kits in web/engines/common.js (makeFarShore, makeDeepField). The conductor uses tiers (calm/working/full) and the optional engine calls layer(), tier(), style() and comp(), all in web/index.html.
+- Every style was verified on a scratch bridge and muted page: scheduled calls instrumented, 30 s clips, ear stats and spectrograms; 0 clicks on Synth and Sampled.
+- The research doc is docs/space-styles.md, with Codex and Grok reviews in docs/reviews/space-styles/. Tests: npm test 72/72, claude plugin test . 24/24.
+- Not done: Alex hasn't listened to Far shore or Deep field yet; reference-track analysis; DJ transitions and takeovers.
 
-Decisions: ourPlace has no checkout on purpose (HIPAA), so no hand-offs there until Alex adds one. Hand-offs are read-only only; allow_write (fresh worktree) is not built. The page JS lives in web/js/*.mjs (ui, strip, tiles, sessions, project, handoff, app).
+Decisions:
+- No constant tones; a style change must carry information.
+- Codex and Grok consensus applied: fewer moving parts, frequency bands per part, tiers up fast and down slow, no 7/8.
+- Deep field's strings and organ stay synthesized: smplr's sustained string samples clicked on 128-sample block boundaries.
+- Drone counts come from coter-kit's journal, not the live status files.
+- No YouTube ripping; only files Alex owns.
+- One session per leg, with /handoff at boundaries.
 
 Next steps:
-1. Alex: PC-home (Tailscale + send-live on the PC); fill the TODO links in projects/ourplace.yaml and jobsnearme.yaml.
-2. Next builds to offer: hand-offs that may write on a fresh worktree where allow_write is true; the side rail and command box (need to know how Grok Bot takes requests); supporting metrics (waited-on-you minutes).
-3. Claude: worktree, test on 4801 (home-dev), npm run shot before calling a visual change done, push only on fail 0, then pull in the main checkout.
+1. Alex (Mac): reload the page, live with Far shore and Deep field, and report how they feel over an hour.
+2. Alex: put owned soundtrack files (Stellaris Steam soundtrack MP3s, Mass Effect OSTs, favourite work music) in ~/Music/undertone-refs/.
+3. Claude (Mac): decode with ffmpeg, measure with ear/analyze.mjs (bands, loudness arc, onset density), cluster, and tune the styles toward the clusters.
+4. Claude: DJ transitions (16-bar holds, phrase-boundary blends, related keys, tempo ratios), then takeovers on push or green deploy.
+5. Alex: the PC still needs undertone updated (claude plugin marketplace update coter-kit, then claude plugin update undertone@coter-kit).
 
-Gotchas: launchctl bootstrap right after bootout fails with error 5 (fixed in launchagent.mjs). A whole-page shot smears fixed panels; use --viewport. The browser pane may be hidden (0x0 viewport); drive the page with javascript then. ~/Documents/GitHub/home has another session's untracked .claude/review.json.
+Gotchas:
+- Test rig: scratch bridge `HOME=<tmp> UNDERTONE_HOME=<tmp>/.undertone UNDERTONE_BRAIN_DIR=<tmp>/brain UNDERTONE_SOURCES=0 GEMINI_API_KEY= node bridge/server.mjs 47xx`. Open it via preview_start url http://localhost:47xx and set Tone.getDestination().mute=true. Wrap UndertoneEngines.get(id).create to log calls, and use the Snapshot button for clips.
+- Block-aligned clicks: check positions mod 128 (scratchpad quantum.mjs idea). Mixed mono/stereo buses must use kit.stereo().
+- Tone's a.connect(b) returns a, not b.
+- Gemini's free quota runs out fast; never put the key on scratch bridges.
+- Performance resource buffer caps at 250 entries.
+- Spotify connector: no listening history.
