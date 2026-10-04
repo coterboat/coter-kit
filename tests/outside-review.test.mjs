@@ -233,3 +233,10 @@ test('triage: a fixed high finding sends the next round, until the owner closes 
   node(dir, 'findings.mjs', 'close', '--round', 'RV-001', '--reason', 'shipping')
   assert.match(node(dir, 'triage.mjs', '--base', 'HEAD').stdout, /not needed/)
 })
+
+test('triage only reads: it never creates review folders in a repository', () => {
+  const dir = repo()
+  writeFileSync(join(dir, 'README.md'), 'x\n')
+  node(dir, 'triage.mjs', '--base', 'HEAD')
+  assert.equal(existsSync(join(dir, 'docs/reviews')), false)
+})

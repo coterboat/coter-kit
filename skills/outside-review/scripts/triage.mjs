@@ -77,7 +77,7 @@ for (const s of sensitive) {
 if (sourceLines >= MAX_LINES || source.length >= MAX_FILES) fired.push('too big to hold in your head: ' + sourceLines + ' changed source lines in ' + source.length + ' files (guide: ' + MAX_LINES + ' / ' + MAX_FILES + ')')
 
 // A high finding that was fixed gets the next round
-const dirs = reviewDirs(repo)
+const dirs = reviewDirs(repo, { create: false })
 const rows = readFindings(dirs)
 const rounds = [...new Set(rows.map((r) => r.round))].sort()
 const last = rounds[rounds.length - 1]

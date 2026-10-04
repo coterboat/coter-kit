@@ -39,12 +39,15 @@ export function repoRoot(dir) {
   }
 }
 
-// docs/reviews in the project: packets/, inbox/ and the findings log
-export function reviewDirs(repo) {
+// docs/reviews in the project: packets/, inbox/ and the findings log. Created only by the scripts
+// that write there; triage only reads, so it never leaves empty folders in a repository
+export function reviewDirs(repo, { create = true } = {}) {
   const root = join(repo, 'docs', 'reviews')
   const dirs = { root, packets: join(root, 'packets'), inbox: join(root, 'inbox'), findings: join(root, 'findings.jsonl') }
-  mkdirSync(dirs.packets, { recursive: true })
-  mkdirSync(dirs.inbox, { recursive: true })
+  if (create) {
+    mkdirSync(dirs.packets, { recursive: true })
+    mkdirSync(dirs.inbox, { recursive: true })
+  }
   return dirs
 }
 
