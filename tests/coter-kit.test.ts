@@ -1799,3 +1799,21 @@ t('RV-008 F4: a file of the right kind but the wrong shape is left alone and doe
   const shown: any = await $.command.run({ command: 'timesheet', args: '' })
   expect(shown.text).toContain('could not be read')
 })
+
+t('RV-009 F3: a file from a newer version is left as it is, never rewritten as version 1', async ($, on) => {
+  const future = JSON.stringify({ v: 2, device: 'mac', updated_at: new Date(WED).toISOString(), days: {}, adjustments: [], confirmed: {}, invoice_metadata: { client: 'x' } })
+  const { files } = stubAll(on, { now: WED, hostname: 'mac', files: { ...BRAIN, '/brain/timesheets/mac.json': future } })
+  await start($)
+  const added: any = await $.command.run({ command: 'timesheet', args: 'add work 1h call' })
+  expect(added.text).toContain('Not saved')
+  expect(files.get('/brain/timesheets/mac.json')).toBe(future)
+})
+
+t('RV-009 F2: a peer file with a bad time is unreadable, so it blocks the confirm instead of passing as fresh', async ($, on) => {
+  const { files } = stubAll(on, { now: WED, hostname: 'mac', files: BRAIN })
+  otherMachine(files, 'pc', { updated_at: 'invalid' })
+  await start($)
+  const blocked: any = await $.command.run({ command: 'timesheet', args: 'confirm last' })
+  expect(blocked.text).toContain('Not confirmed')
+  expect(blocked.text).toContain('pc')
+})

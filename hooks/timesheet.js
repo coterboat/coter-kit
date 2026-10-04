@@ -38,12 +38,26 @@ const num = (v) => (Number.isFinite(v) ? v : 0)
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v)
 const list = (v) => (Array.isArray(v) ? v : [])
 
-// Is this a timesheet file of the v1 shape all the way down? A file that isn't is left alone (RV-008 F4)
+const DATE = /^\d{4}-\d{2}-\d{2}$/
+const finite = (v) => typeof v === 'number' && Number.isFinite(v)
+
+// Is this a timesheet file of the v1 shape all the way down? A file that isn't (a newer version,
+// a half-written one, one with a bad time) is left alone, and when it is another machine's it
+// blocks the confirm (RV-008 F4, RV-009 F2/F3)
 export function validSheet(f) {
-  if (!isObj(f) || typeof f.device !== 'string' || !f.device || !isObj(f.days)) return false
-  if (!Object.values(f.days).every((day) => isObj(day) && Object.values(day).every(isObj))) return false
-  if (f.adjustments !== undefined && !(Array.isArray(f.adjustments) && f.adjustments.every(isObj))) return false
-  if (f.confirmed !== undefined && !(isObj(f.confirmed) && Object.values(f.confirmed).every(isObj))) return false
+  if (!isObj(f) || f.v !== 1 || typeof f.device !== 'string' || !f.device || !Number.isFinite(ms(f.updated_at)) || !f.updated_at || !isObj(f.days)) return false
+  for (const [date, day] of Object.entries(f.days)) {
+    if (!DATE.test(date) || !isObj(day)) return false
+    for (const t of Object.values(day)) if (!isObj(t) || Object.values(t).some((v) => !finite(v))) return false
+  }
+  if (f.adjustments !== undefined) {
+    if (!Array.isArray(f.adjustments)) return false
+    if (!f.adjustments.every((a) => isObj(a) && typeof a.id === 'string' && DATE.test(a.date) && typeof a.project === 'string' && finite(a.min))) return false
+  }
+  if (f.confirmed !== undefined) {
+    if (!isObj(f.confirmed)) return false
+    for (const [monday, c] of Object.entries(f.confirmed)) if (!DATE.test(monday) || !isObj(c) || !Number.isFinite(ms(c.at)) || !c.at || !isObj(c.billed_min)) return false
+  }
   return true
 }
 const empty = () => ({ you_ms: 0, claude_ms: 0, claude_wall_ms: 0, scheduled_ms: 0 })
@@ -126,7 +140,8 @@ export function updateMachine(prior, { device, records, now, lookBackDays = 7 })
   }
   const oldest = addDays(today, -KEEP_DAYS)
   for (const date of Object.keys(days)) if (date < oldest) delete days[date]
-  return { v: 1, device, updated_at: new Date(now).toISOString(), days, adjustments: list(prior?.adjustments), confirmed: isObj(prior?.confirmed) ? prior.confirmed : {} }
+  // Fields beyond the ones used here are kept
+  return { ...(isObj(prior) ? prior : {}), v: 1, device, updated_at: new Date(now).toISOString(), days, adjustments: list(prior?.adjustments), confirmed: isObj(prior?.confirmed) ? prior.confirmed : {} }
 }
 
 // Minutes billed for a stretch of the user's time: up to the next 6 minutes

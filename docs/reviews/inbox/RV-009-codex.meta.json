@@ -1,0 +1,12 @@
+{
+  "round": "RV-009",
+  "reviewer": "codex",
+  "rubric_sha256": "c2303a6dd22f05fd48a8fa98def28e45ed0a79fb2606afa367c2e8f42eba0154",
+  "packet_sha256": "170a0726f1cdb120b27500ef66e930d19233d00dac0554e337f7e11cb9d6bd26",
+  "prompt_sha256": "491e313b3b23d28b4644f6dee797e2b9262c3fb1dd380e20deaf1bf32c0f3c4b",
+  "response_sha256": "3871955da1de30c15a9a1f2cdde3548a3f2ccd47258111bf842254589cd41584",
+  "started_at": "2026-10-04T04:58:36.087Z",
+  "duration_ms": 145412,
+  "canary": "CANARY: I can see repository and tool context beyond the packet, though I reviewed only the supplied diff.",
+  "packet_only": false
+}

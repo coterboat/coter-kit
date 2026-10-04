@@ -187,18 +187,25 @@ test('RV-007 F6: a number in synced data that is not a number counts as nothing,
   assert.equal(Number.isNaN(s.total.billed_min), false)
 })
 
-test('RV-008 F4: a file is valid only if its whole v1 shape is, and the rest of the code survives a bad one anyway', () => {
-  assert.equal(validSheet({ v: 1, device: 'mac', days: {}, adjustments: [], confirmed: {} }), true)
-  assert.equal(validSheet({ device: 'mac', days: { '2026-10-07': { work: { you_ms: 1 } } } }), true) // adjustments and confirmed may be absent
-  for (const bad of [null, [], 'x', {}, { device: 'mac' }, { device: 'mac', days: [] }, { device: 'mac', days: { '2026-10-07': { work: null } } }, { device: 'mac', days: { '2026-10-07': [] } },
-    { device: 'mac', days: {}, adjustments: {} }, { device: 'mac', days: {}, adjustments: [null] }, { device: 'mac', days: {}, confirmed: [] }, { device: 'mac', days: {}, confirmed: { '2026-09-28': null } }, { device: '', days: {} }]) {
-    assert.equal(validSheet(bad), false, JSON.stringify(bad))
-  }
-  // Even handed one, nothing throws
+test('RV-008 F4 and RV-009 F2/F3: a file is valid only if its whole v1 shape is, and the rest of the code survives a bad one anyway', () => {
+  const ok = { v: 1, device: 'mac', updated_at: '2026-10-07T10:00:00.000Z', days: { '2026-10-07': { work: { you_ms: 1, claude_ms: 2, claude_wall_ms: 2, scheduled_ms: 0 } } }, adjustments: [{ id: 'a', date: '2026-10-07', project: 'work', min: 6, note: '' }], confirmed: { '2026-09-28': { at: '2026-10-05T09:00:00.000Z', device: 'mac', billed_min: { work: 6 } } } }
+  assert.equal(validSheet(ok), true)
+  assert.equal(validSheet({ v: 1, device: 'mac', updated_at: ok.updated_at, days: {} }), true) // adjustments and confirmed may be absent
+  const bads = [null, [], 'x', {}, { ...ok, v: 2 }, { ...ok, v: undefined }, { ...ok, updated_at: 'invalid' }, { ...ok, updated_at: undefined }, { ...ok, device: '' }, { ...ok, days: [] },
+    { ...ok, days: { 'last tuesday': { work: {} } } }, { ...ok, days: { '2026-10-07': { work: null } } }, { ...ok, days: { '2026-10-07': [] } }, { ...ok, days: { '2026-10-07': { work: { you_ms: 'lots' } } } },
+    { ...ok, adjustments: {} }, { ...ok, adjustments: [null] }, { ...ok, adjustments: [{ id: 'a', date: '2026-10-07', project: 'work' }] }, { ...ok, adjustments: [{ id: 'a', date: 'x', project: 'work', min: 6 }] },
+    { ...ok, confirmed: [] }, { ...ok, confirmed: { '2026-09-28': null } }, { ...ok, confirmed: { '2026-09-28': { at: 'x', billed_min: {} } } }, { ...ok, confirmed: { '2026-09-28': { at: ok.updated_at } } }]
+  for (const bad of bads) assert.equal(validSheet(bad), false, JSON.stringify(bad))
+  // Handed one anyway, nothing throws
   const broken = { device: 'x', days: { '2026-10-05': { a: null } }, adjustments: {}, confirmed: { '2026-09-28': null } }
   sheetFor([broken], '2026-09-28')
   sheetFor([broken], '2026-10-05')
   assert.deepEqual(updateMachine(broken, { device: 'x', now: at(5, 12), records: [] }).adjustments, [])
+})
+
+test('RV-009 F3: fields a v1 file carries beyond the ones this code knows are kept when it rewrites the file', () => {
+  const next = updateMachine({ v: 1, device: 'mac', days: {}, adjustments: [], confirmed: {}, invoice_metadata: { client: 'x' } }, { device: 'mac', now: at(7, 12), records: [] })
+  assert.deepEqual(next.invoice_metadata, { client: 'x' })
 })
 
 test('RV-008 F3: a machine whose file could not be read blocks the confirm like a missing one', () => {

@@ -135,9 +135,9 @@ When you release, bump `version` in `.claude-plugin/plugin.json`. Installed copi
 claude --plugin-dir .                        # load it for one session, reloads on save
 claude plugin validate --strict .claude-plugin/plugin.json   # `.` checks only the marketplace manifest
 node --check hooks/*.js                       # validate does not catch syntax errors
-claude plugin test                            # 105 tests, no session or network needed
+claude plugin test                            # 118 tests, no session or network needed
 node --test tests/outside-review.test.mjs     # the outside-review scripts (15 tests), on a throwaway repo
-node --test tests/timesheet.test.mjs           # the timesheet arithmetic (14 tests)
+node --test tests/timesheet.test.mjs           # the timesheet arithmetic (22 tests)
 ```
 
 If `claude plugin test` says hooks modules are turned off in this process, run it with `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` set. Some builds ignore that setting and leave it to a server-side switch; the Claude Code inside the desktop app (`$CLAUDE_CODE_EXECPATH` in its sessions) runs the tests.
