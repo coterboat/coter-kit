@@ -5,6 +5,7 @@
     { "glob": "hooks/redact.js", "why": "what keeps credentials out of the brain" },
     { "glob": "hooks/waiting.js", "why": "links written to the brain" },
     { "glob": "hooks/live.js", "why": "the status-file contract other tools read" },
+    { "glob": "hooks/timesheet.js", "why": "the billable-hours rules, and the per-machine file the owner's invoices come from" },
     { "glob": "skills/outside-review/scripts/**", "why": "what leaves this machine for another lab" }
   ]
 }

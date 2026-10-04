@@ -38,6 +38,7 @@ import {
 } from './brain.js'
 import { formatWaiting } from './waiting.js'
 import { formatRoutes } from './routes.js'
+import { updateMachine, sheetFor, weekOf, confirmCheck, parseAdjustment, formatSheet } from './timesheet.js'
 import { liveRoot, dayOf, beatCredit, liveRecord, liveness, lastBeatIn, glance, KEEP_DAYS } from './live.js'
 import { REVIEW_TOOL, VERDICTS, reviewQueue, queueText, recordVerdicts, picks, challenges, applyVerdict, applyPicks, keepAsIs, userDecides, score, isGuarded, isProtected } from './review.js'
 
@@ -100,7 +101,10 @@ let publishTimer = null
 let heartbeatTimer = null
 let othersNeedingYou = [] // other live sessions on this machine waiting on the user, for the band
 let lastUsage = null // $.session.usage(), refreshed on the heartbeat and after each turn
-const LIVE_COMMANDS = ['catchup', 'glance', 'waiting', 'brain', 'checklist', 'checks', 'snapshot', 'handoff', 'routes']
+const LIVE_COMMANDS = ['catchup', 'glance', 'waiting', 'brain', 'checklist', 'checks', 'snapshot', 'handoff', 'routes', 'timesheet']
+// This machine's timesheet file in the brain is rewritten at most this often (and when the session ends)
+const TIMESHEET_EVERY_MS = 10 * 60_000
+let lastTimesheetAt = 0
 
 // The session's setup, started once (see prepare)
 let ready = null
@@ -771,10 +775,97 @@ async function startLive($) {
     const at = await $.clock.now()
     othersNeedingYou = needingYou(await readLive($, at), at)
     await publishNow($)
+    if (at - lastTimesheetAt >= TIMESHEET_EVERY_MS) await saveTimesheet($)
     refreshUsageSoon($)
     $.ui.invalidate('ui.render')
   })
   await publishNow($)
+}
+
+// ---------------------------------------------------------------- timesheets
+
+const timesheetDir = () => join(brain.dir, 'timesheets')
+
+// Every machine's file in the brain (timesheets.js): this machine's is read as written, the others as synced
+async function readTimesheets($) {
+  const out = []
+  for (const f of await listDir($, timesheetDir())) {
+    if (f.kind !== 'file' || !f.name.endsWith('.json')) continue
+    const file = safeJson(await readText($, join(timesheetDir(), f.name)))
+    if (file && file.device && file.days) out.push(file)
+  }
+  return out
+}
+
+const sameSheet = (a, b) => JSON.stringify({ ...a, updated_at: 0 }) === JSON.stringify({ ...b, updated_at: 0 })
+
+// Rolls this machine's live records up into its file, which only this machine writes. `change`
+// edits the file's own adjustments or confirmations first. The file is written only when
+// something in it changed, so the brain doesn't gather a commit a minute.
+async function saveTimesheet($, change = null) {
+  if (!brain.dir || !env.device) return null
+  const now = await $.clock.now()
+  lastTimesheetAt = now
+  await publishNow($)
+  const path = join(timesheetDir(), env.device + '.json')
+  // The slow read first, then the file itself, so another session's edit to it has the least time to slip in between
+  const records = await readLive($, now)
+  const prior = safeJson(await readText($, path))
+  const base = prior && prior.days ? prior : null
+  const next = updateMachine(change ? change(base || { adjustments: [], confirmed: {}, days: {} }) : base, { device: env.device, records, now })
+  if (!prior || !sameSheet(prior, next)) {
+    try {
+      await $.fs.write(path, JSON.stringify(next, null, 1) + '\n')
+    } catch (err) {
+      $.ui.log('timesheet not written: ' + (err?.message || err))
+    }
+  }
+  return next
+}
+
+// The text of /timesheet: a week (this one, or `last`), three columns, and the hours to bill
+async function timesheetCommand($, args) {
+  if (!brain.dir) return { text: 'The timesheet lives in the brain, which is unavailable in this session.' }
+  const now = await $.clock.now()
+  const words = args.trim().split(/\s+/).filter(Boolean)
+  const verb = ['add', 'remove', 'confirm'].includes(words[0]) ? words.shift() : ''
+  const rest = args.trim().slice(verb.length).trim()
+  if (!env.device) return { text: 'This machine has no name yet, so there is no file to write.' }
+  await refreshIfStale(ioFor($), 60_000)
+  const thisWeek = weekOf(dayOf(now))
+  const lastWeek = weekOf(dayOf(new Date(thisWeek.replace(/-/g, '/')).getTime() - 12 * 3_600_000))
+  const monday = words.includes('last') ? lastWeek : thisWeek
+  const filesWith = async (own) => [own, ...(await readTimesheets($)).filter((f) => f.device !== env.device)].filter(Boolean)
+  const pushed = async () => {
+    const sync = await syncNow(ioFor($))
+    return sync && !sync.ok ? ' (saved on this machine; the push failed, /brain sync retries)' : ''
+  }
+
+  if (verb === 'add') {
+    const line = parseAdjustment(rest, now)
+    if (!line.ok) return { text: line.reason }
+    const id = 'a' + now.toString(36).slice(-4) + Math.random().toString(36).slice(2, 4)
+    await saveTimesheet($, (f) => ({ ...f, adjustments: [...(f.adjustments || []), { id, date: line.date, project: line.project, min: line.min, note: line.note, at: new Date(now).toISOString() }] }))
+    return { text: 'Added ' + id + ': ' + line.project + ' ' + (line.min > 0 ? '+' : '-') + span(Math.abs(line.min) * 60_000) + ' on ' + line.date + (line.note ? ' (' + line.note + ')' : '') + ' (a line rounds up to 0.1 h). Remove it with /timesheet remove ' + id + '.' + (await pushed()) }
+  }
+  if (verb === 'remove') {
+    const id = words[0] || ''
+    const own = await saveTimesheet($)
+    if (!(own?.adjustments || []).some((a) => a.id === id)) return { text: 'No line ' + (id || '(none given)') + ' in this machine\'s file. A line can be removed only on the machine that added it.' }
+    await saveTimesheet($, (f) => ({ ...f, adjustments: f.adjustments.filter((a) => a.id !== id) }))
+    return { text: 'Removed ' + id + '.' + (await pushed()) }
+  }
+  if (verb === 'confirm') {
+    const own = await saveTimesheet($)
+    const check = confirmCheck(await filesWith(own), monday, now)
+    if (!check.ok) return { text: check.reason }
+    await saveTimesheet($, (f) => ({ ...f, confirmed: { ...(f.confirmed || {}), [monday]: { ...check.record, device: env.device } } }))
+    const lines = ['Confirmed the week of ' + monday + ': ' + Object.entries(check.record.billed_min).map(([p, m]) => p + ' ' + (m / 60).toFixed(1) + ' h').join(', ') + ' (total ' + (check.sheet.total.billed_min / 60).toFixed(1) + ' h).']
+    if (check.stale.length) lines.push(check.stale.join(', ') + ' last wrote before the week ended, so its last hours may not be here yet. /brain sync, then /timesheet shows anything that changes.')
+    return { text: lines.join('\n') + (await pushed()) }
+  }
+  const own = await saveTimesheet($)
+  return { text: formatSheet(sheetFor(await filesWith(own), monday), { days: words.includes('days') }) }
 }
 
 // ---------------------------------------------------------------- handoffs
@@ -861,6 +952,7 @@ export function register(on, options = {}) {
       { name: 'catchup', description: 'What happened since your last message, at a glance', immediate: true },
       { name: 'routes', description: 'Where work was sent (here, new session, subagents, cloud, schedules) and how it went', argumentHint: '[all]' },
       { name: 'glance', description: 'Every running session on this machine: what needs you, what is working, today\'s time', immediate: true },
+      { name: 'timesheet', description: 'Your time, Claude\'s and your adjustments this week, and the hours to bill', argumentHint: '[last|days|add <project> <time> <note>|remove <id>|confirm]', immediate: true },
       { name: 'waiting', description: 'What is waiting on you: mockups to review and questions to answer, with links', argumentHint: '[all]' },
     ]) {
       try {
@@ -972,6 +1064,7 @@ export function register(on, options = {}) {
     liveState = 'ended'
     liveStateSince = await $.clock.now()
     await publishNow($)
+    await saveTimesheet($)
     return next(e)
   })
 
@@ -1116,6 +1209,9 @@ export function register(on, options = {}) {
     if (g.died) lines.push('(' + g.died + ' session(s) stopped without closing in the last hour)')
     return { text: lines.join('\n') }
   })
+
+  // The week's hours: yours, Claude's, adjustments, and what to bill
+  on('command.run', { command: 'timesheet' }, async ($, e) => timesheetCommand($, e.args || ''))
 
   // Back in a long session: the kit's own facts, then six lines from the transcript
   on('command.run', { command: 'catchup' }, async ($) => {

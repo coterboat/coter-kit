@@ -1583,3 +1583,86 @@ t('RV-004 F5: a usage lookup that never answers does not hold up the end of a tu
   await clock.advance(2_000)
   expect(liveOf(files).state).toBe('your_move')
 })
+
+// ---------------------------------------------------------------- M4: timesheets
+
+const BRAIN = { '/brain/.git/HEAD': 'ref', '/brain/profile.md': '# P' }
+const WED = new Date(2026, 9, 7, 12, 0).getTime() // Wednesday 2026-10-07, local time; its week starts 2026-10-05
+const sheetOf = (files: Map<string, string>, device = 'mac') => JSON.parse(files.get('/brain/timesheets/' + device + '.json') as string)
+const otherMachine = (files: Map<string, string>, device: string, over: Record<string, unknown>) =>
+  files.set('/brain/timesheets/' + device + '.json', JSON.stringify({ v: 1, device, updated_at: new Date(WED).toISOString(), days: {}, adjustments: [], confirmed: {}, ...over }))
+const day = (you: number, claude = 0) => ({ work: { you_ms: you * MIN, claude_ms: claude * MIN, claude_wall_ms: claude * MIN, scheduled_ms: 0 } })
+
+t('M4: this machine writes its day to the brain, one file for the machine, and /timesheet shows yours, Claude\'s and what you bill', async ($, on) => {
+  const { files, clock } = stubAll(on, { now: WED, hostname: 'mac', files: BRAIN })
+  await start($)
+  await clock.advance(10 * MIN)
+  await $.prompt.submit({ text: 'first' })
+  await longTurn($, clock, 25 * MIN)
+  const out: any = await $.command.run({ command: 'timesheet', args: '' })
+  const file = sheetOf(files)
+  expect(file.device).toBe('mac')
+  expect(file.days['2026-10-07'].work).toEqual({ you_ms: 10 * MIN, claude_ms: 25 * MIN, claude_wall_ms: 25 * MIN, scheduled_ms: 0 })
+  expect(out.text).toMatch(/week 2026-10-05 to 2026-10-11/)
+  expect(out.text).toMatch(/work\s+10m\s+25m\s+·\s+0\.2 h/)
+})
+
+t('M4: a scheduled run adds Claude\'s time to the sheet and none of yours', async ($, on) => {
+  const { files, clock } = stubAll(on, { now: WED, hostname: 'mac', files: BRAIN })
+  await start($)
+  await $.classic.SessionStart({ source: 'startup' })
+  await $.prompt.submit({ text: SCHEDULED })
+  await longTurn($, clock, 40 * MIN)
+  await $.command.run({ command: 'timesheet', args: '' })
+  expect(sheetOf(files).days['2026-10-07'].work).toEqual({ you_ms: 0, claude_ms: 40 * MIN, claude_wall_ms: 40 * MIN, scheduled_ms: 40 * MIN })
+})
+
+t('M4: a week adds up every machine\'s file, and the other machine\'s file is never written', async ($, on) => {
+  const { files, clock } = stubAll(on, { now: WED, hostname: 'mac', files: BRAIN })
+  otherMachine(files, 'bld', { days: { '2026-10-06': day(20, 100) } })
+  const before = files.get('/brain/timesheets/bld.json')
+  await start($)
+  await clock.advance(10 * MIN)
+  await $.prompt.submit({ text: 'first' })
+  const out: any = await $.command.run({ command: 'timesheet', args: '' })
+  expect(out.text).toContain('mac + bld')
+  expect(out.text).toMatch(/work\s+30m\s+1h 40m/)
+  expect(files.get('/brain/timesheets/bld.json')).toBe(before)
+})
+
+t('M4: add and remove manual lines; they live in this machine\'s file and count in the bill', async ($, on) => {
+  const { files } = stubAll(on, { now: WED, hostname: 'mac', files: BRAIN })
+  await start($)
+  const added: any = await $.command.run({ command: 'timesheet', args: 'add work 1.5h client call' })
+  expect(added.text).toContain('Added')
+  expect(sheetOf(files).adjustments).toMatchObject([{ project: 'work', date: '2026-10-07', min: 90, note: 'client call' }])
+  const sheet: any = await $.command.run({ command: 'timesheet', args: '' })
+  expect(sheet.text).toMatch(/work\s+·\s+·\s+\+1h 30m\s+1\.5 h/)
+  const bad: any = await $.command.run({ command: 'timesheet', args: 'add work soon' })
+  expect(bad.text).toContain('/timesheet add <project>')
+  expect(sheetOf(files).adjustments.length).toBe(1)
+  const id = sheetOf(files).adjustments[0].id
+  const gone: any = await $.command.run({ command: 'timesheet', args: 'remove ' + id })
+  expect(gone.text).toContain('Removed')
+  expect(sheetOf(files).adjustments).toEqual([])
+  expect((await $.command.run({ command: 'timesheet', args: 'remove nope' }) as any).text).toContain('No line')
+})
+
+t('M4: a week is confirmed only once it is over, records the hours, and shows what changed after', async ($, on) => {
+  const { files } = stubAll(on, { now: WED, hostname: 'mac', files: BRAIN })
+  otherMachine(files, 'bld', { updated_at: new Date(2026, 9, 1).toISOString(), days: { '2026-09-29': day(50, 0) } })
+  await start($)
+  const early: any = await $.command.run({ command: 'timesheet', args: 'confirm' })
+  expect(early.text).toContain('runs until Sunday night')
+  const done: any = await $.command.run({ command: 'timesheet', args: 'confirm last' })
+  expect(done.text).toContain('Confirmed the week of 2026-09-28')
+  expect(done.text).toContain('0.9 h') // 50 minutes bill as 54
+  expect(done.text).toContain('bld last wrote before the week ended')
+  expect(sheetOf(files).confirmed['2026-09-28'].billed_min).toEqual({ work: 54 })
+  const again: any = await $.command.run({ command: 'timesheet', args: 'last' })
+  expect(again.text).toContain('confirmed 2026-10-07')
+  // The other machine syncs in a later hour of that week
+  otherMachine(files, 'bld', { days: { '2026-09-29': day(70, 0) } })
+  const changed: any = await $.command.run({ command: 'timesheet', args: 'last' })
+  expect(changed.text).toContain('changed since you confirmed: work 0.9 h -> 1.2 h')
+})
