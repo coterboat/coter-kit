@@ -1,6 +1,6 @@
 # Handoff
 
-From undertone on alexs-macbook-pro, 2026-10-04 16:32 UTC (id 1hcqxu7r).
+From home on alexs-macbook-pro, 2026-10-04 18:49 UTC (id 6dsucaxr).
 
 Sessions with coter-kit pick this up by themselves, including ones already open. Without it yet, install it first, in a terminal:
 
@@ -11,39 +11,15 @@ claude plugin install coter-kit@coter-kit --config brainRemote=https://github.co
 
 ---
 
-Goal: undertone (github.com/coterboat/undertone) turns live Claude Code sessions into background music that tells Alex what's happening and what needs him. The current leg is "styles": game-soundtrack-quality genres (after Mass Effect and Stellaris) that keep the signals (calls, sour notes, asks) readable over hours.
+Goal: home (github.com/coterboat/home, private): Alex's launchpad per docs/spec.md, by plain code; models only for hand-offs.
 
-Where it stands: main is 5db4282 (0.11.0), pushed. The coter-kit plugin is updated on the Mac, which runs a detached bridge on 127.0.0.1:4747.
-- Styles are moods carrying a style:
-  - Late shift: lofi.
-  - Blue hour: jazz, made consonant and nobody's default.
-  - Afterhours: house, home's default.
-  - Far shore: ME1-style synth bed, undertone's default.
-  - Deep field: Stellaris-style, coter-kit's default.
-- Space-style sounds are kits in web/engines/common.js (makeFarShore, makeDeepField). The conductor uses tiers (calm/working/full) and the optional engine calls layer(), tier(), style() and comp(), all in web/index.html.
-- Every style was verified on a scratch bridge and muted page: scheduled calls instrumented, 30 s clips, ear stats and spectrograms; 0 clicks on Synth and Sampled.
-- The research doc is docs/space-styles.md, with Codex and Grok reviews in docs/reviews/space-styles/. Tests: npm test 72/72, claude plugin test . 24/24.
-- Not done: Alex hasn't listened to Far shore or Deep field yet; reference-track analysis; DJ transitions and takeovers.
+Where it stands: main = c4caaf7, pushed, live on http://127.0.0.1:4800 (LaunchAgents com.coterboat.home and com.coterboat.home-runner, from ~/Documents/GitHub/home; they restart on a pull). npm test 63/63. Since the last handoff: questions on the strip can be answered (Answer... / key a: the note's options with its pick marked, or yes and no, a typed answer, Later). home writes ~/.claude/coter-kit/answers/<id>.json (coter-kit's contract in its docs/live-status.md, 'Answering from outside a session'); a coter-kit session saves the decision and closes the question; home never writes the brain. The question leaves the strip at once, waits under 'Answered · saving' with Undo, and home removes its file once the brain shows it closed. Proven end to end on 4800 with a test question (home-test, 6by88i0z): saved by a live session as decision 6d9lm0jd within ~25 s.
 
-Decisions:
-- No constant tones; a style change must carry information.
-- Codex and Grok consensus applied: fewer moving parts, frequency bands per part, tiers up fast and down slow, no 7/8.
-- Deep field's strings and organ stay synthesized: smplr's sustained string samples clicked on 128-sample block boundaries.
-- Drone counts come from coter-kit's journal, not the live status files.
-- No YouTube ripping; only files Alex owns.
-- One session per leg, with /handoff at boundaries.
+Decisions: Alex 10-4 OK'd home writing answers; coter-kit's inbox makes that possible without touching the brain (decision 665h03ey). Earlier ones stand (read-only hand-offs, ourPlace without a checkout).
 
 Next steps:
-1. Alex (Mac): reload the page, live with Far shore and Deep field, and report how they feel over an hour.
-2. Alex: put owned soundtrack files (Stellaris Steam soundtrack MP3s, Mass Effect OSTs, favourite work music) in ~/Music/undertone-refs/.
-3. Claude (Mac): decode with ffmpeg, measure with ear/analyze.mjs (bands, loudness arc, onset density), cluster, and tune the styles toward the clusters.
-4. Claude: DJ transitions (16-bar holds, phrase-boundary blends, related keys, tempo ratios), then takeovers on push or green deploy.
-5. Alex: the PC still needs undertone updated (claude plugin marketplace update coter-kit, then claude plugin update undertone@coter-kit).
+1. Alex: PC-home; TODO links in projects/ourplace.yaml and jobsnearme.yaml; say how Grok Bot takes requests if the side rail/command box should come next.
+2. Possible builds: closing a handoff row (coter-kit has no inbox for that yet; it would need one), hand-offs that may write on a fresh worktree, supporting metrics.
+3. Claude: worktree, home-dev on 4801, npm run shot before calling a visual change done, push only on fail 0, pull in the main checkout.
 
-Gotchas:
-- Test rig: scratch bridge `HOME=<tmp> UNDERTONE_HOME=<tmp>/.undertone UNDERTONE_BRAIN_DIR=<tmp>/brain UNDERTONE_SOURCES=0 GEMINI_API_KEY= node bridge/server.mjs 47xx`. Open it via preview_start url http://localhost:47xx and set Tone.getDestination().mute=true. Wrap UndertoneEngines.get(id).create to log calls, and use the Snapshot button for clips.
-- Block-aligned clicks: check positions mod 128 (scratchpad quantum.mjs idea). Mixed mono/stereo buses must use kit.stereo().
-- Tone's a.connect(b) returns a, not b.
-- Gemini's free quota runs out fast; never put the key on scratch bridges.
-- Performance resource buffer caps at 250 entries.
-- Spotify connector: no listening history.
+Gotchas: Alex's weekly Max window showed 100% on 10-4 18:45. A questions group's header carries its members' refs, so select member rows by data-key. My session's remember tool predates coter-kit's options field (new sessions have it).
