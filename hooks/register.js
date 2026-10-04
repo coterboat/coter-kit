@@ -38,7 +38,7 @@ import {
 } from './brain.js'
 import { formatWaiting } from './waiting.js'
 import { formatRoutes } from './routes.js'
-import { updateMachine, sheetFor, weekOf, confirmCheck, parseAdjustment, formatSheet } from './timesheet.js'
+import { updateMachine, sheetFor, weekOf, confirmCheck, parseAdjustment, formatSheet, validSheet } from './timesheet.js'
 import { liveRoot, dayOf, beatCredit, liveRecord, liveness, lastBeatIn, glance, KEEP_DAYS } from './live.js'
 import { REVIEW_TOOL, VERDICTS, reviewQueue, queueText, recordVerdicts, picks, challenges, applyVerdict, applyPicks, keepAsIs, userDecides, score, isGuarded, isProtected } from './review.js'
 
@@ -788,15 +788,18 @@ async function startLive($) {
 
 const timesheetDir = () => join(brain.dir, 'timesheets')
 
-// Every machine's file in the brain (timesheets.js): this machine's is read as written, the others as synced
+// Every machine's file in the brain (timesheets.js): this machine's is read as written, the others as synced.
+// A file that is there but isn't a valid timesheet is named in `unreadable` instead.
 async function readTimesheets($) {
-  const out = []
+  const files = []
+  const unreadable = []
   for (const f of await listDir($, timesheetDir())) {
     if (f.kind !== 'file' || !f.name.endsWith('.json')) continue
     const file = safeJson(await readText($, join(timesheetDir(), f.name)))
-    if (file && file.device && file.days) out.push(file)
+    if (validSheet(file)) files.push(file)
+    else unreadable.push(f.name.replace(/\.json$/, ''))
   }
-  return out
+  return { files, unreadable }
 }
 
 const sameSheet = (a, b) => JSON.stringify({ ...a, updated_at: 0 }) === JSON.stringify({ ...b, updated_at: 0 })
@@ -817,16 +820,19 @@ async function saveTimesheet($, change = null, { holds = null, own = true } = {}
   for (let attempt = 0; attempt < 3; attempt++) {
     // The slow read first, then the file itself, so another session's edit has the least time to slip in between
     const records = await readLive($, now)
-    // A file that is there but can't be read is never replaced: it holds history, lines and confirmations (RV-007 F2)
+    // A file that is there but isn't a valid timesheet is never replaced: it holds history, lines and confirmations (RV-007 F2, RV-008 F4)
     const text = await readText($, path)
     const prior = safeJson(text)
-    if ((await exists($, path)) && !(prior && typeof prior.days === 'object' && prior.days)) {
+    if ((await exists($, path)) && !validSheet(prior)) {
       $.ui.log('timesheet file ' + path + ' could not be read; left as it is')
       return { file: null, saved: false, unreadable: true }
     }
-    const base = prior || null
-    next = updateMachine(change ? change(base || { adjustments: [], confirmed: {}, days: {} }) : base, { device: env.device, records, now })
-    if (prior && sameSheet(prior, next)) return { file: next, saved: true }
+    next = updateMachine(change ? change(prior || { adjustments: [], confirmed: {}, days: {} }) : prior || null, { device: env.device, records, now })
+    // Unchanged, but the time it was last looked at moves forward once a day, so another machine can tell
+    // this one has been checked since a week ended (RV-008 F1)
+    if (prior && sameSheet(prior, next) && dayOf(Date.parse(prior.updated_at) || 0) === dayOf(now)) return { file: next, saved: true }
+    // The file again just before writing: if another session wrote since the read, start over from what it wrote (RV-008 F2)
+    if ((await readText($, path)) !== text) continue
     try {
       await $.fs.write(path, JSON.stringify(next, null, 1) + '\n')
     } catch (err) {
@@ -873,7 +879,11 @@ async function timesheetCommand($, args) {
   const thisWeek = weekOf(dayOf(now))
   const lastWeek = weekOf(dayOf(new Date(thisWeek.replace(/-/g, '/')).getTime() - 12 * 3_600_000))
   const monday = words.includes('last') ? lastWeek : thisWeek
-  const filesWith = async (own) => [own, ...(await readTimesheets($)).filter((f) => f.device !== env.device)].filter(Boolean)
+  // The other machines' files, read after this machine's own is up to date
+  const others = async () => {
+    const all = await readTimesheets($)
+    return { files: all.files.filter((f) => f.device !== env.device), unreadable: all.unreadable.filter((d) => d !== env.device) }
+  }
   const pushed = async () => {
     const sync = await syncNow(ioFor($))
     return sync && !sync.ok ? ' (saved on this machine; the push failed, /brain sync retries)' : ''
@@ -900,7 +910,8 @@ async function timesheetCommand($, args) {
   if (verb === 'confirm') {
     const own = await saveTimesheet($)
     if (own?.unreadable) return { text: notSaved('the confirmation', own) }
-    const check = confirmCheck(await filesWith(own?.file), monday, now, { roster: await machineRoster($), force: words.includes('anyway') })
+    const peers = await others()
+    const check = confirmCheck([own.file, ...peers.files], monday, now, { roster: await machineRoster($), unreadable: peers.unreadable, force: words.includes('anyway') })
     if (!check.ok) return { text: check.reason }
     const r = await saveTimesheet($, (f) => ({ ...f, confirmed: { ...(f.confirmed || {}), [monday]: { ...check.record, device: env.device } } }), { holds: (f) => f.confirmed?.[monday]?.at === check.record.at })
     if (!r?.saved) return { text: notSaved('the confirmation', r) }
@@ -909,8 +920,9 @@ async function timesheetCommand($, args) {
     return { text: lines.join('\n') + (await pushed()) }
   }
   const own = await saveTimesheet($)
-  const sheet = formatSheet(sheetFor(await filesWith(own?.file), monday), { days: words.includes('days') })
-  return { text: sheet + (own?.unreadable ? '\n(This machine\'s timesheet file could not be read, so its hours are missing here. It is left as it is: repair or delete timesheets/' + env.device + '.json in the brain.)' : own && !own.saved ? '\n(This machine\'s file could not be written, so other machines will not see these hours yet.)' : '') }
+  const peers = await others()
+  const sheet = formatSheet(sheetFor([own?.file, ...peers.files].filter(Boolean), monday), { days: words.includes('days') })
+  return { text: sheet + (peers.unreadable.length ? '\n(' + peers.unreadable.map((d) => d + '.json').join(', ') + ' could not be read, so ' + (peers.unreadable.length > 1 ? 'their' : 'its') + ' hours are missing here.)' : '') + (own?.unreadable ? '\n(This machine\'s timesheet file could not be read, so its hours are missing here. It is left as it is: repair or delete timesheets/' + env.device + '.json in the brain.)' : own && !own.saved ? '\n(This machine\'s file could not be written, so other machines will not see these hours yet.)' : '') }
 }
 
 // ---------------------------------------------------------------- handoffs

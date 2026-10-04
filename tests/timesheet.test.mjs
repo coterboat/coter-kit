@@ -3,7 +3,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  dayTotals, updateMachine, weekOf, weekDates, sheetFor, billedMinutes, parseAdjustment, formatSheet, confirmCheck,
+  dayTotals, updateMachine, weekOf, weekDates, sheetFor, billedMinutes, parseAdjustment, formatSheet, confirmCheck, validSheet,
 } from '../hooks/timesheet.js'
 
 const MIN = 60_000
@@ -185,4 +185,28 @@ test('RV-007 F6: a number in synced data that is not a number counts as nothing,
   const s = sheetFor([file], '2026-10-05')
   assert.equal(s.projects.a.billed_min, 0)
   assert.equal(Number.isNaN(s.total.billed_min), false)
+})
+
+test('RV-008 F4: a file is valid only if its whole v1 shape is, and the rest of the code survives a bad one anyway', () => {
+  assert.equal(validSheet({ v: 1, device: 'mac', days: {}, adjustments: [], confirmed: {} }), true)
+  assert.equal(validSheet({ device: 'mac', days: { '2026-10-07': { work: { you_ms: 1 } } } }), true) // adjustments and confirmed may be absent
+  for (const bad of [null, [], 'x', {}, { device: 'mac' }, { device: 'mac', days: [] }, { device: 'mac', days: { '2026-10-07': { work: null } } }, { device: 'mac', days: { '2026-10-07': [] } },
+    { device: 'mac', days: {}, adjustments: {} }, { device: 'mac', days: {}, adjustments: [null] }, { device: 'mac', days: {}, confirmed: [] }, { device: 'mac', days: {}, confirmed: { '2026-09-28': null } }, { device: '', days: {} }]) {
+    assert.equal(validSheet(bad), false, JSON.stringify(bad))
+  }
+  // Even handed one, nothing throws
+  const broken = { device: 'x', days: { '2026-10-05': { a: null } }, adjustments: {}, confirmed: { '2026-09-28': null } }
+  sheetFor([broken], '2026-09-28')
+  sheetFor([broken], '2026-10-05')
+  assert.deepEqual(updateMachine(broken, { device: 'x', now: at(5, 12), records: [] }).adjustments, [])
+})
+
+test('RV-008 F3: a machine whose file could not be read blocks the confirm like a missing one', () => {
+  const mac = { device: 'mac', updated_at: at(5, 1), days: {} }
+  const c = confirmCheck([mac], '2026-09-28', at(5, 12), { unreadable: ['pc'] })
+  assert.equal(c.ok, false)
+  assert.deepEqual(c.missing, ['pc'])
+  assert.match(c.reason, /pc/)
+  assert.match(c.reason, /could not be read/)
+  assert.equal(confirmCheck([mac], '2026-09-28', at(5, 12), { unreadable: ['pc'], force: true }).ok, true)
 })

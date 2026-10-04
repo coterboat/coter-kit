@@ -35,6 +35,17 @@ const unsafe = (name) => name === '__proto__'
 // Project names are keys of plain objects, and `constructor` or `toString` must not find the inherited ones (RV-007 F6)
 const has = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key)
 const num = (v) => (Number.isFinite(v) ? v : 0)
+const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v)
+const list = (v) => (Array.isArray(v) ? v : [])
+
+// Is this a timesheet file of the v1 shape all the way down? A file that isn't is left alone (RV-008 F4)
+export function validSheet(f) {
+  if (!isObj(f) || typeof f.device !== 'string' || !f.device || !isObj(f.days)) return false
+  if (!Object.values(f.days).every((day) => isObj(day) && Object.values(day).every(isObj))) return false
+  if (f.adjustments !== undefined && !(Array.isArray(f.adjustments) && f.adjustments.every(isObj))) return false
+  if (f.confirmed !== undefined && !(isObj(f.confirmed) && Object.values(f.confirmed).every(isObj))) return false
+  return true
+}
 const empty = () => ({ you_ms: 0, claude_ms: 0, claude_wall_ms: 0, scheduled_ms: 0 })
 
 // A date 'YYYY-MM-DD' as local midnight
@@ -103,19 +114,19 @@ export function updateMachine(prior, { device, records, now, lookBackDays = 7 })
   for (let i = lookBackDays; i >= 0; i--) {
     const date = addDays(today, -i)
     const fresh = dayTotals(records, date)
-    const kept = has(days, date) ? days[date] : {}
+    const kept = has(days, date) && isObj(days[date]) ? days[date] : {}
     const merged = {}
     for (const project of new Set([...Object.keys(kept), ...Object.keys(fresh)])) {
       if (unsafe(project)) continue
       merged[project] = {}
-      for (const f of FIELDS) merged[project][f] = Math.max(has(kept, project) ? num(kept[project][f]) : 0, has(fresh, project) ? num(fresh[project][f]) : 0)
+      for (const f of FIELDS) merged[project][f] = Math.max(has(kept, project) && isObj(kept[project]) ? num(kept[project][f]) : 0, has(fresh, project) ? num(fresh[project][f]) : 0)
     }
     if (Object.keys(merged).length) days[date] = merged
     else delete days[date]
   }
   const oldest = addDays(today, -KEEP_DAYS)
   for (const date of Object.keys(days)) if (date < oldest) delete days[date]
-  return { v: 1, device, updated_at: new Date(now).toISOString(), days, adjustments: prior?.adjustments || [], confirmed: prior?.confirmed || {} }
+  return { v: 1, device, updated_at: new Date(now).toISOString(), days, adjustments: list(prior?.adjustments), confirmed: isObj(prior?.confirmed) ? prior.confirmed : {} }
 }
 
 // Minutes billed for a stretch of the user's time: up to the next 6 minutes
@@ -128,14 +139,14 @@ export function sheetFor(files, monday) {
   const proj = (name) => (has(projects, name) ? projects[name] : (projects[name] = { days: {}, ...empty(), adjust_min: 0, billed_min: 0 }))
   for (const f of files) {
     for (const date of dates) {
-      for (const [name, t] of Object.entries(has(f.days || {}, date) ? f.days[date] : {})) {
+      for (const [name, t] of Object.entries(isObj(f.days) && has(f.days, date) && isObj(f.days[date]) ? f.days[date] : {})) {
         if (unsafe(name)) continue
         const p = proj(name)
         const d = has(p.days, date) ? p.days[date] : (p.days[date] = empty())
         for (const k of FIELDS) { d[k] += num(t?.[k]); p[k] += num(t?.[k]) }
       }
     }
-    for (const a of f.adjustments || []) if (dates.includes(a.date) && !unsafe(a.project)) proj(a.project).adjust_min += num(a.min)
+    for (const a of list(f.adjustments)) if (isObj(a) && dates.includes(a.date) && !unsafe(a.project)) proj(a.project).adjust_min += num(a.min)
   }
   const total = { you_ms: 0, claude_ms: 0, adjust_min: 0, billed_min: 0 }
   for (const p of Object.values(projects)) {
@@ -145,8 +156,8 @@ export function sheetFor(files, monday) {
   // The latest confirmation of this week, from any machine, and what moved since
   let confirmed = null
   for (const f of files) {
-    const c = f.confirmed?.[monday]
-    if (c && (!confirmed || ms(c.at) > ms(confirmed.at))) confirmed = { ...c, device: c.device || f.device }
+    const c = isObj(f.confirmed) ? f.confirmed[monday] : null
+    if (isObj(c) && (!confirmed || ms(c.at) > ms(confirmed.at))) confirmed = { ...c, device: c.device || f.device }
   }
   if (confirmed) {
     const names = new Set([...Object.keys(confirmed.billed_min || {}), ...Object.keys(projects)])
@@ -159,11 +170,12 @@ export function sheetFor(files, monday) {
 // can't see blocks the confirm unless the owner says so (`force`) (RV-005 F5, RV-007 F3/F5):
 //   - one with no file here at all but with notes in the week (`roster`: [{ device, dates }], the
 //     dates of its journal files and undertone summaries in the brain), and
+//   - one whose file is here but could not be read (`unreadable`), and
 //   - one whose file stopped before the week ended, if it wrote within the 7 days before the week
 //     or has notes in the week. A retired machine's old file blocks nothing.
 // A machine that has left no note and no file anywhere can't be known; the owner's own count is
 // the check on that.
-export function confirmCheck(files, monday, now, { roster = [], force = false } = {}) {
+export function confirmCheck(files, monday, now, { roster = [], unreadable = [], force = false } = {}) {
   const end = dateMs(addDays(monday, 7))
   if (now < end) return { ok: false, reason: 'The week of ' + monday + ' runs until Sunday night. Confirm it from Monday.' }
   const sheet = sheetFor(files, monday)
@@ -172,12 +184,12 @@ export function confirmCheck(files, monday, now, { roster = [], force = false } 
   const recent = (f) => ms(f.updated_at) >= dateMs(monday) - 7 * DAY
   const stale = files.filter((f) => ms(f.updated_at) < end && (recent(f) || active(f.device))).map((f) => f.device)
   const absent = roster.filter((r) => !files.some((f) => f.device === r.device) && active(r.device)).map((r) => r.device)
-  const missing = [...stale, ...absent]
+  const missing = [...stale, ...absent, ...unreadable]
   if (missing.length && !force) {
     return {
       ok: false,
       missing,
-      reason: 'Not confirmed: ' + [stale.length ? stale.join(', ') + ' last wrote before the week ended' : '', absent.length ? absent.join(', ') + ' worked this week but ' + (absent.length > 1 ? 'have' : 'has') + ' no timesheet here yet' : ''].filter(Boolean).join('; ') + '. Their hours may be missing: /brain sync, or update coter-kit on that machine. To confirm without them: /timesheet confirm' + (monday === weekOf(dayOf(now)) ? '' : ' last') + ' anyway.',
+      reason: 'Not confirmed: ' + [stale.length ? stale.join(', ') + ' last wrote before the week ended' : '', absent.length ? absent.join(', ') + ' worked this week but ' + (absent.length > 1 ? 'have' : 'has') + ' no timesheet here yet' : '', unreadable.length ? unreadable.join(', ') + ': the file could not be read' : ''].filter(Boolean).join('; ') + '. Their hours may be missing: /brain sync, or update coter-kit on that machine. To confirm without them: /timesheet confirm' + (monday === weekOf(dayOf(now)) ? '' : ' last') + ' anyway.',
     }
   }
   const billed_min = {}

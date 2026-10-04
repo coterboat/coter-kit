@@ -74,9 +74,17 @@ function stubAll(on: any, opts: Opts = {}) {
   on('fs.read', ($: any, e: any) => {
     const path = unix(e.path)
     if (path.endsWith('/profile.seed.md')) return { value: '# Profile\n- Prefers short summaries' }
+    if (ctl.afterRead && path.includes('timesheets/mac.json')) {
+      // Another session writes just after this one read the file
+      const value = files.get(path)
+      const run = ctl.afterRead
+      ctl.afterRead = null
+      run()
+      return { value }
+    }
     return files.has(path) ? { value: files.get(path) } : { deny: 'no such file' }
   })
-  const ctl = { drop: false }
+  const ctl: { drop: boolean; afterRead: null | (() => void) } = { drop: false, afterRead: null }
   on('fs.write', ($: any, e: any) => {
     if (opts.failWrites && unix(e.path).includes(opts.failWrites)) return { deny: 'no space left on device' }
     if (opts.dropWrites && ctl.drop && unix(e.path).includes(opts.dropWrites)) { ctl.drop = false; return { value: undefined } }
@@ -1748,4 +1756,46 @@ t('RV-005 F3: a session resumed after its beats left the 36-hour window still ge
   files.set('/home/.claude/coter-kit/live/' + localDay(old) + '/sess-1.json', JSON.stringify(rec))
   await start($)
   expect(sheetOf(files).days[localDay(old)].work.you_ms).toBe(10 * MIN)
+})
+
+t('RV-008 F2: a write by another session between this one\'s read and its write is not overwritten', async ($, on) => {
+  const { files, ctl } = stubAll(on, { now: WED, hostname: 'mac', files: BRAIN })
+  await start($)
+  const other = { id: 'b1', date: '2026-10-07', project: 'work', min: 30, note: 'other session', at: new Date(WED).toISOString() }
+  ctl.afterRead = () => {
+    const f = JSON.parse(files.get('/brain/timesheets/mac.json') as string)
+    files.set('/brain/timesheets/mac.json', JSON.stringify({ ...f, adjustments: [...f.adjustments, other] }))
+  }
+  const added: any = await $.command.run({ command: 'timesheet', args: 'add work 1h call' })
+  expect(added.text).toContain('Added')
+  expect(ctl.afterRead).toBeNull() // the other write did land mid-way
+  expect(sheetOf(files).adjustments.map((a: any) => a.id).sort()).toEqual([other.id, added.text.match(/Added (\S+):/)[1]].sort())
+})
+
+t('RV-008 F1: a quiet machine still moves its file\'s time forward, so the others see it looked after the week', async ($, on) => {
+  const { files } = stubAll(on, { now: WED, hostname: 'mac', files: BRAIN })
+  files.set('/brain/timesheets/mac.json', JSON.stringify({ v: 1, device: 'mac', updated_at: new Date(2026, 9, 2, 9).toISOString(), days: {}, adjustments: [], confirmed: {} }))
+  await start($)
+  expect(new Date(sheetOf(files).updated_at).getTime()).toBeGreaterThanOrEqual(WED)
+})
+
+t('RV-008 F3: another machine\'s file that cannot be read blocks the confirm', async ($, on) => {
+  const { files } = stubAll(on, { now: WED, hostname: 'mac', files: { ...BRAIN, '/brain/timesheets/pc.json': '{"v":1,"device":"pc","da' } })
+  await start($)
+  const blocked: any = await $.command.run({ command: 'timesheet', args: 'confirm last' })
+  expect(blocked.text).toContain('Not confirmed')
+  expect(blocked.text).toContain('pc')
+  expect(blocked.text).toContain('could not be read')
+  const shown: any = await $.command.run({ command: 'timesheet', args: '' })
+  expect(shown.text).toContain('pc.json could not be read')
+  expect(sheetOf(files).confirmed).toEqual({})
+})
+
+t('RV-008 F4: a file of the right kind but the wrong shape is left alone and does not break the session', async ($, on) => {
+  const bad = '{"v":1,"device":"mac","days":{"2026-10-07":{"work":null}},"adjustments":{}}'
+  const { files } = stubAll(on, { now: WED, hostname: 'mac', files: { ...BRAIN, '/brain/timesheets/mac.json': bad } })
+  await start($)
+  expect(files.get('/brain/timesheets/mac.json')).toBe(bad)
+  const shown: any = await $.command.run({ command: 'timesheet', args: '' })
+  expect(shown.text).toContain('could not be read')
 })

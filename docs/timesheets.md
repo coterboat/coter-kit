@@ -35,8 +35,9 @@ It is also refused while a machine may hold hours this machine can't see, and na
 
 ## Limits, on purpose
 
-- **No lock.** Sessions on one machine share its file (LOCK-1: no machine-wide lock for now). A change you make (`add`, `remove`, `confirm`) is read back and written again, up to 3 times, until it is in the file. Two writes in the same few milliseconds could still lose one; sessions never write it more than every 10 minutes.
-- **A file that can't be read is never replaced.** The command says so and leaves it for you to repair or delete.
+- **No lock.** Sessions on one machine share its file (LOCK-1: no machine-wide lock for now). Before every write the file is read again, and if another session changed it the write starts over from what it wrote; a change you make (`add`, `remove`, `confirm`) is read back afterwards and written again, up to 3 times, until it is in the file. Two writes inside the same fraction of a millisecond could still lose one; sessions write at most every 10 minutes.
+- **A file that isn't a valid timesheet is never replaced.** The command says so and leaves it for you to repair or delete. Another machine's unreadable file blocks the confirm.
+- **A quiet machine still checks in.** Its file's `updated_at` moves forward once a day even when nothing changed, which is how the other machines tell it has looked since a week ended.
 - **Your time is counted per machine,** as the build plan defines it (back to your previous beat "on this machine"). Working on two machines in the same minutes counts on both.
 - **A machine is its name.** Two machines with the same name would share a file, as they already share a journal folder.
 

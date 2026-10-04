@@ -1,0 +1,12 @@
+{
+  "round": "RV-008",
+  "reviewer": "codex",
+  "rubric_sha256": "c2303a6dd22f05fd48a8fa98def28e45ed0a79fb2606afa367c2e8f42eba0154",
+  "packet_sha256": "fce2b1e2b1eafe28cf3fad0e2a7ba1b8119edf84059de93a906d8220ac70cdd1",
+  "prompt_sha256": "98066c242849e568958979d31405a8eb6c8b857a338ecd057590a904835a41aa",
+  "response_sha256": "1f0a8cc49ed6b0b28a57eaf5c164f5b55063175a008cb9583c7208fc45dfdd66",
+  "started_at": "2026-10-04T04:51:46.987Z",
+  "duration_ms": 246329,
+  "canary": "CANARY: I can see workspace and tool context beyond the packet.",
+  "packet_only": false
+}
