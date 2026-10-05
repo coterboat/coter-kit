@@ -1,0 +1,3 @@
+{"op":"status","ref":"cw4ln0k7","status":"superseded","at":1791163033391,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"ezauku3u","status":"superseded","at":1791163033391,"device":"alexs-macbook-pro"}
+{"id":"k81tblrf","at":1791163033391,"device":"alexs-macbook-pro","session":"54ba7b70-3cab-4174-8147-b813cf577c4e","project":"coter-kit","kind":"fact","text":"The brain's timed sync works: it pushes 20 s after the last note write (8dd50d1 came 20 s after a remember on 10-04). The 10-04 'it never fired' report checked 7-13 s after the write; a profile.md edit alone schedules no sync, it rides with the next remember.","status":"active","source":"claude"}
