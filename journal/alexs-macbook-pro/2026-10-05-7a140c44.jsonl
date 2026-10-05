@@ -1,2 +1,105 @@
 {"id":"psw9hy6v","at":1791172404053,"device":"alexs-macbook-pro","session":"7a140c44-7f80-49f6-926c-d6b4b0dff2ba","project":"jobsnearme","kind":"decision","text":"share-pages: Shared both (answer to \"jobsnearme: share two private pages from their Share menu: the Spanish read sheet with your reader (they press Copy my …\", given in the home dashboard)","status":"active","source":"claude","replaces":"na4x06rr","answers":"na4x06rr"}
 {"op":"status","ref":"na4x06rr","status":"superseded","at":1791172404054,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"rt40u7rf","status":"superseded","at":1791172568352,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"rt40wxzs","status":"active","at":1791172568353,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"rt40xyc8","status":"active","at":1791172568355,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"rt416f7n","status":"active","at":1791172568356,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"rt41dxpn","status":"superseded","at":1791172568356,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"rt41gxbt","status":"active","at":1791172568356,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"ruvsji4g","status":"superseded","at":1791172568357,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"sovgrbnb","status":"superseded","at":1791172568357,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"srjwev3r","status":"active","at":1791172568357,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"srjwf9am","status":"active","at":1791172568358,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"srjwgume","status":"active","at":1791172568358,"device":"alexs-macbook-pro"}
+{"id":"pwf1n7i5","at":1791172568363,"device":"alexs-macbook-pro","session":"7a140c44-7f80-49f6-926c-d6b4b0dff2ba","project":"jobsnearme","kind":"thread","text":"jobsnearme spec still to write: FS-338, the phone Filters sheet hiding 'Your situation' once hours is answered (number reserved, nothing drafted). The card-controls spec (FS-343) and the wizard's silent step-3 button (FS-339) are done.","status":"active","source":"review","replaces":"srjwi2zq","confirmed":true}
+{"op":"status","ref":"srjwi2zq","status":"superseded","at":1791172568363,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"srjwi0dq","status":"active","at":1791172568364,"device":"alexs-macbook-pro"}
+{"id":"pwf1qxe5","at":1791172568366,"device":"alexs-macbook-pro","session":"7a140c44-7f80-49f6-926c-d6b4b0dff2ba","project":"jobsnearme","kind":"fact","text":"jobsnearme: drive-time chip ids (core-drive-time-N) were positional until FS-311 keyed them to their option (CoreQuestions.tsx:160, DRIVE_CHIP_ID); a spec that adds a C2 option must add its DRIVE_CHIP_ID entry, or tests clicking by id silently change meaning again.","status":"active","source":"review","replaces":"srjwja1o","confirmed":true}
+{"op":"status","ref":"srjwja1o","status":"superseded","at":1791172568366,"device":"alexs-macbook-pro"}
+{"id":"pwf1u8q9","at":1791172568370,"device":"alexs-macbook-pro","session":"7a140c44-7f80-49f6-926c-d6b4b0dff2ba","project":"jobsnearme","kind":"thread","text":"jobsnearme follow-ups still owed (10-3): (a) the job detail reopens behind FS-306's resumed Connect sheet; (b) at 390 a long unbroken email clips in the code step's 'Sent to {email}' line (ConnectCodeSteps.tsx:222 <p> needs overflow-wrap:anywhere). FS-344 (name step Spanish), FS-343 (card controls) and FS-345 (door keeps qaAnswers) have since landed on the lane branches.","status":"active","source":"review","replaces":"wf7jm9ng","confirmed":true}
+{"op":"status","ref":"wf7jm9ng","status":"superseded","at":1791172568370,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"s5fgzgeo","status":"superseded","at":1791172568370,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"x1ei26d4","status":"superseded","at":1791172568370,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"x1ei2674","status":"active","at":1791172568371,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"x1ei22gv","status":"active","at":1791172568371,"device":"alexs-macbook-pro"}
+{"id":"pwf1xfaq","at":1791172568373,"device":"alexs-macbook-pro","session":"7a140c44-7f80-49f6-926c-d6b4b0dff2ba","project":"jobsnearme","kind":"fact","text":"jobsnearme: src/app/seeker/profile/page.tsx may not grow past its line count at spec 142's ceiling_base commit (FS-142 TC-4 (c), profile-pay-goal.test.tsx:328), and no-plaintext-credential.test.ts scans its imports line by line (FS-053 TC-3 (v)), so re-flowing an import to save lines can turn that scan red.","status":"active","source":"review","replaces":"x1ei3xd5","confirmed":true}
+{"op":"status","ref":"x1ei3xd5","status":"superseded","at":1791172568373,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"x1ei39ev","status":"active","at":1791172568374,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"x1ei44s1","status":"active","at":1791172568374,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"x1ei4orz","status":"active","at":1791172568374,"device":"alexs-macbook-pro"}
+{"id":"pwf222cu","at":1791172568378,"device":"alexs-macbook-pro","session":"7a140c44-7f80-49f6-926c-d6b4b0dff2ba","project":"jobsnearme","kind":"thread","text":"jobsnearme honesty item: employer wizard step 3 still says the phone lets 'seekers and our team reach you' (onboarding/employer/page.tsx:241) though nothing reads it. FS-375 (drafted, the new copy is the owner's to approve) rewords it and limits the door's carry-over lines. FS-345 (d3327f00) made 'Your answers carry over' true on the lane branches.","status":"active","source":"review","replaces":"yqywcx4t","confirmed":true}
+{"op":"status","ref":"yqywcx4t","status":"superseded","at":1791172568378,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"y88rkh0q","status":"superseded","at":1791172568378,"device":"alexs-macbook-pro"}
+{"id":"pwf23gcr","at":1791172568379,"device":"alexs-macbook-pro","session":"7a140c44-7f80-49f6-926c-d6b4b0dff2ba","project":"undertone","kind":"fact","text":"undertone 0.6.1 (9c513a3, pushed to main): design pass on the page: commits/pushes marked in the lane that made them, hover tips on the score, compact engine switch, sessions panel first.","status":"active","source":"review","replaces":"ukoy44m8","confirmed":true}
+{"op":"status","ref":"ukoy44m8","status":"superseded","at":1791172568379,"device":"alexs-macbook-pro"}
+{"id":"pwf230fx","at":1791172568379,"device":"alexs-macbook-pro","session":"7a140c44-7f80-49f6-926c-d6b4b0dff2ba","project":"concurrent","kind":"thread","text":"CONCURRENT v2.0 asset round on Ludo (village/landmark/ship models, b variants): post them with tools/ludo/v20_content.py --post, then import; the diorama is already on main (51cf008).","status":"active","source":"review","replaces":"8hjd7uzf","confirmed":true}
+{"op":"status","ref":"8hjd7uzf","status":"superseded","at":1791172568379,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"arw2qihe","status":"superseded","at":1791172568379,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"c8iv7xxs","status":"superseded","at":1791172568379,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"e7ptczj0","status":"superseded","at":1791172568380,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"gedbnr3y","status":"superseded","at":1791172568380,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"gedboiyt","status":"superseded","at":1791172568380,"device":"alexs-macbook-pro"}
+{"id":"pwf25aox","at":1791172568381,"device":"alexs-macbook-pro","session":"7a140c44-7f80-49f6-926c-d6b4b0dff2ba","project":"jobsnearme","kind":"fact","text":"jobsnearme check:docs: review ids (RV-...) may appear only in files listed in LOCAL_SCHEMES.RV.refs, and no doc (specs, README and CLAUDE.md included) may cite an FS id that hasn't been written.","status":"active","source":"review","replaces":"gedbos3i","confirmed":true}
+{"op":"status","ref":"gedbos3i","status":"superseded","at":1791172568381,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"hwf6qjtd","status":"superseded","at":1791172568382,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"i3j95kkl","status":"superseded","at":1791172568382,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"i3j9525j","status":"superseded","at":1791172568382,"device":"alexs-macbook-pro"}
+{"id":"pwf28uwg","at":1791172568384,"device":"alexs-macbook-pro","session":"7a140c44-7f80-49f6-926c-d6b4b0dff2ba","project":"jobsnearme","kind":"fact","text":"jobsnearme signup rework ids: FS-313 session reactivity, 314 one send path, 315 intent-store resume, 316 phone write, 317 site lock remembers device, 318 typed intro + video seam, 319 employer sees accepted candidate, 320 profile builder preview, plus 321 and 322 (consent sentence); 305/306/307 revised alongside.","status":"active","source":"review","replaces":"icgcle6n","confirmed":true}
+{"op":"status","ref":"icgcle6n","status":"superseded","at":1791172568384,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"icgcms2f","status":"superseded","at":1791172568385,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"ir92n03m","status":"superseded","at":1791172568385,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"izb2gjqh","status":"superseded","at":1791172568385,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"jqzkscbv","status":"superseded","at":1791172568385,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"jw9owabd","status":"superseded","at":1791172568385,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"k8hq612j","status":"superseded","at":1791172568385,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"4acqin1i","status":"active","at":1791172568385,"device":"alexs-macbook-pro"}
+{"id":"pwf2ayza","at":1791172568386,"device":"alexs-macbook-pro","session":"7a140c44-7f80-49f6-926c-d6b4b0dff2ba","project":"undertone","kind":"thread","text":"undertone Synth critique (10-3, spectrogram + Gemini): drums buried, mud at 180-300 Hz, dark instruments under lone tape hiss; tuning round 1 (0.6.3, 2124e76) fixed pops, snare, kick and hats, but the mud and hiss were not addressed yet.","status":"active","source":"review","replaces":"n7f5q5n0","confirmed":true}
+{"op":"status","ref":"n7f5q5n0","status":"superseded","at":1791172568386,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"nst7jhv1","status":"active","at":1791172568386,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"nst7j7cx","status":"active","at":1791172568386,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"nst7js3y","status":"active","at":1791172568386,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"nst7jxdg","status":"active","at":1791172568386,"device":"alexs-macbook-pro"}
+{"id":"pwf2btn2","at":1791172568387,"device":"alexs-macbook-pro","session":"7a140c44-7f80-49f6-926c-d6b4b0dff2ba","project":"undertone","kind":"thread","text":"undertone Synth tuning: drone moved up an octave (69319af), snare/hats boosted and master headroom set to 1.0 (10efa1b); still open: mud at 180-300 Hz and the dark top end, with tape hiss alone on top.","status":"active","source":"review","replaces":"nst7khon","confirmed":true}
+{"op":"status","ref":"nst7khon","status":"superseded","at":1791172568387,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"nst7k31y","status":"active","at":1791172568387,"device":"alexs-macbook-pro"}
+{"id":"pwf2czaj","at":1791172568388,"device":"alexs-macbook-pro","session":"7a140c44-7f80-49f6-926c-d6b4b0dff2ba","project":"undertone","kind":"fact","text":"undertone 0.3.0 (0f491f8): GET /state gives every session's state (working|needs_ok|your_move|idle, failing checks by name, scheduled, external); the bridge answers only Host 127.0.0.1/localhost:<port>, plus exact names in ~/.config/undertone/hosts.json since 0.6.2 (1d0b84c); ntfy.json fields: server, topic, token, names (full|project|none), enabled, permissionAfterSec, idleAfterSec, laneGapSec, …","status":"active","source":"review","replaces":"pasmw6fj","confirmed":true}
+{"op":"status","ref":"pasmw6fj","status":"superseded","at":1791172568388,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"179ic5a6","status":"superseded","at":1791172568388,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"6c9b9jo0","status":"active","at":1791172568388,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"6c9b9llw","status":"active","at":1791172568388,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"6c9bawtq","status":"rejected","at":1791172568388,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"6c9balun","status":"active","at":1791172568389,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"6c9bbvy8","status":"rejected","at":1791172568389,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"8d0jns3g","status":"rejected","at":1791172568389,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"8d0jt8p9","status":"active","at":1791172568389,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"8d0jxv4e","status":"active","at":1791172568389,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"8d0jx4g0","status":"active","at":1791172568389,"device":"alexs-macbook-pro"}
+{"id":"pwf2fby6","at":1791172568391,"device":"alexs-macbook-pro","session":"7a140c44-7f80-49f6-926c-d6b4b0dff2ba","project":"jobsnearme","kind":"thread","text":"jobsnearme follow-up: e2e/route-with-stops.spec.ts 'the pool moved' flake (count reads 20 then 10 rows in ~30% of desktop runs, a race with the map's settle-driven list cut; local-only) needs its own small tests-only spec.","status":"active","source":"review","replaces":"9taig49v","confirmed":true}
+{"op":"status","ref":"9taig49v","status":"superseded","at":1791172568391,"device":"alexs-macbook-pro"}
+{"id":"pwf2hxfo","at":1791172568393,"device":"alexs-macbook-pro","session":"7a140c44-7f80-49f6-926c-d6b4b0dff2ba","project":"jobsnearme","kind":"fact","text":"jobsnearme check-traceability needs the literal '<spec id> TC-n' in each TC's target file, so when a re-aiming spec claims a TC in that file the suffix reads '(re-aimed by FS-nnn TC-n)'.","status":"active","source":"review","replaces":"ci6nmy49","confirmed":true}
+{"op":"status","ref":"ci6nmy49","status":"superseded","at":1791172568393,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"ci6nm94w","status":"rejected","at":1791172568393,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"ci6nn29i","status":"active","at":1791172568393,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"ci6nn68y","status":"rejected","at":1791172568393,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"eu8qwuup","status":"superseded","at":1791172568393,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"kncigbm8","status":"rejected","at":1791172568394,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"kncignyo","status":"active","at":1791172568394,"device":"alexs-macbook-pro"}
+{"id":"pwf2kxaa","at":1791172568396,"device":"alexs-macbook-pro","session":"7a140c44-7f80-49f6-926c-d6b4b0dff2ba","project":"jobsnearme","kind":"thread","text":"jobsnearme follow-ups after the oct2 leg (non-blocking): FS-287 TC-4 1440 hover-tip flake; FS-295's pin/You box reads run before the route fit settles; the dead 80vw MobileJobCard carousel block in src/app/page.tsx.","status":"active","source":"review","replaces":"kncihwii","confirmed":true}
+{"op":"status","ref":"kncihwii","status":"superseded","at":1791172568396,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"m2ye6swt","status":"superseded","at":1791172568396,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"m2ye7p71","status":"superseded","at":1791172568396,"device":"alexs-macbook-pro"}
+{"id":"pwf2mfmi","at":1791172568398,"device":"alexs-macbook-pro","session":"7a140c44-7f80-49f6-926c-d6b4b0dff2ba","project":"jobsnearme","kind":"fact","text":"jobsnearme: repo-contracts' storage ratchet exempts src/lib/*-store.ts (plus a few named files), so a new module that touches sessionStorage/localStorage is named *-store.ts (FS-317's site-lock-device-store.ts) instead of bumping the ratchet.","status":"active","source":"review","replaces":"o9i6k2lj","confirmed":true}
+{"op":"status","ref":"o9i6k2lj","status":"superseded","at":1791172568398,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"o9i6y1t3","status":"active","at":1791172568398,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"o9i6z5ol","status":"active","at":1791172568398,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"o9i6zrsa","status":"active","at":1791172568398,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"o9i7grdu","status":"active","at":1791172568399,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"o9i7omk3","status":"active","at":1791172568399,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"o9i7rbd8","status":"active","at":1791172568399,"device":"alexs-macbook-pro"}
+{"id":"pwf2p06m","at":1791172568401,"device":"alexs-macbook-pro","session":"7a140c44-7f80-49f6-926c-d6b4b0dff2ba","project":"jobsnearme","kind":"fact","text":"jobsnearme: on /demo the 'N in this map view' row (JobResultsGrid view-count-clause) comes and goes as the map settles. Since FS-335 (cda58f09, lane/test branches only, not main yet) a fixed-height view-count-slot holds its place, so cards no longer jump. Card-ⓘ e2e walks still wait for the clause to be absent (FS-331).","status":"active","source":"review","replaces":"pt6djkor","confirmed":true}
+{"op":"status","ref":"pt6djkor","status":"superseded","at":1791172568401,"device":"alexs-macbook-pro"}
+{"id":"pwf2r6qz","at":1791172568403,"device":"alexs-macbook-pro","session":"7a140c44-7f80-49f6-926c-d6b4b0dff2ba","project":"jobsnearme","kind":"thread","text":"jobsnearme (10-3): the 'How we scored it' toggle flaked 2/54 under load (aria-expanded stayed false) and is still undiagnosed. The view-count row jump that came with it in the same note was fixed by FS-335.","status":"active","source":"review","replaces":"pt6dka0t","confirmed":true}
+{"op":"status","ref":"pt6dka0t","status":"superseded","at":1791172568403,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"px00xdyb","status":"superseded","at":1791172568403,"device":"alexs-macbook-pro"}
+{"id":"pwf2sdpe","at":1791172568404,"device":"alexs-macbook-pro","session":"7a140c44-7f80-49f6-926c-d6b4b0dff2ba","project":"coter-kit","kind":"thread","text":"coter-kit build plan (docs/build-plan.md): M1 catch-up shipped in 0.6.1 (ef1c437); M2 live status + /glance and M3 review-brain are built in 0.7.0, uncommitted; M3's daily schedule waits on the owner's OK; M4 timesheets next, then phone.","status":"active","source":"review","replaces":"n8le62p4","confirmed":true}
+{"op":"status","ref":"n8le62p4","status":"superseded","at":1791172568404,"device":"alexs-macbook-pro"}
