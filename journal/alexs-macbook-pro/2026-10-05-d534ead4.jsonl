@@ -115,3 +115,5 @@
 {"op":"status","ref":"rejgzmhe","status":"superseded","at":1791209324357,"device":"alexs-macbook-pro"}
 {"id":"bsmue5zh","at":1791209343398,"device":"alexs-macbook-pro","session":"d534ead4-1439-43b3-844d-58395d7da243","project":"jobsnearme","kind":"decision","text":"signup-gaps: Wait for the meeting (answer to \"jobsnearme signup vs the 10-02 meeting: resume upload isn't in the Connect sheet (only /seeker/profile ResumeImport), a…\", given in /waiting)","status":"active","source":"claude","replaces":"qev04s8t","answers":"qev04s8t"}
 {"op":"status","ref":"qev04s8t","status":"superseded","at":1791209343398,"device":"alexs-macbook-pro"}
+{"id":"cwd0a9ew","at":1791211196890,"device":"alexs-macbook-pro","session":"d534ead4-1439-43b3-844d-58395d7da243","project":"jobsnearme","kind":"thread","text":"done — the route-with-stops 'pool moved' flake got its tests-only spec, FS-382 (in_review on claude/oct4-test-6, d2ce312d).","status":"active","source":"claude","replaces":"pwf2fby6"}
+{"op":"status","ref":"pwf2fby6","status":"superseded","at":1791211196890,"device":"alexs-macbook-pro"}
