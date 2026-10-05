@@ -35,12 +35,15 @@ import {
   REMEMBER_TOOL,
   RECALL_TOOL,
   REFRESH_EVERY_MS,
+  reread,
   ROUTE_WHERE,
 } from './brain.js'
-import { formatWaiting, waitingCard, cardAnswer, answerNote, answersRoot, outsideAnswer, LATER } from './waiting.js'
+import { formatWaiting, waitingCard, cardAnswer, answerNote, answersRoot, outsideAnswer, followerOf, followUpPrompt, firstAnswer, LATER } from './waiting.js'
 import { formatRoutes } from './routes.js'
 import { updateMachine, sheetFor, weekOf, confirmCheck, parseAdjustment, formatSheet, validSheet } from './timesheet.js'
 import { liveRoot, dayOf, beatCredit, liveRecord, liveness, lastBeatIn, glance, KEEP_DAYS } from './live.js'
+import { alsoRedact } from './redact.js'
+import { phoneFile, sentFile, phoneConfig, pusherOf, dueWaits, pushMessage, pushRequest, parseSent, mergeSent, nextSent, idleMs, newTopic } from './phone.js'
 import { REVIEW_TOOL, VERDICTS, reviewQueue, queueText, recordVerdicts, picks, challenges, applyVerdict, applyPicks, keepAsIs, userDecides, score, isGuarded, isProtected } from './review.js'
 
 const CHECKLIST_TOOL = 'mcp__coter-kit__checklist'
@@ -84,6 +87,9 @@ let workSinceLook = 0
 let turnStartedAt = 0
 // Prompts that aren't the user looking: background deliveries, other sessions, schedules
 const NOT_THE_USER = new Set(['task-notification', 'scheduled-trigger', 'peer', 'peer-send-message', 'projects-relay', 'coordinator', 'observer', 'observer-activity'])
+// Another plugin's own prompt isn't the user either, unless it passes on their words (asUser). This
+// kit's own (when an answer comes in) never reaches its own hooks
+const fromTheUser = (origin) => !NOT_THE_USER.has(origin?.kind) && !(origin?.kind === 'plugin' && !origin.asUser)
 // The band offers /catchup after this much work without the user
 const CATCHUP_AFTER_MS = 30 * 60_000
 
@@ -102,7 +108,7 @@ let publishTimer = null
 let heartbeatTimer = null
 let othersNeedingYou = [] // other live sessions on this machine waiting on the user, for the band
 let lastUsage = null // $.session.usage(), refreshed on the heartbeat and after each turn
-const LIVE_COMMANDS = ['catchup', 'glance', 'waiting', 'brain', 'checklist', 'checks', 'snapshot', 'handoff', 'routes', 'timesheet']
+const LIVE_COMMANDS = ['catchup', 'glance', 'waiting', 'brain', 'checklist', 'checks', 'snapshot', 'handoff', 'routes', 'timesheet', 'phone']
 // This machine's timesheet file in the brain is rewritten at most this often (and when the session ends)
 const TIMESHEET_EVERY_MS = 10 * 60_000
 let lastTimesheetAt = 0
@@ -745,6 +751,11 @@ async function pruneLive($, now) {
     const path = join(root, d.name)
     await run($, env.isWindows ? ['cmd', '/d', '/s', '/c', 'rmdir', '/s', '/q', path] : ['rm', '-rf', path], { timeoutMs: 10_000 })
   }
+  // Claims past a week go too, by the same rule: only folders with a claim's name
+  for (const c of await listDir($, claimsRoot())) {
+    if (c.kind !== 'dir' || !/^(acted|push)-[\w.-]+$/.test(c.name) || !(c.mtimeMs > 0) || now - c.mtimeMs < KEEP_DAYS * 86_400_000) continue
+    await run($, shell(['rmdir', join(claimsRoot(), c.name)]), { timeoutMs: 5_000 })
+  }
 }
 
 // Other running sessions here that are waiting on the user, for the band
@@ -779,6 +790,7 @@ async function startLive($) {
     const at = await $.clock.now()
     othersNeedingYou = needingYou(await readLive($, at), at)
     await publishNow($)
+    await phoneTick($, at)
     if (at - lastTimesheetAt >= TIMESHEET_EVERY_MS) await saveTimesheet($)
     refreshUsageSoon($)
     $.ui.invalidate('ui.render')
@@ -973,6 +985,7 @@ async function setUp($, options) {
         const arrived = await refreshIfStale(ioFor($), REFRESH_EVERY_MS / 2)
         if (arrived.length) redraw($)
         await takeAnswers($)
+        await followArrived($)
       } catch (err) {
         $.ui.log('brain refresh failed: ' + (err?.message || err))
       }
@@ -983,6 +996,8 @@ async function setUp($, options) {
   }
   try {
     if (env.home) await startLive($)
+    // The phone topic and token are masked from the start, before any note could quote them
+    if (env.home) await readPhoneFile($)
   } catch (err) {
     $.ui.log('live status unavailable: ' + (err?.message || err))
   }
@@ -994,6 +1009,7 @@ async function setUp($, options) {
 // item; Later skips it. Closing the card (or a surface that has none) stops, and lists what is left.
 async function clickThrough($, items, all) {
   const answered = []
+  const given = []
   const later = []
   let stopped = -1
   for (const [i, item] of items.entries()) {
@@ -1009,14 +1025,18 @@ async function clickThrough($, items, all) {
       later.push(item)
       continue
     }
-    await remember(ioFor($), [answerNote(item, answer, '/waiting')])
+    const [saved] = await remember(ioFor($), [answerNote(item, answer, '/waiting')])
     answered.push((item.ref || item.text.slice(0, 40)) + ' → ' + answer)
+    // The same answer saved already (word for word) is being acted on where it was saved
+    if (saved) given.push({ item, answer: saved })
   }
   redraw($)
   const left = stopped < 0 ? [] : items.slice(stopped)
   if (!answered.length && !later.length) return formatWaiting(left, { project: env.project, all })
   const out = []
   if (answered.length) out.push('Answered ' + answered.length + ' (saved as decisions, which every session and machine gets):', ...answered.map((a) => '- ' + a))
+  const next = answered.length ? whoActs(await followUp($, given)) : ''
+  if (next) out.push(next)
   if (later.length) out.push('Later: ' + later.map((x) => x.ref || x.text.slice(0, 40)).join(', '))
   if (left.length) out.push('', formatWaiting(left, { project: env.project, all }))
   return out.join('\n')
@@ -1028,17 +1048,286 @@ async function clickThrough($, items, all) {
 async function takeAnswers($) {
   if (!brain.dir || unattended || !env.home) return
   const root = answersRoot(env.home)
+  const files = (await listDir($, root)).filter((f) => f.kind === 'file' && f.name.endsWith('.json'))
+  if (!files.length) return
+  // Another session here may have taken the same file a moment ago: read what it saved first, so the
+  // answer is saved once (RV-011 F1)
+  await reread(ioFor($))
   const notes = []
-  for (const f of await listDir($, root)) {
-    const id = f.kind === 'file' && f.name.endsWith('.json') ? f.name.slice(0, -5) : ''
-    const item = id ? brain.entries.get(id) : null
+  for (const f of files) {
+    const id = f.name.slice(0, -5)
+    const item = brain.entries.get(id)
     if (!item || item.kind !== 'waiting' || !isLive(item, Date.now())) continue
     const answer = outsideAnswer(safeJson(await readText($, root + '/' + f.name)), id)
-    if (answer) notes.push(answerNote(item, answer, 'the home dashboard'))
+    if (answer) notes.push(answerNote(item, answer, 'the home dashboard', { outside: true }))
   }
   if (!notes.length) return
-  await remember(ioFor($), notes)
+  const saved = await remember(ioFor($), notes)
   redraw($)
+  await followUp($, saved.filter((e) => e.answers).map((e) => ({ item: brain.entries.get(e.answers), answer: e })))
+}
+
+// ---------------------------------------------------------------- acting on answers
+
+// Every answer, saved here or arriving from another session, goes through followUp: the one session
+// that acts on it (followerOf, waiting.js) gets a prompt of its own, which runs once it is idle, so the
+// user's answer is acted on without them typing anything more. Returns how many act here, in the
+// session that asked, in another session of the project, or nowhere yet (none runs on this machine).
+async function followUp($, given) {
+  const counts = { here: 0, asker: 0, other: 0, nobody: 0, typed: 0 }
+  if (unattended || !given.length) return counts
+  const now = await $.clock.now()
+  const records = env.home ? await readLive($, now) : []
+  const self = { id: env.sessionId, project: env.project, device: env.device }
+  const mine = []
+  for (const g of given) {
+    if (!g.item) continue
+    // Typed on the dashboard rather than tapped: its words never start a turn on their own. Claude is
+    // told it with the user's next message in a session of its project (RV-012 F2)
+    if (g.answer.outside && g.answer.typed) {
+      if (g.answer.id && g.answer.session === env.sessionId) brain.unseen.push(g.answer.id)
+      counts.typed++
+      continue
+    }
+    // A second answer to the same question, saved by a session that hadn't heard: the first is acted on
+    const first = firstAnswer(brain.entries.values(), g.item.id)
+    if (first && g.answer.id && first.id !== g.answer.id) {
+      counts.other++
+      continue
+    }
+    const who = followerOf(g.item, g.answer, { records, now, self })
+    if (who !== env.sessionId) {
+      counts[!who ? 'nobody' : who === g.item.session ? 'asker' : 'other']++
+      continue
+    }
+    // Acted on once on the machine, whatever two sessions make of the live files (RV-012 F1)
+    if (await claim($, 'acted-' + g.item.id)) {
+      mine.push(g.answer)
+      counts.here++
+    } else counts.other++
+  }
+  if (!mine.length) return counts
+  const text = followUpPrompt(mine)
+  // Sent from a timer: a hook that awaited its own prompt would wait for a turn that can't start
+  // until the hook returns. A prompt that is refused lets its claims go and goes round again with the
+  // next refresh (RV-013 F3)
+  $.clock.after(0, async () => {
+    try {
+      await $.prompt.submit({ text })
+    } catch (err) {
+      $.ui.log('could not start a turn for an answer, trying again shortly: ' + (err?.message || err))
+      for (const a of mine) await unclaim($, 'acted-' + a.answers)
+      brain.answersArrived.push(...mine)
+    }
+  })
+  return counts
+}
+
+// Answers other sessions saved since this one last looked (brain.js keeps them as they arrive)
+async function followArrived($) {
+  const arrived = brain.answersArrived.splice(0)
+  const given = arrived.map((e) => ({ item: brain.entries.get(e.answers), answer: e })).filter((g) => g.item && g.item.kind === 'waiting')
+  await followUp($, given)
+}
+
+// What /waiting says about who acts on the answers it just saved
+function whoActs({ here, asker, other, nobody, typed }) {
+  const parts = []
+  if (here) parts.push('Claude acts on ' + here + ' here once the session is idle')
+  if (asker) parts.push('the session that asked acts on ' + asker)
+  if (other) parts.push('another session of its project acts on ' + other)
+  if (nobody) parts.push('no session of its project runs here, so ' + nobody + ' stay' + (nobody > 1 ? '' : 's') + ' a decision for the next one to read')
+  if (typed) parts.push(typed + ' typed on the dashboard wait' + (typed > 1 ? '' : 's') + ' for you in a session')
+  return parts.length ? 'Next: ' + parts.join('; ') + '.' : ''
+}
+
+// ---------------------------------------------------------------- claims
+
+// Something done once on the machine, by whichever session gets there first: it makes a folder named
+// for it, which the file system lets only one process do (RV-012 F1, F4). True only when this session
+// made it: when claims can't be made at all, nothing is done and the log says why, since every session
+// doing it is worse than none (RV-013 F2). Claims go after a week (pruneLive).
+const claimsRoot = () => join(env.home, '.claude/coter-kit/claims')
+const claimPath = (key) => join(claimsRoot(), String(key).replace(/[^\w.-]+/g, '_').slice(0, 120))
+const shell = (argv) => (env.isWindows ? ['cmd', '/d', '/s', '/c', ...argv] : argv)
+
+async function claim($, key) {
+  if (!env.home) return true
+  const path = claimPath(key)
+  await run($, shell(env.isWindows ? ['mkdir', claimsRoot()] : ['mkdir', '-p', claimsRoot()]), { timeoutMs: 5_000 })
+  const r = await run($, shell(['mkdir', path]), { timeoutMs: 5_000 })
+  if (r.exitCode === 0) return true
+  if (!(await exists($, path))) $.ui.log('could not make a claim in ' + claimsRoot() + ', so ' + key + ' waits: ' + clip(String(r.stderr || '').trim(), 120))
+  return false
+}
+
+async function unclaim($, key) {
+  if (env.home) await run($, shell(['rmdir', claimPath(key)]), { timeoutMs: 5_000 })
+}
+
+// ---------------------------------------------------------------- phone pushes (docs/phone.md)
+
+let lastPush = null // { at, ok, error, test } of this session's last push
+let phoneBusy = false // a push is on its way
+let lastPhoneTick = 0
+let phoneRetryAt = 0 // after a failed push, the next try waits
+let sentHere = {} // the sent record as this session last wrote it, in case the write was lost
+const PUSH_TIMEOUT_MS = 15_000
+// One wait, as a claim's name
+const pushKey = (r) => 'push-' + r.id + '-' + r.state + '-' + Date.parse(r.state_since)
+// How many times a wait's POST got no answer: after two it may well have arrived, so it isn't sent again
+const pushTimeouts = new Map()
+
+// On every heartbeat: if this session is the one that pushes on this machine and the user is away,
+// one push for the waits that are due, and a record of them so none is pushed twice
+async function phoneTick($, now) {
+  // After the machine slept every file is stale for a moment, so the first heartbeat back only looks
+  const woke = lastPhoneTick && now - lastPhoneTick > 150_000
+  lastPhoneTick = now
+  if (unattended || !env.home || phoneBusy || woke || now < phoneRetryAt) return
+  const cfg = await readPhone($)
+  if (!cfg) return
+  const records = await readLive($, now)
+  if (pusherOf(records, now) !== env.sessionId) return
+  const sent = mergeSent(parseSent(safeJson(await readText($, sentFile(env.home)))), sentHere)
+  // ioreg runs only when a wait would be due if the user were away
+  if (!dueWaits(records, sent, cfg, now, Infinity).length) return
+  const due = dueWaits(records, sent, cfg, now, await idleNow($))
+  if (!due.length) return
+  phoneBusy = true
+  try {
+    // Each wait is claimed before it goes out, so two sessions that both think they push, or a crash and
+    // a handover, can't send it twice (RV-011 F4, RV-012 F4)
+    const mine = []
+    for (const r of due) if (await claim($, pushKey(r))) mine.push(r)
+    if (!mine.length) return
+    if (!(await sendPush($, cfg, pushMessage(mine, env.device, now)))) {
+      // Not known to have arrived: let it go again in 5 minutes. A slow one may then arrive twice,
+      // which beats a "needs you" that never comes (RV-012 F3), but no more than twice (RV-013 F1)
+      for (const r of mine) {
+        const key = pushKey(r)
+        const timeouts = (pushTimeouts.get(key) || 0) + (lastPush.timedOut ? 1 : 0)
+        pushTimeouts.set(key, timeouts)
+        if (timeouts < 2) await unclaim($, key)
+      }
+      phoneRetryAt = now + 5 * 60_000
+      return
+    }
+    sentHere = nextSent(sent, records, mine, now)
+    try {
+      await $.fs.write(sentFile(env.home), JSON.stringify({ v: 1, sent: sentHere }) + '\n')
+    } catch {
+      $.ui.log('phone push sent, but its record could not be written; its claim still stops it going twice')
+    }
+  } finally {
+    phoneBusy = false
+  }
+}
+
+// The topic and the token are masked in everything the kit writes from then on, so a note that quotes
+// either never takes it into the brain: a token need not hold a digit for the patterns (RV-010 F2),
+// and they are masked whether or not pushes are on (RV-011 F2)
+function maskPhone(raw) {
+  if (!raw || typeof raw !== 'object') return
+  for (const v of [raw.topic, raw.token]) if (typeof v === 'string') alsoRedact(v)
+}
+
+// phone.json as it stands (masked as it is read), and the settings, null while pushes are off
+async function readPhoneFile($) {
+  const raw = safeJson(await readText($, phoneFile(env.home)))
+  maskPhone(raw)
+  return raw
+}
+async function readPhone($) {
+  return phoneConfig(await readPhoneFile($))
+}
+
+// How long the keyboard and mouse have been idle, or null where it can't be told: only macOS says
+// (ioreg), and with no answer nothing is pushed
+async function idleNow($) {
+  if (env.isWindows) return null
+  const r = await run($, ['ioreg', '-c', 'IOHIDSystem', '-d', '4'], { timeoutMs: 5_000 })
+  return r.exitCode === 0 ? idleMs(r.stdout) : null
+}
+
+// One POST to ntfy. Only the status is kept: an error's text could carry the topic's URL. A request
+// with no answer in 15 seconds can't be called off, and may or may not arrive: it counts as failed, so
+// it is tried again (RV-010 F4, RV-012 F3)
+async function sendPush($, cfg, msg, test = false) {
+  const { url, init } = pushRequest(cfg, msg)
+  let ok = false
+  let error = ''
+  let timer = null
+  const TIMEOUT = Symbol('timeout')
+  try {
+    const res = await Promise.race([
+      $.http.fetch(url, init),
+      new Promise((resolve) => {
+        timer = $.clock.after(PUSH_TIMEOUT_MS, () => resolve(TIMEOUT))
+      }),
+    ])
+    if (res === TIMEOUT) {
+      error = 'no answer within 15 seconds'
+    } else {
+      ok = !!res.ok
+      if (!ok) error = 'the server answered ' + res.status
+    }
+  } catch {
+    error = 'the server could not be reached'
+  } finally {
+    timer?.cancel()
+  }
+  lastPush = { at: Date.now(), ok, error, test, timedOut: error === 'no answer within 15 seconds' }
+  if (error) $.ui.log('phone push: ' + error)
+  return ok
+}
+
+// /phone: status; setup [topic]; test; off
+async function phoneCommand($, args) {
+  if (!env.home) return 'Phone pushes need the live status files, which are unavailable in this session.'
+  const file = phoneFile(env.home)
+  const raw = await readPhoneFile($)
+  const saved = raw && typeof raw === 'object' && !Array.isArray(raw) && raw.v === 1 ? raw : null
+  const [verb, arg] = args.split(/\s+/)
+  if (verb === 'setup') {
+    if (arg && !phoneConfig({ v: 1, topic: arg })) return 'A topic is 24 to 64 letters, digits, - or _, so it can\'t be guessed. Leave it out to get a random one.'
+    const topic = arg || (saved && phoneConfig({ ...saved, off: false }) ? saved.topic : newTopic())
+    const next = { server: 'https://ntfy.sh', token: '', needs_ok_after_min: 3, your_move_after_min: 5, away_after_min: 2, ...saved, v: 1, topic, off: false }
+    const cfg = phoneConfig(next)
+    if (!cfg) return 'phone.json has a server or a token that can\'t be used (an https address with no user or password in it; a token of 16 or more characters). Fix or remove it: ' + file
+    await $.fs.write(file, JSON.stringify(next, null, 2) + '\n')
+    maskPhone(cfg)
+    return [
+      'Phone pushes are on for this machine.',
+      'Subscribe in the ntfy app (iOS or Android) to ' + cfg.server + '/' + cfg.topic + ', or open that link.',
+      'Keep the topic to yourself: anyone who has it can read the pushes. Each push says only the project, "needs your OK" or "your move", the minutes and the machine.',
+      'On your other machine: /phone setup ' + cfg.topic,
+      '/phone test sends one now. /phone setup shows this link again.',
+    ].join('\n')
+  }
+  if (verb === 'off') {
+    if (!saved) return 'Phone pushes are already off on this machine.'
+    await $.fs.write(file, JSON.stringify({ ...saved, off: true }, null, 2) + '\n')
+    return 'Phone pushes are off on this machine. /phone setup turns them back on with the same topic.'
+  }
+  const cfg = phoneConfig(saved)
+  if (!cfg && saved && saved.off !== true) return 'phone.json can\'t be used, so nothing is pushed: it needs a topic of 24 to 64 letters, digits, - or _, an https server, and a token of 16 or more characters if it has one. /phone setup fixes the topic: ' + file
+  if (!cfg) return 'Phone pushes are off on this machine. /phone setup turns them on: a random ntfy topic, then the link to subscribe (docs/phone.md).'
+  if (verb === 'test') {
+    const ok = await sendPush($, cfg, { title: 'coter-kit test on ' + env.device, body: 'Pushes from this machine reach you.', priority: 'default' }, true)
+    return ok ? 'Sent a test push. It should be on your phone now.' : 'The test push failed: ' + lastPush.error + '.'
+  }
+  const now = await $.clock.now()
+  const pusher = pusherOf(await readLive($, now), now)
+  const who = pusher === env.sessionId ? 'this session' : pusher ? 'another session on this machine' : 'no session yet'
+  const last = lastPush ? (lastPush.test ? 'test ' : '') + (lastPush.ok ? 'sent ' : 'failed ') + (lastPush.error ? '(' + lastPush.error + ') ' : '') + ago(lastPush.at) : 'none from this session yet'
+  const lines = [
+    'Phone pushes: on, through ' + cfg.server + ' (topic ' + cfg.topic.slice(0, 4) + '…; /phone setup shows the link)',
+    'Pushed once each: a session waiting on your OK for ' + cfg.needsOkAfter / 60_000 + ' min with nobody at the machine since, or on your move for ' + cfg.yourMoveAfter / 60_000 + ' min, once you have been away ' + cfg.awayAfter / 60_000 + ' min.',
+    'Pushing on this machine: ' + who + '. Last push: ' + last + '.',
+  ]
+  if ((await idleNow($)) === null) lines.push('This machine can\'t tell when you are away (only a Mac can, for now), so it sends nothing but /phone test.')
+  return lines.join('\n')
 }
 
 // Runs setUp once, for whichever comes first: a session may raise the startup SessionStart,
@@ -1066,6 +1355,7 @@ export function register(on, options = {}) {
       { name: 'routes', description: 'Where work was sent (here, new session, subagents, cloud, schedules) and how it went', argumentHint: '[all]' },
       { name: 'glance', description: 'Every running session on this machine: what needs you, what is working, today\'s time', immediate: true },
       { name: 'timesheet', description: 'Your time, Claude\'s and your adjustments this week, and the hours to bill', argumentHint: '[last|days|add <project> <time> <note>|remove <id>|confirm]', immediate: true },
+      { name: 'phone', description: 'Pushes to your phone when a session needs you and you are away: status, setup, a test push, off', argumentHint: '[setup [topic]|test|off]', immediate: true },
       { name: 'waiting', description: 'What is waiting on you, one card at a time: click an answer, or Later. "list" prints it with links instead', argumentHint: '[all] [list]' },
     ]) {
       try {
@@ -1121,9 +1411,10 @@ export function register(on, options = {}) {
     if (!promptSeen && (e.origin?.kind === 'scheduled-trigger' || SCHEDULED_RUN.test(e.text))) {
       unattended = true
       refreshTimer?.cancel()
+      brain.answersArrived = []
     }
     promptSeen = true
-    if (!unattended && !NOT_THE_USER.has(e.origin?.kind)) {
+    if (!unattended && fromTheUser(e.origin)) {
       lastLookAt = await $.clock.now()
       workSinceLook = 0
       if (turnStartedAt) turnStartedAt = lastLookAt
@@ -1325,6 +1616,8 @@ export function register(on, options = {}) {
 
   // The week's hours: yours, Claude's, adjustments, and what to bill
   on('command.run', { command: 'timesheet' }, async ($, e) => timesheetCommand($, e.args || ''))
+
+  on('command.run', { command: 'phone' }, async ($, e) => ({ text: await phoneCommand($, (e.args || '').trim()) }))
 
   // Back in a long session: the kit's own facts, then six lines from the transcript
   on('command.run', { command: 'catchup' }, async ($) => {

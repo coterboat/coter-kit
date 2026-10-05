@@ -43,6 +43,7 @@ export const brain = {
   entries: new Map(), // id -> entry, folded
   unseen: [], // ids that other sessions wrote (or approved) after this one loaded, not yet shown to Claude
   retired: [], // notes Claude was using that another session retired since, not yet told
+  answersArrived: [], // answers to questions that other sessions saved since, for register.js to act on
   lastPull: 0, // when the brain was last re-read (and pulled, with a remote)
   lastSync: null, // { ok, at, error, arrived }
   overrules: [], // the user's disagreements with the reviewer (review.js)
@@ -222,6 +223,11 @@ export async function remember(io, notes, { source = 'claude' } = {}) {
       ...(replaced ? { replaces: replaced.id } : {}),
       ...(confirmed ? { confirmed: true } : {}),
       ...(replaced && replaced.kind === 'waiting' ? { answers: replaced.id } : {}),
+      // An answer that came from outside any session (the home dashboard), kept as a field, since
+      // redaction and clipping can change the text (RV-011 F3)
+      ...(kind === 'decision' && note.outside === true ? { outside: true } : {}),
+      // ...and whether it was typed there rather than one of the question's own choices (RV-012 F2)
+      ...(kind === 'decision' && note.outside === true && note.typed === true ? { typed: true } : {}),
     }
     brain.entries.set(entry.id, entry)
     rows.push(entry)
@@ -566,8 +572,11 @@ async function reload(io) {
   await loadBrain(io)
   const arrived = []
   for (const e of brain.entries.values()) {
-    if (e.project && e.project !== env.project) continue
     const was = before.get(e.id)
+    // An answer to a question, whatever its project: one session on the machine acts on it, and the
+    // one that asked may be in another project's folder (followerOf, waiting.js)
+    if (!was && e.session !== env.sessionId && e.kind === 'decision' && e.answers) brain.answersArrived.push(e)
+    if (e.project && e.project !== env.project) continue
     if (!was ? e.session !== env.sessionId : was.status !== 'active' && e.status === 'active') arrived.push(e)
     else if (was && was.status === 'active' && e.status !== 'active') brain.retired.push(e)
   }
@@ -591,6 +600,13 @@ export function refresh(io) {
     })()
   }
   return brain.refreshing
+}
+
+// Re-reads this machine's copy only, with no pull: cheap enough to run right before acting on something
+// another session here may have just written (RV-011 F1)
+export async function reread(io) {
+  if (!brain.dir) return []
+  return brain.refreshing || reload(io)
 }
 
 export async function refreshIfStale(io, maxAgeMs) {

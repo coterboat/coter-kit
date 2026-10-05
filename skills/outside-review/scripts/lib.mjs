@@ -98,13 +98,17 @@ export function fingerprint(repo, base) {
   return sha(head + '\n' + diff + '\n' + [...untracked, ...binaries].map((f) => f.path + '\n' + f.hash).join('\n'))
 }
 
-// The next round's id: one past the highest RV-NNN among packets and logged findings
+// The next round's id: one past the highest RV-NNN among packets, saved replies and logged findings.
+// Packets aren't committed, so a fresh clone or worktree has none, and counting them alone would
+// start again at RV-001 and overwrite the first reply in the inbox
 export function nextRound(dirs) {
   let max = 0
-  for (const name of existsSync(dirs.packets) ? readdirSync(dirs.packets) : []) {
-    const m = name.match(/^RV-(\d+)/)
+  const see = (name) => {
+    const m = String(name).match(/^RV-(\d+)/)
     if (m) max = Math.max(max, Number(m[1]))
   }
+  for (const dir of [dirs.packets, dirs.inbox]) for (const name of existsSync(dir) ? readdirSync(dir) : []) see(name)
+  for (const row of readFindings(dirs)) see(row.round)
   return 'RV-' + String(max + 1).padStart(3, '0')
 }
 

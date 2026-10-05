@@ -240,3 +240,15 @@ test('triage only reads: it never creates review folders in a repository', () =>
   node(dir, 'triage.mjs', '--base', 'HEAD')
   assert.equal(existsSync(join(dir, 'docs/reviews')), false)
 })
+
+test('a fresh checkout numbers the next round past the logged ones, so a reply in the inbox is never overwritten', () => {
+  const dir = repo()
+  // The trail is committed; the packets folder is not, so a new clone or worktree has none
+  mkdirSync(join(dir, 'docs/reviews/inbox'), { recursive: true })
+  writeFileSync(join(dir, 'docs/reviews/inbox/RV-007-codex.md'), 'kept\n')
+  writeFileSync(join(dir, 'docs/reviews/findings.jsonl'), JSON.stringify({ round: 'RV-009', closed: true, by: 'owner', reason: 'shipped', at: '2026-10-04T00:00:00Z' }) + '\n')
+  writeFileSync(join(dir, 'app.js'), 'export const add = (a, b) => a - b\n')
+  const ok = node(dir, 'packet.mjs', '--goal', 'Add numbers', '--base', 'HEAD', '--gate', 'true')
+  assert.equal(ok.status, 0, ok.stderr)
+  assert.ok(existsSync(join(dir, 'docs/reviews/packets/RV-010.md')))
+})

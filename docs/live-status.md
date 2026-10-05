@@ -26,6 +26,7 @@ Every Claude Code session with coter-kit writes one small JSON file describing i
 | `opened_at`, `updated_at`, `last_event_at` | ISO times |
 | `state`, `state_since` | `working` (mid-turn), `needs_ok` (a permission prompt is waiting), `your_move` (turn finished, waiting on you), `idle` (`your_move` for 15 minutes or more, or nothing yet), `ended` |
 | `scheduled` | `true` for a run started by a scheduled task, a routine or `/loop`. It is never `your_move` and earns you no time |
+| `pushes` | `true` when the session's code can send phone pushes, so it may be the one that does (`docs/phone.md`). Absent in sessions on older code |
 | `checklist` | `{ title, done, total, current, blocked }`, or `null` |
 | `checks`, `build_broken_since` | The last automatic check (`{ state, summary, at }`), and since when the build has been broken, or `null` |
 | `needs_you` | Per project: `{ waiting, waiting_refs, handoff, review }`. These are the same for every session of the project, so count each project once |
@@ -47,6 +48,8 @@ No prompt text, file paths (not even the session's own folder), commands or note
 - **The answer:** write `~/.claude/coter-kit/answers/<id>.json`, containing `{ "v": 1, "id": "<id>", "answer": "<the choice or the typed text>", "at": "<ISO time>", "from": "home" }`. Write it to a temporary name and rename it, so a session never reads half a file.
 
 Any coter-kit session on the machine picks it up within two minutes, or at once on `/waiting`. The session saves the answer as a decision that resolves the question, so every session and machine gets it. The answer is redacted and cut to 300 characters.
+
+**Then one session acts on it**, with a prompt of its own that starts a turn once it is idle and names the answer. Every session on the machine where the answer was given works out which from these files: the session that asked, while it runs; else the session the answer was given in, when it is of the question's project; else the longest-running session of that project. Scheduled runs never act, and with no session of the project running, the answer stays a decision for the next one to read. Answers given in `/waiting` follow the same rule. Since anything that can write your home folder can write an answer file, only a tapped choice starts a turn: one of the question's own `options`, or `Yes, or done` / `No, drop it` when it has none. Those words were Claude's to begin with. A typed answer is saved with `"typed": true` and never starts a turn; Claude hears it with your next message in a session of its project. Both carry `"outside": true`. Each answer is acted on once per machine: the acting session claims it first (a folder under `~/.claude/coter-kit/claims`), and if two sessions save an answer to the same question, only the first decision is acted on.
 
 Only an open `waiting` note can be answered this way. A file for an answered question, an unknown id, or a note that is not a question is ignored, and so is a file whose `id` doesn't match its name. Sessions never delete these files. The writer can remove a file once its question is closed, or leave it.
 

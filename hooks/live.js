@@ -80,6 +80,8 @@ export function liveRecord(s, now) {
     state,
     state_since: iso(state === 'idle' && s.state === 'your_move' ? s.stateSince + IDLE_AFTER_MS : s.stateSince),
     scheduled: !!s.scheduled,
+    // This session's code can send phone pushes, so it may be the one that does (phone.js)
+    pushes: true,
     checklist: s.checklist.items.length
       ? { title: s.checklist.title || '', done, total: s.checklist.items.length, current: current ? current.text : '', blocked: s.checklist.items.filter((it) => it.status === 'blocked').length }
       : null,
