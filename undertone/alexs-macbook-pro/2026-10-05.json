@@ -28,16 +28,16 @@
       "last": "11:44"
     },
     "jobsnearme": {
-      "activeMin": 162,
-      "laneMin": 162,
+      "activeMin": 163,
+      "laneMin": 163,
       "blockedMin": 1,
       "brokenMin": {},
       "sessions": 0,
-      "turns": 29,
+      "turns": 30,
       "commits": 26,
       "pushes": 2,
       "first": "00:03",
-      "last": "12:12"
+      "last": "12:48"
     },
     "coter-kit": {
       "activeMin": 7,
@@ -79,10 +79,10 @@
   "sources": {
     "jobsnearme": {
       "totals": {
-        "builds started": 3628,
-        "builds passed": 1114
+        "builds started": 3790,
+        "builds passed": 1170
       },
-      "errorMin": 580
+      "errorMin": 600
     }
   }
 }
