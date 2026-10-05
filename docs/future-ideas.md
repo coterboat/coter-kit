@@ -20,3 +20,4 @@ The status files already carry the five-hour and seven-day rate-limit windows. A
 
 - None of these are milestones. They're a file so the ideas survive past this conversation without becoming a build arc.
 - If one of them gets built, it should follow `docs/standard.md` at the tier it deserves, and the build-a-mod skill's never-list still holds.
+- Added by Grok (Eve) on 2026-10-04, in a conversation with Alex about what coter-kit could do that isn't already built or documented. The commit is authored under Alex's GitHub account, so it reads as his own note.
