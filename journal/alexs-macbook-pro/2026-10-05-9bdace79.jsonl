@@ -1,0 +1,2 @@
+{"id":"mh3w92ta","at":1791166815225,"device":"alexs-macbook-pro","session":"9bdace79-384a-4795-af8f-0bf6503115c3","project":"home","kind":"decision","text":"push-undertone: Yes, or done (answer to \"Push undertone 0.6.2 (1d0b84c): live locally on main, not pushed (split from push-tailnet, whose home half Alex approve…\", given in the home dashboard)","status":"active","source":"claude","replaces":"zns7hekv","answers":"zns7hekv"}
+{"op":"status","ref":"zns7hekv","status":"superseded","at":1791166815225,"device":"alexs-macbook-pro"}
