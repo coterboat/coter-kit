@@ -4,23 +4,23 @@
   "device": "alexs-macbook-pro",
   "projects": {
     "jobsnearme": {
-      "activeMin": 543,
-      "laneMin": 1269,
+      "activeMin": 573,
+      "laneMin": 1357,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 3,
-      "turns": 208,
-      "commits": 201,
+      "turns": 213,
+      "commits": 210,
       "pushes": 13,
       "first": "00:00",
-      "last": "10:58"
+      "last": "11:26"
     },
     "undertone": {
       "activeMin": 37,
       "laneMin": 37,
       "blockedMin": 0,
       "brokenMin": {},
-      "sessions": 1,
+      "sessions": 2,
       "turns": 1,
       "commits": 0,
       "pushes": 0,
@@ -28,37 +28,37 @@
       "last": "00:47"
     },
     "home": {
-      "activeMin": 13,
-      "laneMin": 13,
+      "activeMin": 43,
+      "laneMin": 43,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 6,
+      "turns": 7,
+      "commits": 1,
+      "pushes": 0,
+      "first": "10:37",
+      "last": "11:28"
+    },
+    "scratch-2026-10-05-29a807": {
+      "activeMin": 7,
+      "laneMin": 7,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 1,
       "turns": 2,
       "commits": 0,
       "pushes": 0,
-      "first": "10:37",
-      "last": "10:57"
-    },
-    "scratch-2026-10-05-29a807": {
-      "activeMin": 3,
-      "laneMin": 3,
-      "blockedMin": 0,
-      "brokenMin": {},
-      "sessions": 1,
-      "turns": 1,
-      "commits": 0,
-      "pushes": 0,
       "first": "10:47",
-      "last": "10:47"
+      "last": "11:02"
     }
   },
   "sources": {
     "jobsnearme": {
       "totals": {
-        "builds started": 2491,
-        "builds passed": 732
+        "builds started": 2731,
+        "builds passed": 801
       },
-      "errorMin": 415
+      "errorMin": 442
     }
   }
 }
