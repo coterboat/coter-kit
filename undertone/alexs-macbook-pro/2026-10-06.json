@@ -4,16 +4,16 @@
   "device": "alexs-macbook-pro",
   "projects": {
     "jobsnearme": {
-      "activeMin": 603,
-      "laneMin": 1458,
+      "activeMin": 633,
+      "laneMin": 1542,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 3,
-      "turns": 233,
-      "commits": 223,
+      "turns": 236,
+      "commits": 231,
       "pushes": 13,
       "first": "00:00",
-      "last": "11:57"
+      "last": "12:28"
     },
     "undertone": {
       "activeMin": 37,
@@ -55,10 +55,10 @@
   "sources": {
     "jobsnearme": {
       "totals": {
-        "builds started": 2851,
-        "builds passed": 855
+        "builds started": 2971,
+        "builds passed": 909
       },
-      "errorMin": 470
+      "errorMin": 498
     }
   }
 }
