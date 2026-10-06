@@ -4,11 +4,11 @@
   "device": "alexs-macbook-pro",
   "projects": {
     "home": {
-      "activeMin": 26,
-      "laneMin": 26,
+      "activeMin": 29,
+      "laneMin": 29,
       "blockedMin": 0,
       "brokenMin": {},
-      "sessions": 0,
+      "sessions": 1,
       "turns": 3,
       "commits": 4,
       "pushes": 0,
