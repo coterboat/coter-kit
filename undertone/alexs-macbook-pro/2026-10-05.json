@@ -16,16 +16,16 @@
       "last": "00:28"
     },
     "ascendant": {
-      "activeMin": 314,
-      "laneMin": 533,
+      "activeMin": 326,
+      "laneMin": 545,
       "blockedMin": 0,
       "brokenMin": {},
-      "sessions": 4,
-      "turns": 18,
-      "commits": 15,
-      "pushes": 7,
+      "sessions": 5,
+      "turns": 22,
+      "commits": 17,
+      "pushes": 10,
       "first": "00:09",
-      "last": "11:44"
+      "last": "21:28"
     },
     "jobsnearme": {
       "activeMin": 217,
