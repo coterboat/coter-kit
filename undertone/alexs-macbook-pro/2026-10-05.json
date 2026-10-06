@@ -28,11 +28,11 @@
       "last": "11:44"
     },
     "jobsnearme": {
-      "activeMin": 191,
-      "laneMin": 195,
+      "activeMin": 206,
+      "laneMin": 225,
       "blockedMin": 20,
       "brokenMin": {},
-      "sessions": 1,
+      "sessions": 2,
       "turns": 34,
       "commits": 28,
       "pushes": 3,
@@ -79,8 +79,8 @@
   "sources": {
     "jobsnearme": {
       "totals": {
-        "builds started": 4098,
-        "builds passed": 1272
+        "builds started": 4408,
+        "builds passed": 1374
       },
       "errorMin": 601
     }
