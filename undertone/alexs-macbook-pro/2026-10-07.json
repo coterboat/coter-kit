@@ -16,25 +16,25 @@
       "last": "00:36"
     },
     "jobsnearme": {
-      "activeMin": 100,
-      "laneMin": 183,
+      "activeMin": 129,
+      "laneMin": 230,
       "blockedMin": 60,
       "brokenMin": {},
-      "sessions": 0,
-      "turns": 9,
-      "commits": 10,
+      "sessions": 3,
+      "turns": 10,
+      "commits": 14,
       "pushes": 0,
       "first": "00:00",
-      "last": "01:39"
+      "last": "10:03"
     }
   },
   "sources": {
     "jobsnearme": {
       "totals": {
-        "builds passed": 980,
-        "builds started": 2726
+        "builds passed": 1031,
+        "builds started": 2866
       },
-      "errorMin": 299
+      "errorMin": 329
     }
   }
 }
