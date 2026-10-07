@@ -16,25 +16,37 @@
       "last": "00:36"
     },
     "jobsnearme": {
-      "activeMin": 517,
-      "laneMin": 822,
+      "activeMin": 547,
+      "laneMin": 883,
       "blockedMin": 120,
       "brokenMin": {},
       "sessions": 5,
-      "turns": 70,
-      "commits": 54,
+      "turns": 73,
+      "commits": 58,
       "pushes": 2,
       "first": "00:00",
-      "last": "18:32"
+      "last": "19:01"
+    },
+    "coter-kit": {
+      "activeMin": 8,
+      "laneMin": 8,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 1,
+      "turns": 1,
+      "commits": 0,
+      "pushes": 0,
+      "first": "18:50",
+      "last": "18:57"
     }
   },
   "sources": {
     "jobsnearme": {
       "totals": {
-        "builds passed": 1730,
-        "builds started": 4718
+        "builds passed": 1758,
+        "builds started": 4778
       },
-      "errorMin": 839
+      "errorMin": 869
     }
   }
 }
