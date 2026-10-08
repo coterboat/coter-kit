@@ -496,3 +496,4 @@
 {"op":"status","ref":"o37z8myh","status":"superseded","at":1791427443060,"device":"alexs-macbook-pro"}
 {"op":"status","ref":"o37zociq","status":"superseded","at":1791427443060,"device":"alexs-macbook-pro"}
 {"op":"status","ref":"o3801qpd","status":"superseded","at":1791427443060,"device":"alexs-macbook-pro"}
+{"id":"xpd2ccl0","at":1791427540845,"device":"alexs-macbook-pro","session":"54ba7b70-3cab-4174-8147-b813cf577c4e","project":"coter-kit","kind":"thread","text":"coter-kit review inbox (home's Brain tab back end) sits uncommitted in coter-kit/.claude/worktrees/review-inbox on 7e6da31, with Codex round RV-014 done; the session that built it has ended. It should land as 0.13.0 after the digest change (0.12.1), on Alex's OK","status":"active","source":"claude"}
