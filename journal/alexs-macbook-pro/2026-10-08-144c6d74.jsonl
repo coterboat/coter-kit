@@ -23,3 +23,5 @@
 {"op":"status","ref":"wm5swnso","status":"active","at":1791439396075,"device":"alexs-macbook-pro"}
 {"op":"status","ref":"zrtn9syh","status":"active","at":1791439396161,"device":"alexs-macbook-pro"}
 {"id":"v4oofgdn","at":1791483683055,"device":"alexs-macbook-pro","session":"144c6d74-f1a7-45b8-a1d3-c14ffb680c5f","project":"","kind":"preference","text":"Don't ask Alex to approve small scope overruns (a LOC bump, +1 file, a named test re-aim); record them as build amendments and disclose them, and bring him only egregious overruns, since asking causes churn.","status":"pending","source":"digest"}
+{"id":"3cclb57t","at":1791497477567,"device":"alexs-macbook-pro","session":"144c6d74-f1a7-45b8-a1d3-c14ffb680c5f","project":"ascendant","kind":"decision","text":"REV1: Yes, or done (answer to \"Judge art round 3 blind in the new Review Table: double-click 'Review Table.command' in the ascendant repo, batch art_r…\", given in the home dashboard)","status":"active","source":"claude","replaces":"m851fkdv","answers":"m851fkdv","outside":true}
+{"op":"status","ref":"m851fkdv","status":"superseded","at":1791497477567,"device":"alexs-macbook-pro"}
