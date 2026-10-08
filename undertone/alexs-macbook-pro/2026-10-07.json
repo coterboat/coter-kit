@@ -16,9 +16,9 @@
       "last": "00:36"
     },
     "jobsnearme": {
-      "activeMin": 550,
-      "laneMin": 886,
-      "blockedMin": 120,
+      "activeMin": 555,
+      "laneMin": 891,
+      "blockedMin": 126,
       "brokenMin": {},
       "sessions": 5,
       "turns": 74,
@@ -46,7 +46,7 @@
         "builds passed": 1758,
         "builds started": 4778
       },
-      "errorMin": 1019
+      "errorMin": 1049
     }
   }
 }
