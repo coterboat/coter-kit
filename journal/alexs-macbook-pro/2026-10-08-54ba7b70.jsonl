@@ -582,3 +582,25 @@
 {"op":"status","ref":"1vlxts0g","status":"superseded","at":1791437808347,"device":"alexs-macbook-pro"}
 {"id":"3trd5mvp","at":1791437823689,"device":"alexs-macbook-pro","session":"54ba7b70-3cab-4174-8147-b813cf577c4e","project":"coter-kit","kind":"thread","text":"coter-kit 0.13.0 pushed (a16d684): the review inbox home's Brain tab writes to. Alex updates the plugin and restarts sessions to get 0.12.1's quiet digest and the inbox","status":"active","source":"claude","replaces":"1qbu7tyg"}
 {"op":"status","ref":"1qbu7tyg","status":"superseded","at":1791437823689,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"0j0xvbba","status":"rejected","at":1791439393950,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"4z5ce90w","status":"active","at":1791439394036,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"5mez258s","status":"active","at":1791439394135,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"6c9bbmxw","status":"rejected","at":1791439394214,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"au67otvq","status":"active","at":1791439394369,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"dg3m9akb","status":"rejected","at":1791439394522,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"eagn8w0u","status":"rejected","at":1791439394660,"device":"alexs-macbook-pro"}
+{"id":"4rflp11l","at":1791439394749,"device":"alexs-macbook-pro","session":"54ba7b70-3cab-4174-8147-b813cf577c4e","project":"jobsnearme","kind":"fact","text":"jobsnearme: the Playwright projects run next dev on the worktree's own derived ports (FS-433), so uncommitted src/ edits in that tree hot-reload into a running matrix; certify a sha from a detached worktree at that sha (cp -Rc node_modules clones instantly on APFS).","status":"active","source":"review","replaces":"fythigwq","confirmed":true}
+{"op":"status","ref":"fythigwq","status":"superseded","at":1791439394749,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"i9ysqjhi","status":"active","at":1791439394812,"device":"alexs-macbook-pro"}
+{"id":"4rfp1ntq","at":1791439394869,"device":"alexs-macbook-pro","session":"54ba7b70-3cab-4174-8147-b813cf577c4e","project":"","kind":"fact","text":"Auto mode refuses to let Claude edit its own permission settings even after Alex okays it in chat, so he must add the allow rule himself; in ascendant it also refused sending repo content to codex/grok until he added that rule.","status":"active","source":"review","replaces":"i9yst60z","confirmed":true}
+{"op":"status","ref":"i9yst60z","status":"superseded","at":1791439394869,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"jr4exyuf","status":"rejected","at":1791439394945,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"kowkhpyn","status":"active","at":1791439395000,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"lu0b2soa","status":"active","at":1791439395146,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"nst7j3zu","status":"active","at":1791439395238,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"o381fplw","status":"rejected","at":1791439395316,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"puli71io","status":"rejected","at":1791439395615,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"spxlhmbh","status":"rejected","at":1791439395884,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"ys3cg0sj","status":"active","at":1791439396072,"device":"alexs-macbook-pro"}
+{"id":"4rgoucfa","at":1791439396158,"device":"alexs-macbook-pro","session":"54ba7b70-3cab-4174-8147-b813cf577c4e","project":"jobsnearme","kind":"fact","text":"jobsnearme: without DATABASE_URL, check:rls and check:ownership print GATE-SKIPPED (the packet shows NOT VERIFIED); the Mac has no docker or running local Postgres, so migration DB tests run only against dev Supabase via DATABASE_URL from .env.local, else they are reported as not run.","status":"active","source":"review","replaces":"zkxf35k4","confirmed":true}
+{"op":"status","ref":"zkxf35k4","status":"superseded","at":1791439396158,"device":"alexs-macbook-pro"}

@@ -1,0 +1,24 @@
+{"op":"status","ref":"0j0xsyyg","status":"rejected","at":1791439393891,"device":"alexs-macbook-pro"}
+{"id":"4rf0uef3","at":1791439393998,"device":"alexs-macbook-pro","session":"144c6d74-f1a7-45b8-a1d3-c14ffb680c5f","project":"","kind":"fact","text":"The desktop browser pane opens file:// pages outside the project folder as static snapshots that page tools refuse; to measure layout in such a file, run node with the repo's own playwright chromium.","status":"active","source":"review","replaces":"41fd7m2i","confirmed":true}
+{"op":"status","ref":"41fd7m2i","status":"superseded","at":1791439393998,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"5etr9kvr","status":"active","at":1791439394137,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"9bixguiu","status":"rejected","at":1791439394243,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"bvueyft3","status":"active","at":1791439394386,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"bxvtbtjq","status":"active","at":1791439394517,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"etlqkz9v","status":"active","at":1791439394675,"device":"alexs-macbook-pro"}
+{"id":"4rflwjhx","at":1791439394756,"device":"alexs-macbook-pro","session":"144c6d74-f1a7-45b8-a1d3-c14ffb680c5f","project":"","kind":"fact","text":"In this Mac's Bash tool (zsh) an unquoted $VAR isn't word-split (use ${=VAR} or an array), '$VAR:refs/...' reads as a ':r' modifier and mangles a git refspec even in double quotes (write ${VAR}:refs/...), and there is no GNU timeout (use the tool's timeout parameter or run_in_background).","status":"active","source":"review","replaces":"ghnn1dsb","confirmed":true}
+{"op":"status","ref":"ghnn1dsb","status":"superseded","at":1791439394756,"device":"alexs-macbook-pro"}
+{"id":"4rfncamw","at":1791439394808,"device":"alexs-macbook-pro","session":"144c6d74-f1a7-45b8-a1d3-c14ffb680c5f","project":"jobsnearme","kind":"fact","text":"A desktop session running in an isolated worktree refuses Write/Edit into any other worktree's files (reads and Bash still work), so a lead launches parallel implementers with Agent isolation 'worktree', or enters the target worktree, and merges their branches back.","status":"active","source":"review","replaces":"hr7osshj","confirmed":true}
+{"op":"status","ref":"hr7osshj","status":"superseded","at":1791439394808,"device":"alexs-macbook-pro"}
+{"id":"4rfpj6ri","at":1791439394887,"device":"alexs-macbook-pro","session":"144c6d74-f1a7-45b8-a1d3-c14ffb680c5f","project":"jobsnearme","kind":"fact","text":"jobsnearme: a push of main once failed with 'pack has bad object' while re-sending the 58 MB investor deck; the fix (10-6) was the ours-merge 8bcd2f6b recording deck carrier b93d0bc as an ancestor, and pack.useSparse=false alone did not cure it.","status":"active","source":"review","replaces":"idxbm8xi","confirmed":true}
+{"op":"status","ref":"idxbm8xi","status":"superseded","at":1791439394887,"device":"alexs-macbook-pro"}
+{"id":"4rfrqj99","at":1791439394966,"device":"alexs-macbook-pro","session":"144c6d74-f1a7-45b8-a1d3-c14ffb680c5f","project":"jobsnearme","kind":"fact","text":"jobsnearme: the owner ruled (10-6, FS-415) that a sign-in code never creates an account (requestSeekerCode with createAccount:false, shouldCreateUser:false), because GoTrue v2.197.0 is read as finding OTP users only by the confirmed users.email column, a reading the live probe has not confirmed.","status":"active","source":"review","replaces":"kowk4xkd","confirmed":true}
+{"op":"status","ref":"kowk4xkd","status":"superseded","at":1791439394966,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"lu0azktz","status":"active","at":1791439395083,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"lzeyya31","status":"rejected","at":1791439395227,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"pmb46hek","status":"active","at":1791439395383,"device":"alexs-macbook-pro"}
+{"id":"4rgbbc6y","at":1791439395671,"device":"alexs-macbook-pro","session":"144c6d74-f1a7-45b8-a1d3-c14ffb680c5f","project":"jobsnearme","kind":"fact","text":"jobsnearme: the review packet marks the e2e gate SKIPPED whenever any spec prints a GATE-SKIPPED: line (for example a test missing E2E_EMPLOYER_* credentials), even though the full matrix ran, so read the row's reason before assuming the matrix didn't run.","status":"active","source":"review","replaces":"spxldu5w","confirmed":true}
+{"op":"status","ref":"spxldu5w","status":"superseded","at":1791439395671,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"vv20tdfn","status":"rejected","at":1791439395840,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"wm5swnso","status":"active","at":1791439396075,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"zrtn9syh","status":"active","at":1791439396161,"device":"alexs-macbook-pro"}

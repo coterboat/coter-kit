@@ -1,3 +1,24 @@
 {"id":"yr5ymf07","at":1791429304558,"device":"alexs-macbook-pro","session":"e9a6fcf5-f3ac-48c6-80c2-2e64a25c741d","project":"coter-kit","kind":"decision","text":"PUSH-0.12.1: commit and push (answer to \"Commit and push coter-kit 0.12.1 (worktree awesome-satoshi-6d5590): the digest proposes only preferences and shorthand …\", given in the home dashboard)","status":"active","source":"claude","replaces":"ygb64c3z","answers":"ygb64c3z","outside":true}
 {"op":"status","ref":"ygb64c3z","status":"superseded","at":1791429304558,"device":"alexs-macbook-pro"}
 {"id":"4jw65pfj","at":1791439042973,"device":"alexs-macbook-pro","session":"e9a6fcf5-f3ac-48c6-80c2-2e64a25c741d","project":"jobsnearme","kind":"thread","text":"jobsnearme L3 -> coordinator (unreachable 10-8 ~02:00 ET): FS-463 CERTIFIED at launch/l3-seeker 523b4864 (merge exactly that sha; FS-468 spec commits sit above it). Cold-cache e2e:ci 930 passed / 0 failed / 0 flaky, flake hunt 60/60 under 1/5 budget; locked npm test 13193 passed / 0 failed; all other gates exit 0 incl. check:rls/ownership PASS live; no migration; main since is docs-only (6736c623…","status":"active","source":"claude"}
+{"op":"status","ref":"0w80mlkg","status":"active","at":1791439393976,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"5etr7p9w","status":"active","at":1791439394066,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"6c9bb05u","status":"rejected","at":1791439394154,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"9bixxfih","status":"active","at":1791439394311,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"dg0pf5b8","status":"active","at":1791439394514,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"dgnlt4bv","status":"rejected","at":1791439394649,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"eu6ntqzc","status":"rejected","at":1791439394737,"device":"alexs-macbook-pro"}
+{"id":"4rfnmds5","at":1791439394818,"device":"alexs-macbook-pro","session":"e9a6fcf5-f3ac-48c6-80c2-2e64a25c741d","project":"","kind":"preference","text":"In ascendant's 3D pivot Alex still wants 2D art (concept art as Ludo model3d inputs, portraits, lore and codex art); only the animated 2D battle sprites were cut.","status":"active","source":"review","replaces":"i9ysr8ec","confirmed":true}
+{"op":"status","ref":"i9ysr8ec","status":"superseded","at":1791439394818,"device":"alexs-macbook-pro"}
+{"id":"4rfp61g5","at":1791439394874,"device":"alexs-macbook-pro","session":"e9a6fcf5-f3ac-48c6-80c2-2e64a25c741d","project":"","kind":"fact","text":"In the jobsnearme launch lanes only the coordinator merges certified shas to main, so when it seems offline check main for its merge commit and leave the result in shared memory instead of asking Alex how to merge.","status":"active","source":"review","replaces":"idq66rvw","confirmed":true}
+{"op":"status","ref":"idq66rvw","status":"superseded","at":1791439394874,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"ina0d0i6","status":"active","at":1791439394945,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"lu0anp4y","status":"active","at":1791439395014,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"lzeymfid","status":"rejected","at":1791439395152,"device":"alexs-macbook-pro"}
+{"id":"4rfzi6in","at":1791439395246,"device":"alexs-macbook-pro","session":"e9a6fcf5-f3ac-48c6-80c2-2e64a25c741d","project":"","kind":"preference","text":"For the jobsnearme demo leg (to 10-15), when Alex answers a visual choice with 'whatever will look better for the demo', make the call yourself and record it rather than asking again.","status":"active","source":"review","replaces":"myz6rh88","confirmed":true}
+{"op":"status","ref":"myz6rh88","status":"superseded","at":1791439395246,"device":"alexs-macbook-pro"}
+{"id":"4rg9fbm5","at":1791439395603,"device":"alexs-macbook-pro","session":"e9a6fcf5-f3ac-48c6-80c2-2e64a25c741d","project":"jobsnearme","kind":"fact","text":"jobsnearme: local e2e reads .env.local's real Supabase while CI uses dummies on runners about 5x slower, so run npm run test:e2e:ci before trusting a push; since FS-392 the push gate on main is the launch e2e set, with the full matrix nightly and in promote.","status":"active","source":"review","replaces":"puli6ale","confirmed":true}
+{"op":"status","ref":"puli6ale","status":"superseded","at":1791439395603,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"spxlip3q","status":"active","at":1791439395737,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"wjln2hbk","status":"active","at":1791439396013,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"ze51hspg","status":"rejected","at":1791439396122,"device":"alexs-macbook-pro"}
