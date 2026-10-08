@@ -54,3 +54,15 @@ Any coter-kit session on the machine picks it up within two minutes, or at once 
 Only an open `waiting` note can be answered this way. A file for an answered question, an unknown id, or a note that is not a question is ignored, and so is a file whose `id` doesn't match its name. Sessions never delete these files. The writer can remove a file once its question is closed, or leave it.
 
 The folder accepts answers from anything that can write to your home folder. A dashboard reachable from the phone writes only what you tapped, and only over the tailnet.
+
+## Reviewing from outside a session
+
+The notes waiting for review are journal rows with `"status": "pending"` (preferences and terms you haven't confirmed, and what the digest kept). The reviewer's verdict on a note is the latest `{ "op": "review", "ref": <id> }` row, with `verdict` (accept, reject, rewrite, merge, retire or ask), `reason`, `evidence`, sometimes a `replacement`, and `at`. A reader such as the home dashboard can offer the `/brain` pane's buttons:
+
+- **Write** `~/.claude/coter-kit/reviews/<id>.json`, containing `{ "v": 1, "id": "<id>", "decision": "keep" | "drop" | "take" | "pick", "verdict_at": <the verdict's at, or null>, "at": "<ISO time>", "from": "home" }`. Write it to a temporary name and rename it.
+- **keep** puts a note waiting for review live, and keeps a live note the reviewer would change as it is. **drop** rejects a note waiting for review. Against the reviewer's verdict, either counts as an overrule.
+- **take** carries out the reviewer's verdict on that one note, as the pane's take button does.
+- **pick** carries it out as one of "Apply the reviewer's picks": only while the note is still one of the picks, so a frozen verdict, or one that would change your own note or a live decision, is never applied this way.
+- `verdict_at` pins the file to the verdict it was made against. A newer verdict, or your own decision since, makes the file stale, and it does nothing.
+
+Any coter-kit session on the machine carries a file out within two minutes, or at once on `/brain`. Only one does: each file is claimed per verdict under `~/.claude/coter-kit/claims`. Unattended sessions leave the folder alone. Nothing but the one word and the number reaches the brain, and sessions never delete these files: the writer removes one once the note shows the change, or leaves it.

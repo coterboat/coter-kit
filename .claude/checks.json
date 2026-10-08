@@ -6,8 +6,8 @@
       "timeoutSec": 60
     },
     {
-      "name": "outside-review scripts, timesheet arithmetic, waiting cards and phone pushes",
-      "run": ["node", "--test", "tests/outside-review.test.mjs", "tests/timesheet.test.mjs", "tests/waiting.test.mjs", "tests/phone.test.mjs"],
+      "name": "outside-review scripts, timesheet arithmetic, waiting cards, phone pushes and the review inbox",
+      "run": ["node", "--test", "tests/outside-review.test.mjs", "tests/timesheet.test.mjs", "tests/waiting.test.mjs", "tests/phone.test.mjs", "tests/review-inbox.test.mjs"],
       "timeoutSec": 180
     }
   ]

@@ -44,7 +44,8 @@ import { updateMachine, sheetFor, weekOf, confirmCheck, parseAdjustment, formatS
 import { liveRoot, dayOf, beatCredit, liveRecord, liveness, lastBeatIn, glance, KEEP_DAYS } from './live.js'
 import { alsoRedact } from './redact.js'
 import { phoneFile, sentFile, phoneConfig, pusherOf, dueWaits, pushMessage, pushRequest, parseSent, mergeSent, nextSent, idleMs, newTopic } from './phone.js'
-import { REVIEW_TOOL, VERDICTS, reviewQueue, queueText, recordVerdicts, picks, challenges, applyVerdict, applyPicks, keepAsIs, userDecides, score, isGuarded, isProtected } from './review.js'
+import { REVIEW_TOOL, VERDICTS, reviewQueue, queueText, recordVerdicts, picks, challenges, applyVerdict, applyPicks, keepAsIs, userDecides, score, isGuarded, isProtected, isOpen } from './review.js'
+import { reviewsRoot, outsideReview, reviewAction, reviewClaim } from './review-inbox.js'
 
 const CHECKLIST_TOOL = 'mcp__coter-kit__checklist'
 const PANE = 'coter-checklist'
@@ -753,7 +754,7 @@ async function pruneLive($, now) {
   }
   // Claims past a week go too, by the same rule: only folders with a claim's name
   for (const c of await listDir($, claimsRoot())) {
-    if (c.kind !== 'dir' || !/^(acted|push)-[\w.-]+$/.test(c.name) || !(c.mtimeMs > 0) || now - c.mtimeMs < KEEP_DAYS * 86_400_000) continue
+    if (c.kind !== 'dir' || !/^(acted|push|review)-[\w.-]+$/.test(c.name) || !(c.mtimeMs > 0) || now - c.mtimeMs < KEEP_DAYS * 86_400_000) continue
     await run($, shell(['rmdir', join(claimsRoot(), c.name)]), { timeoutMs: 5_000 })
   }
 }
@@ -985,6 +986,7 @@ async function setUp($, options) {
         const arrived = await refreshIfStale(ioFor($), REFRESH_EVERY_MS / 2)
         if (arrived.length) redraw($)
         await takeAnswers($)
+        await takeReviews($)
         await followArrived($)
       } catch (err) {
         $.ui.log('brain refresh failed: ' + (err?.message || err))
@@ -1065,6 +1067,48 @@ async function takeAnswers($) {
   const saved = await remember(ioFor($), notes)
   redraw($)
   await followUp($, saved.filter((e) => e.answers).map((e) => ({ item: brain.entries.get(e.answers), answer: e })))
+}
+
+// Review decisions made on the home dashboard (docs/live-status.md, "Reviewing from outside a
+// session"): one file per note, named by its id. A file does what the /brain pane's buttons do, once,
+// in whichever session claims it first; one made against an older verdict does nothing (review-inbox.js).
+// Nothing here deletes a file.
+async function takeReviews($) {
+  if (!brain.dir || unattended || !env.home) return
+  const root = reviewsRoot(env.home)
+  const files = (await listDir($, root)).filter((f) => f.kind === 'file' && f.name.endsWith('.json'))
+  if (!files.length) return
+  // What another session here did with the same file a moment ago counts: read it first
+  await reread(ioFor($))
+  const io = ioFor($)
+  let done = 0
+  for (const f of files) {
+    const id = f.name.slice(0, -5)
+    const d = outsideReview(safeJson(await readText($, root + '/' + f.name)), id)
+    const e = brain.entries.get(id)
+    if (!d || !e) continue
+    // Asked again for each file: carrying one out changes what the next one may do
+    const act = reviewAction(e, d, { open: isOpen(e), challenged: challenges().some((c) => c.id === id), inPicks: picks().some((p) => p.id === id) })
+    if (!act) continue
+    const key = reviewClaim(id, d)
+    if (!(await claim($, key))) continue
+    // Everything after the claim lets it go on failure, so the next pass can try again (RV-015 F3)
+    try {
+      // Claimed: read again and ask again, so a verdict or a call that landed in between wins (RV-014 F1)
+      await reread(io)
+      const now = brain.entries.get(id)
+      if (reviewAction(now, d, { open: !!now && isOpen(now), challenged: challenges().some((c) => c.id === id), inPicks: picks().some((p) => p.id === id) }) !== act) continue
+      if (act === 'keep-pending') (await userDecides(io, now, 'keep'), await setStatus(io, id, 'active'))
+      else if (act === 'drop-pending') (await userDecides(io, now, 'drop'), await setStatus(io, id, 'rejected'))
+      else if (act === 'keep-live') await keepAsIs(io, now)
+      else await applyVerdict(io, now)
+      done++
+    } catch (err) {
+      $.ui.log('a review from the home dashboard failed on ' + id + ': ' + (err?.message || err))
+      await unclaim($, key)
+    }
+  }
+  if (done) redraw($)
 }
 
 // ---------------------------------------------------------------- acting on answers
@@ -1743,6 +1787,7 @@ export function register(on, options = {}) {
       redraw($)
       return { text: n ? 'Kept ' + n + ' new note(s). /brain to review.' : 'Nothing new worth keeping.' }
     }
+    await takeReviews($)
     await $.ui.open({ id: BRAIN_PANE, title: 'Brain', focus: true, closeOnEscape: true })
     return {}
   })

@@ -1,0 +1,12 @@
+{
+  "round": "RV-014",
+  "reviewer": "codex",
+  "rubric_sha256": "c2303a6dd22f05fd48a8fa98def28e45ed0a79fb2606afa367c2e8f42eba0154",
+  "packet_sha256": "d9b915c7a9493c08e80c4fb73153d55540253f7eb1e897859a320cfff09d4483",
+  "prompt_sha256": "0c15d292f9e5309d064c17680179aebaaa975de2d79cf5bd7a6448f9f66357b5",
+  "response_sha256": "bf3fa0a65479e9069d40822b8f1288094c7dcd6408740fd5d7ddb32623cb2715",
+  "started_at": "2026-10-05T04:23:29.680Z",
+  "duration_ms": 164955,
+  "canary": "CANARY: tool, filesystem, and environment context beyond the packet is visible.",
+  "packet_only": false
+}

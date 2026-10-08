@@ -2343,3 +2343,87 @@ t('RV-009 F2: a peer file with a bad time is unreadable, so it blocks the confir
   expect(blocked.text).toContain('Not confirmed')
   expect(blocked.text).toContain('pc')
 })
+
+// ---------------------------------------------------------------- review calls from the home dashboard
+
+// Notes waiting for review and the reviewer's verdicts on them, as the journal holds them
+function inboxBrain(now = Date.now()) {
+  const note = (id: string, over: object = {}) => ({ id, at: now - DAY, device: 'pc', session: 'pc-s', project: 'work', kind: 'fact', text: 'note ' + id, status: 'pending', source: 'digest', ...over })
+  const verdict = (ref: string, v: string, at: number, over: object = {}) => ({ op: 'review', ref, verdict: v, reason: 'because', evidence: 'the code', at, device: 'pc', session: 'rev', ...over })
+  const rows = [
+    note('n1'),
+    note('n2'), verdict('n2', 'reject', now - 5000),
+    note('n3', { kind: 'decision', status: 'active' }), verdict('n3', 'retire', now - 4000),
+    note('n4'), verdict('n4', 'accept', now - 3000),
+    note('n5'), verdict('n5', 'reject', now - 2000),
+  ]
+  return { '/brain/.git/HEAD': 'ref', '/brain/profile.md': '# Profile', '/brain/journal/pc/2026-10-04-pc-s.jsonl': rows.map((r) => JSON.stringify(r)).join('\n') + '\n' }
+}
+const inboxStatus = (files: Map<string, string>, id: string) => {
+  const rows = journal(files).split('\n').filter(Boolean).map((l) => JSON.parse(l))
+  const ops = rows.filter((r) => r.op === 'status' && r.ref === id).sort((a, b) => a.at - b.at)
+  return ops.length ? ops[ops.length - 1].status : rows.find((r) => r.id === id)?.status
+}
+const reviewCall = (id: string, decision: string, verdictAt: number | null) => JSON.stringify({ v: 1, id, decision, verdict_at: verdictAt, at: '2026-10-05T04:00:00Z', from: 'home' })
+
+t("a review call from the home dashboard does what the /brain pane would, once, and never against a newer verdict", async ($, on) => {
+  const now = Date.now()
+  const reviews = '/home/.claude/coter-kit/reviews/'
+  // The verdicts' times, as inboxBrain writes them
+  const v: Record<string, number> = { n2: now - 5000, n3: now - 4000, n4: now - 3000, n5: now - 2000 }
+  const { files } = stubAll(on, {
+    files: {
+      ...inboxBrain(now),
+      [reviews + 'n1.json']: reviewCall('n1', 'keep', null),
+      [reviews + 'n2.json']: reviewCall('n2', 'drop', v.n2),
+      // A live decision is guarded: not a pick
+      [reviews + 'n3.json']: reviewCall('n3', 'pick', v.n3),
+      [reviews + 'n4.json']: reviewCall('n4', 'take', v.n4),
+      // Made against a verdict the note no longer has
+      [reviews + 'n5.json']: reviewCall('n5', 'take', v.n5 - 1),
+      // Named for one note, about another; and not a call at all
+      [reviews + 'n9.json']: reviewCall('n1', 'drop', null),
+      [reviews + 'bad.json']: 'not json',
+    },
+  })
+  await start($)
+  await $.command.run({ command: 'brain', args: '' })
+  expect([inboxStatus(files, 'n1'), inboxStatus(files, 'n2'), inboxStatus(files, 'n3'), inboxStatus(files, 'n4'), inboxStatus(files, 'n5')]).toEqual(['active', 'rejected', 'active', 'active', 'pending'])
+  // The user's own call is recorded as such
+  expect(journal(files)).toContain('"ref":"n2","verdict":"reject","reason":"the user dropped it","evidence":"the user","by":"user"')
+  // Once: the files stay, and nothing is done again
+  const rows = journal(files).split('\n').filter(Boolean).length
+  await $.command.run({ command: 'brain', args: '' })
+  expect(journal(files).split('\n').filter(Boolean).length).toBe(rows)
+  expect(files.has(reviews + 'n1.json')).toBe(true)
+})
+
+t('taking the verdict on a guarded note is the user\'s own call, and works; with no claims to be had, nothing is done', async ($, on) => {
+  const now = Date.now()
+  const reviews = '/home/.claude/coter-kit/reviews/'
+  const { files } = stubAll(on, { files: { ...inboxBrain(now), [reviews + 'n3.json']: reviewCall('n3', 'take', now - 4000), [reviews + 'n1.json']: reviewCall('n1', 'keep', null) }, mkdirFails: true })
+  await start($)
+  await $.command.run({ command: 'brain', args: '' })
+  expect([inboxStatus(files, 'n1'), inboxStatus(files, 'n3')]).toEqual(['pending', 'active'])
+})
+
+t('a guarded note taken by hand is retired', async ($, on) => {
+  const now = Date.now()
+  const { files } = stubAll(on, { files: { ...inboxBrain(now), '/home/.claude/coter-kit/reviews/n3.json': reviewCall('n3', 'take', now - 4000) } })
+  await start($)
+  await $.command.run({ command: 'brain', args: '' })
+  expect(inboxStatus(files, 'n3')).toBe('superseded')
+})
+
+t('RV-015 F4: finishing a keep whose status write failed records the call only once', async ($, on) => {
+  const now = Date.now()
+  const base = inboxBrain(now)
+  const key = '/brain/journal/pc/2026-10-04-pc-s.jsonl'
+  // The user's keep on n4 is recorded, but n4 is still waiting: the status write failed
+  base[key] += JSON.stringify({ op: 'review', ref: 'n4', verdict: 'accept', reason: 'the user kept it', evidence: 'the user', by: 'user', at: now - 1000, device: 'pc' }) + '\n'
+  const { files } = stubAll(on, { files: { ...base, '/home/.claude/coter-kit/reviews/n4.json': reviewCall('n4', 'keep', now - 3000) } })
+  await start($)
+  await $.command.run({ command: 'brain', args: '' })
+  expect(inboxStatus(files, 'n4')).toBe('active')
+  expect(journal(files).split('"by":"user"').length - 1).toBe(1)
+})
