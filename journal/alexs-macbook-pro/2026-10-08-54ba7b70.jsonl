@@ -554,3 +554,16 @@
 {"op":"review","ref":"ina0d0i6","verdict":"accept","reason":"A real pasted-as-is incident voided a probe run, and the guard is cheap and general.","evidence":"session e9a6fcf5 10-07T02:55Z coordinator: 'The placeholder addresses went in' (probe void)","at":1791428749776,"device":"alexs-macbook-pro","session":"54ba7b70-3cab-4174-8147-b813cf577c4e"}
 {"op":"review","ref":"lzeyya31","verdict":"reject","reason":"Alex did say it, but it's one jobsnearme UI decision, already live as fobilqui, not a cross-project preference.","evidence":"session 91b584ca 10-07T18:18Z Alex: 'whatever tiktok and insta are doing'; live decision fobilqui","at":1791428749776,"device":"alexs-macbook-pro","session":"54ba7b70-3cab-4174-8147-b813cf577c4e"}
 {"op":"review","ref":"o381fplw","verdict":"reject","reason":"The profile already says it, and how to raise max_loc is jobsnearme spec-pipeline detail.","evidence":"profile.md: \"Pragmatic about LOC caps and doc wording\"","at":1791428749776,"device":"alexs-macbook-pro","session":"54ba7b70-3cab-4174-8147-b813cf577c4e"}
+{"op":"status","ref":"xra0x73v","status":"superseded","at":1791428798089,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"xra19rqq","status":"superseded","at":1791428798089,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"xra1c5dj","status":"superseded","at":1791428798089,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"xra1h1s3","status":"superseded","at":1791428798089,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"xra1p1w6","status":"superseded","at":1791428798089,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"xra1xupt","status":"superseded","at":1791428798089,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"xra220s4","status":"superseded","at":1791428798089,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"y1ozdaxi","status":"superseded","at":1791428798089,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"y1ozlim8","status":"superseded","at":1791428798089,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"y1ozqzrk","status":"superseded","at":1791428798089,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"y1p0lamp","status":"superseded","at":1791428798089,"device":"alexs-macbook-pro"}
+{"id":"ygb64c3z","at":1791428798092,"device":"alexs-macbook-pro","session":"54ba7b70-3cab-4174-8147-b813cf577c4e","project":"coter-kit","kind":"waiting","text":"Commit and push coter-kit 0.12.1 (worktree awesome-satoshi-6d5590): the digest proposes only preferences and shorthand (DIGEST-1); 142 + 57 tests pass. Running sessions keep proposing project notes until they restart on it.","ref":"PUSH-0.12.1","options":["commit and push","hold"],"status":"active","source":"claude"}
+{"id":"ygb65dkm","at":1791428798093,"device":"alexs-macbook-pro","session":"54ba7b70-3cab-4174-8147-b813cf577c4e","project":"coter-kit","kind":"waiting","text":"/brain: the reviewer's 54 picks on the cleared backlog (24 accept, 13 rewrite, 17 reject) wait for one press of 'apply the reviewer's picks'.","ref":"BRAIN-APPLY","status":"active","source":"claude"}
