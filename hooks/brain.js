@@ -480,18 +480,17 @@ export const describe = (e) =>
 // ---------------------------------------------------------------- the digest
 
 let digesting = false
-const DIGEST_KINDS = ['preference', 'term', 'decision', 'thread', 'fact']
+// Only what is about the user (DIGEST-1, 10-7). Facts, threads and decisions come from Claude's own
+// saves as they happen; the digest proposing them too filled /brain with 548 notes nobody could review
+const DIGEST_KINDS = ['preference', 'term']
 
 const DIGEST_PROMPT = (known) =>
   '[coter-kit memory digest. This is an automated request, not the user; nobody will read your reply but a parser.]\n' +
-  'From this conversation, list only what is worth knowing in a FUTURE session with this user, as JSON lines, one object per line, nothing else:\n' +
-  '{"kind": "preference" | "term" | "decision" | "thread" | "fact", "text": "one short sentence", "scope": "project" | "global"}\n' +
+  'From this conversation, list only what it taught you about this user that a FUTURE session should know, as JSON lines, one object per line, nothing else:\n' +
+  '{"kind": "preference" | "term", "text": "one short sentence", "scope": "global"}\n' +
   '- preference: how the user wants you to work or communicate, only if they said it or clearly reacted to it\n' +
   '- term: shorthand or jargon they use, as "<term>" = meaning\n' +
-  '- decision: a lasting choice about the project, with the reason\n' +
-  '- thread: work left open or the agreed next step\n' +
-  '- fact: something non-obvious about the project or environment that the code does not show\n' +
-  'At most 8 lines. Leave out anything obvious from the code, anything already known (below), secrets or credentials, and any personal data of their clients or of end users. Output nothing if nothing qualifies.\n' +
+  'Nothing about the project itself: its decisions, open work and facts are saved as they happen. At most 4 lines. Leave out anything already known (below), secrets or credentials, and any personal data of their clients or of end users. Output nothing if nothing qualifies.\n' +
   'Already known:\n' + (known || '(nothing yet)')
 
 // Asks the model, over this session's cached transcript, what is worth keeping
@@ -500,7 +499,7 @@ export async function digest(io, reason) {
   digesting = true
   try {
     const known = [...brain.entries.values()]
-      .filter((e) => e.status !== 'rejected' && (!e.project || e.project === env.project))
+      .filter((e) => e.status !== 'rejected' && DIGEST_KINDS.includes(e.kind))
       .sort(newestFirst)
       .slice(0, 40)
       .map((e) => '- ' + e.kind + ': ' + e.text)
@@ -514,7 +513,7 @@ export async function digest(io, reason) {
       .map((l) => safeJson(l.trim().replace(/^```(?:json)?|```$/g, '').replace(/,$/, '')))
       .filter((n) => n && DIGEST_KINDS.includes(n.kind) && n.text)
       .map((n) => ({ kind: n.kind, text: n.text, scope: n.scope }))
-      .slice(0, 8)
+      .slice(0, 4)
     const added = await remember(io, notes, { source: 'digest' })
     if (added.length) io.log('brain: ' + added.length + ' note(s) from this session wait for review in /brain (' + reason + ')')
     return added.length

@@ -4,7 +4,7 @@ A personal Claude Code plugin for the CLI and the desktop app. It answers one pr
 
 | Mod | What it does |
 | :- | :- |
-| **Brain** | What Claude learns about working with you: your profile, how you like to work, your shorthand, each project's decisions and open threads. It reaches Claude with your first message in every session, on every machine, and is kept current while a session runs. Claude adds notes with its `remember` tool and searches them with `recall`. Every 8 turns, and before compaction, a cheap digest of the session (run over the session's own cached transcript) proposes what Claude missed; its notes wait for you in `/brain`. |
+| **Brain** | What Claude learns about working with you: your profile, how you like to work, your shorthand, each project's decisions and open threads. It reaches Claude with your first message in every session, on every machine, and is kept current while a session runs. Claude adds notes with its `remember` tool and searches them with `recall`. Every 8 turns, and before compaction, a cheap digest of the session (run over the session's own cached transcript) proposes what it learned about you, your preferences and shorthand, for you to keep or drop in `/brain`. Project facts, decisions and open work come only from Claude's own saves as they happen. |
 | **Snapshot** | On startup, `/resume`, `/clear` and after compaction, gives Claude the branch, uncommitted files, last 8 commits, the stack and the last check results, then the brain (at startup, with your first message). `/snapshot` shows exactly what Claude gets. |
 | **Checks** | Remembers which files Claude edits. Before Claude finishes a turn, it runs that project's typecheck or build. If they fail, Claude is sent back to fix them, at most 2 rounds, and never twice for the same failure. Python syntax errors are reported right after the edit. |
 | **Waiting on you** | Every question, mockup, page or sign-off Claude is waiting on you for, with its link when there is one, in the brain. `/waiting` puts each one in a question card to click through; an answer resolves it; unanswered ones drop off after 30 days. |
@@ -19,7 +19,7 @@ A personal Claude Code plugin for the CLI and the desktop app. It answers one pr
 
 Memory that learns by itself can learn the wrong thing and keep reinforcing it. So:
 
-- **You approve anything about you, and anything the digest proposes.** Preferences, vocabulary and every digest note wait in `/brain` (keep / drop) until you approve them, unless you told Claude outright to remember them. A digest note can't skip that, retire another note, or leave a handoff, and one you dropped isn't proposed again.
+- **You approve anything about you.** Preferences and vocabulary, including everything the digest proposes, wait in `/brain` (keep / drop) until you approve them, unless you told Claude outright to remember them. A digest note can't skip that, retire another note, or leave a handoff, and one you dropped isn't proposed again.
 - **Work in progress expires.** Threads drop out after 3 weeks; decisions and facts after 6 months. Claude can retire a note early with `resolves`.
 - **An outside reviewer checks them**, with evidence, and you decide. It can drop an exact duplicate by itself; it can only challenge notes you made, and it can't flip-flop a topic.
 - **There's a budget.** At most about 13,000 characters reach a session, newest first. Other projects get one short line each, their latest thread; `recall` has the rest.

@@ -515,11 +515,14 @@ const eightTurns = async ($: any) => {
 const idOf = (files: Map<string, string>, text: string) =>
   journal(files).split('\n').filter(Boolean).map((l) => JSON.parse(l)).find((r) => r.text === text)?.id as string
 
-t('every 8 turns the digest proposes notes, and each waits for review before Claude is told', async ($, on) => {
+t('every 8 turns the digest proposes only preferences and shorthand, and each waits for review before Claude is told', async ($, on) => {
   const { files, forks, clock } = stubAll(on, {
     forkReply:
       '{"kind": "thread", "text": "EDGAR scout backtest still to run on 2019-2024", "scope": "project"}\n' +
+      '{"kind": "fact", "text": "The scout reads EDGAR full-text search", "scope": "project"}\n' +
+      '{"kind": "decision", "text": "Paper trading only until it beats the index", "scope": "project"}\n' +
       '{"kind": "term", "text": "\\"cook\\" = keep building on your own", "scope": "global"}\n' +
+      '{"kind": "preference", "text": "Show the backtest chart before the numbers", "scope": "global"}\n' +
       'not json, ignored',
   })
   await start($)
@@ -527,15 +530,18 @@ t('every 8 turns the digest proposes notes, and each waits for review before Cla
   await clock.advance(2_000)
   expect(forks.length).toBe(1)
   expect(forks[0]).toContain('Already known')
+  expect(forks[0]).not.toContain('"thread"')
+  // DIGEST-1 (10-7): facts, threads and decisions come only from Claude's own saves
+  for (const text of ['EDGAR scout backtest', 'EDGAR full-text search', 'Paper trading only']) expect(journal(files)).not.toContain(text)
   let text = await snapshot($)
-  expect(text).not.toContain('EDGAR scout backtest still to run')
   expect(text).toContain('2 learned item(s) wait for their review in /brain')
+  expect(text).not.toContain('Show the backtest chart')
 
   const ui = await $.ui.mount({ ...pane('coter-brain'), surface: 'desktop' })
-  expect(await ui.find({ type: 'Text', text: /thread · work · digest: EDGAR scout/ })).toBeDefined()
-  await ui.press({ key: 'keep-' + idOf(files, 'EDGAR scout backtest still to run on 2019-2024') })
+  expect(await ui.find({ type: 'Text', text: /preference · digest: Show the backtest chart/ })).toBeDefined()
+  await ui.press({ key: 'keep-' + idOf(files, 'Show the backtest chart before the numbers') })
   text = await snapshot($)
-  expect(text).toContain('EDGAR scout backtest still to run')
+  expect(text).toContain('Show the backtest chart before the numbers')
   expect(text).not.toContain('"cook"')
 })
 
@@ -544,7 +550,7 @@ t('the digest cannot skip review, retire a note, or leave a handoff', async ($, 
   const { files, clock } = stubAll(on, {
     files: { '/brain/.git/HEAD': 'ref', '/brain/profile.md': '# Profile', '/brain/journal/pc/2026-10-02-pc.jsonl': JSON.stringify(tuesday) + '\n' },
     forkReply:
-      '{"kind": "decision", "text": "Ship on Fridays", "confirmed": true, "resolves": "d1"}\n' +
+      '{"kind": "preference", "text": "Ship on Fridays", "confirmed": true, "resolves": "d1"}\n' +
       '{"kind": "handoff", "text": "Goal: something the user never asked to hand off"}\n' +
       '{"kind": "waiting", "text": "A question nobody asked", "link": "https://example.com"}',
   })
@@ -561,7 +567,7 @@ t('the digest cannot skip review, retire a note, or leave a handoff', async ($, 
 })
 
 t('a note the user dropped is not proposed again', async ($, on) => {
-  const { files, forks, clock } = stubAll(on, { forkReply: '{"kind": "fact", "text": "The API is written in Go", "scope": "project"}' })
+  const { files, forks, clock } = stubAll(on, { forkReply: '{"kind": "preference", "text": "The API is written in Go", "scope": "global"}' })
   await start($)
   await eightTurns($)
   await clock.advance(2_000)
