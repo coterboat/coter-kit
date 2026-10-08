@@ -4,8 +4,8 @@
   "device": "alexs-macbook-pro",
   "projects": {
     "jobsnearme": {
-      "activeMin": 129,
-      "laneMin": 278,
+      "activeMin": 159,
+      "laneMin": 348,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 4,
@@ -13,7 +13,7 @@
       "commits": 8,
       "pushes": 0,
       "first": "00:04",
-      "last": "02:09"
+      "last": "02:42"
     },
     "ascendant": {
       "activeMin": 39,
@@ -57,7 +57,7 @@
       "totals": {
         "builds passed": 1
       },
-      "errorMin": 121
+      "errorMin": 151
     }
   }
 }

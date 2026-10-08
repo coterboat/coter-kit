@@ -22,3 +22,6 @@
 {"op":"status","ref":"spxlip3q","status":"active","at":1791439395737,"device":"alexs-macbook-pro"}
 {"op":"status","ref":"wjln2hbk","status":"active","at":1791439396013,"device":"alexs-macbook-pro"}
 {"op":"status","ref":"ze51hspg","status":"rejected","at":1791439396122,"device":"alexs-macbook-pro"}
+{"id":"7y00tjmq","at":1791444739997,"device":"alexs-macbook-pro","session":"e9a6fcf5-f3ac-48c6-80c2-2e64a25c741d","project":"jobsnearme","kind":"thread","text":"jobsnearme post-10-15 parking lot (L3, coordinator 10-8): at zoom 19-20 the settle's 3-dp rounded box can have coinciding edges (a whole phone pane is narrower than one 3-dp cell), and the corpus cut by that rounded box may drop jobs inside a ~33 m view; FS-468 delivers it as before (it guards only the LIVE box with no area). Look at the cut's rounding at street zoom after 10-15.","status":"active","source":"claude"}
+{"id":"7y00zsbb","at":1791444740003,"device":"alexs-macbook-pro","session":"e9a6fcf5-f3ac-48c6-80c2-2e64a25c741d","project":"jobsnearme","kind":"thread","text":"done: FS-463 + FS-468 merged to main as 33ab2d86 (tree identical to certified 65d4b778), coordinator pushing 10-8 early; L3 on standby for staging-walk seeker-path bugs.","status":"active","source":"claude","replaces":"4jw65pfj"}
+{"op":"status","ref":"4jw65pfj","status":"superseded","at":1791444740003,"device":"alexs-macbook-pro"}
