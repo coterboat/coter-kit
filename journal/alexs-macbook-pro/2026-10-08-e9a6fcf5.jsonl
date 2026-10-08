@@ -1,0 +1,2 @@
+{"id":"yr5ymf07","at":1791429304558,"device":"alexs-macbook-pro","session":"e9a6fcf5-f3ac-48c6-80c2-2e64a25c741d","project":"coter-kit","kind":"decision","text":"PUSH-0.12.1: commit and push (answer to \"Commit and push coter-kit 0.12.1 (worktree awesome-satoshi-6d5590): the digest proposes only preferences and shorthand …\", given in the home dashboard)","status":"active","source":"claude","replaces":"ygb64c3z","answers":"ygb64c3z","outside":true}
+{"op":"status","ref":"ygb64c3z","status":"superseded","at":1791429304558,"device":"alexs-macbook-pro"}
