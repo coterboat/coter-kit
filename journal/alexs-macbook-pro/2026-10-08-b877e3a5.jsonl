@@ -1,0 +1,2 @@
+{"id":"ysaphr91","at":1791429357365,"device":"alexs-macbook-pro","session":"b877e3a5-60e7-4160-8a91-d950f1360725","project":"coter-kit","kind":"decision","text":"BRAIN-APPLY: Yes, or done (answer to \"/brain: the reviewer's 54 picks on the cleared backlog (24 accept, 13 rewrite, 17 reject) wait for one press of 'apply …\", given in the home dashboard)","status":"active","source":"claude","replaces":"ygb65dkm","answers":"ygb65dkm","outside":true}
+{"op":"status","ref":"ygb65dkm","status":"superseded","at":1791429357365,"device":"alexs-macbook-pro"}
