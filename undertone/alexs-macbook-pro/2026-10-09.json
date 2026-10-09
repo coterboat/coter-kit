@@ -16,23 +16,23 @@
       "last": "00:14"
     },
     "jobsnearme": {
-      "activeMin": 194,
-      "laneMin": 392,
+      "activeMin": 344,
+      "laneMin": 542,
       "blockedMin": 0,
       "brokenMin": {
-        "test:vitest": 162
+        "test:vitest": 312
       },
       "sessions": 3,
-      "turns": 21,
-      "commits": 13,
+      "turns": 23,
+      "commits": 18,
       "pushes": 0,
       "first": "00:00",
-      "last": "03:09"
+      "last": "05:36"
     },
     "ascendant": {
       "activeMin": 52,
       "laneMin": 52,
-      "blockedMin": 106,
+      "blockedMin": 126,
       "brokenMin": {},
       "sessions": 0,
       "turns": 7,
@@ -57,7 +57,7 @@
   "sources": {
     "jobsnearme": {
       "totals": {
-        "builds started": 1,
+        "builds started": 2,
         "builds passed": 1
       },
       "errorMin": 0
