@@ -16,30 +16,30 @@
       "last": "00:14"
     },
     "jobsnearme": {
-      "activeMin": 623,
-      "laneMin": 934,
+      "activeMin": 654,
+      "laneMin": 993,
       "blockedMin": 0,
       "brokenMin": {
         "test:vitest": 650
       },
-      "sessions": 4,
-      "turns": 66,
-      "commits": 52,
+      "sessions": 7,
+      "turns": 81,
+      "commits": 59,
       "pushes": 0,
       "first": "00:00",
-      "last": "13:42"
+      "last": "14:13"
     },
     "ascendant": {
-      "activeMin": 126,
-      "laneMin": 126,
-      "blockedMin": 250,
+      "activeMin": 148,
+      "laneMin": 148,
+      "blockedMin": 255,
       "brokenMin": {},
       "sessions": 0,
-      "turns": 14,
-      "commits": 12,
-      "pushes": 9,
+      "turns": 17,
+      "commits": 13,
+      "pushes": 10,
       "first": "00:20",
-      "last": "13:42"
+      "last": "14:09"
     },
     "coter-kit": {
       "activeMin": 28,
@@ -76,6 +76,18 @@
       "pushes": 0,
       "first": "12:38",
       "last": "12:50"
+    },
+    "..": {
+      "activeMin": 0,
+      "laneMin": 0,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 1,
+      "turns": 1,
+      "commits": 0,
+      "pushes": 0,
+      "first": "14:10",
+      "last": "14:10"
     }
   },
   "sources": {
