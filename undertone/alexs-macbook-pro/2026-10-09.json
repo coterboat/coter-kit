@@ -28,18 +28,18 @@
       "last": "00:14"
     },
     "jobsnearme": {
-      "activeMin": 864,
-      "laneMin": 1347,
+      "activeMin": 894,
+      "laneMin": 1384,
       "blockedMin": 0,
       "brokenMin": {
         "test:vitest": 650
       },
       "sessions": 7,
-      "turns": 109,
+      "turns": 111,
       "commits": 86,
       "pushes": 0,
       "first": "00:00",
-      "last": "17:36"
+      "last": "18:10"
     },
     "ascendant": {
       "activeMin": 151,
