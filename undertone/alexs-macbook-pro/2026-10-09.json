@@ -3,6 +3,18 @@
   "date": "2026-10-09",
   "device": "alexs-macbook-pro",
   "projects": {
+    "coterboat": {
+      "activeMin": 2,
+      "laneMin": 2,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 2,
+      "turns": 3,
+      "commits": 0,
+      "pushes": 0,
+      "first": "15:41",
+      "last": "15:42"
+    },
     "scratch-2026-10-05-29a807": {
       "activeMin": 11,
       "laneMin": 11,
@@ -16,18 +28,18 @@
       "last": "00:14"
     },
     "jobsnearme": {
-      "activeMin": 714,
-      "laneMin": 1150,
+      "activeMin": 744,
+      "laneMin": 1204,
       "blockedMin": 0,
       "brokenMin": {
         "test:vitest": 650
       },
       "sessions": 7,
-      "turns": 99,
-      "commits": 74,
+      "turns": 105,
+      "commits": 78,
       "pushes": 0,
       "first": "00:00",
-      "last": "15:13"
+      "last": "15:43"
     },
     "ascendant": {
       "activeMin": 151,
