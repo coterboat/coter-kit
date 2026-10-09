@@ -16,18 +16,18 @@
       "last": "00:14"
     },
     "jobsnearme": {
-      "activeMin": 684,
-      "laneMin": 1061,
+      "activeMin": 714,
+      "laneMin": 1150,
       "blockedMin": 0,
       "brokenMin": {
         "test:vitest": 650
       },
       "sessions": 7,
-      "turns": 88,
-      "commits": 64,
+      "turns": 99,
+      "commits": 74,
       "pushes": 0,
       "first": "00:00",
-      "last": "14:43"
+      "last": "15:13"
     },
     "ascendant": {
       "activeMin": 151,
@@ -66,16 +66,16 @@
       "last": "12:41"
     },
     "scratch-2026-10-09-aa0ac1": {
-      "activeMin": 10,
-      "laneMin": 10,
+      "activeMin": 14,
+      "laneMin": 14,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 1,
-      "turns": 2,
+      "turns": 3,
       "commits": 0,
       "pushes": 0,
       "first": "12:38",
-      "last": "12:50"
+      "last": "14:49"
     },
     "..": {
       "activeMin": 0,
@@ -88,6 +88,18 @@
       "pushes": 0,
       "first": "14:10",
       "last": "14:10"
+    },
+    "tablehand": {
+      "activeMin": 2,
+      "laneMin": 2,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 1,
+      "turns": 1,
+      "commits": 0,
+      "pushes": 0,
+      "first": "14:53",
+      "last": "14:54"
     }
   },
   "sources": {
