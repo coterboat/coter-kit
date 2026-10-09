@@ -1,0 +1,2 @@
+{"id":"a5dnao72","at":1791569375830,"device":"alexs-macbook-pro","session":"4986cddc-e19f-44ca-aec7-73ae15717223","project":"jobsnearme","kind":"decision","text":"L2-SIGN-476: Signed (answer to \"jobsnearme FS-476 (HIGH, shared-device sign-up takeover): a Connect made before email confirmation is no longer sent au…\", given in the home dashboard)","status":"active","source":"claude","replaces":"9ub35t1t","answers":"9ub35t1t","outside":true}
+{"op":"status","ref":"9ub35t1t","status":"superseded","at":1791569375830,"device":"alexs-macbook-pro"}
