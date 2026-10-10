@@ -4,16 +4,16 @@
   "device": "alexs-macbook-pro",
   "projects": {
     "jobsnearme": {
-      "activeMin": 134,
-      "laneMin": 251,
+      "activeMin": 164,
+      "laneMin": 313,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 3,
-      "turns": 23,
-      "commits": 20,
+      "turns": 32,
+      "commits": 32,
       "pushes": 0,
       "first": "00:00",
-      "last": "02:13"
+      "last": "02:43"
     },
     "ascendant": {
       "activeMin": 24,
