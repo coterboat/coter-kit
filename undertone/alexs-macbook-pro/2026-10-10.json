@@ -1,0 +1,27 @@
+{
+  "v": 1,
+  "date": "2026-10-10",
+  "device": "alexs-macbook-pro",
+  "projects": {
+    "jobsnearme": {
+      "activeMin": 44,
+      "laneMin": 55,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 0,
+      "turns": 3,
+      "commits": 1,
+      "pushes": 0,
+      "first": "00:00",
+      "last": "00:40"
+    }
+  },
+  "sources": {
+    "jobsnearme": {
+      "totals": {
+        "builds started": 1
+      },
+      "errorMin": 0
+    }
+  }
+}
