@@ -16,6 +16,12 @@ Every routing choice is a `route` note with the reason, the outcome, and the usa
 
 The status files already carry the five-hour and seven-day rate-limit windows. A check before fanning out to subagents or a cloud session that says "you're at eighty percent of the five-hour window; this fan-out will blow it" would stop the expensive mistake before it happens, instead of showing it in `/glance` after the fact.
 
+## 4. `pattern` notes — reuse solutions across projects, not just facts
+
+Added 2026-10-10 from a conversation with Alex about not reinventing across projects. The brain is good at decisions and facts, but a solved problem is hard to reuse from another repo: "we solved windowed screenshots in ascendant" doesn't help EO7 unless the note says where the code lives and when to reach for it.
+
+A `pattern` kind would hold: the problem it solves, where the working code lives (repo + path + commit), how to port it (what's project-specific vs. generic), and the projects that already use it. Recall would surface patterns when a session starts work that matches the problem, so a lesson becomes something you can pull into a new project and not just something you remember. Candidates to seed it: the Godot screenshot/walk harness (`--always-on-top`, wait for `land_ready`), the Review Table, the review-packet → Codex loop, per-job file ownership for parallel builders.
+
 ## Notes
 
 - None of these are milestones. They're a file so the ideas survive past this conversation without becoming a build arc.
