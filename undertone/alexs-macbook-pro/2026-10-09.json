@@ -28,18 +28,18 @@
       "last": "00:14"
     },
     "jobsnearme": {
-      "activeMin": 1122,
-      "laneMin": 1743,
+      "activeMin": 1152,
+      "laneMin": 1774,
       "blockedMin": 0,
       "brokenMin": {
-        "test:vitest": 823
+        "test:vitest": 853
       },
       "sessions": 8,
       "turns": 171,
       "commits": 117,
       "pushes": 6,
       "first": "00:00",
-      "last": "22:11"
+      "last": "22:41"
     },
     "ascendant": {
       "activeMin": 151,
@@ -118,7 +118,7 @@
     "jobsnearme": {
       "totals": {
         "builds started": 8,
-        "builds passed": 4
+        "builds passed": 5
       },
       "errorMin": 60
     }
