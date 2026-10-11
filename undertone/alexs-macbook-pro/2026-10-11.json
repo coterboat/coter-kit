@@ -16,28 +16,28 @@
       "last": "13:00"
     },
     "jobsnearme": {
-      "activeMin": 766,
-      "laneMin": 1070,
+      "activeMin": 826,
+      "laneMin": 1155,
       "blockedMin": 2,
       "brokenMin": {},
       "sessions": 5,
-      "turns": 105,
-      "commits": 54,
+      "turns": 120,
+      "commits": 63,
       "pushes": 0,
       "first": "00:18",
-      "last": "13:12"
+      "last": "14:11"
     },
     "coter-kit": {
-      "activeMin": 67,
-      "laneMin": 67,
+      "activeMin": 81,
+      "laneMin": 81,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 3,
-      "turns": 1,
-      "commits": 0,
-      "pushes": 0,
+      "turns": 5,
+      "commits": 1,
+      "pushes": 1,
       "first": "12:07",
-      "last": "13:12"
+      "last": "13:41"
     },
     "probe-run": {
       "activeMin": 0,
@@ -52,22 +52,34 @@
       "last": "12:53"
     },
     "sideline": {
-      "activeMin": 3,
-      "laneMin": 3,
+      "activeMin": 4,
+      "laneMin": 4,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 1,
-      "turns": 2,
+      "turns": 3,
       "commits": 0,
       "pushes": 0,
       "first": "12:54",
-      "last": "13:07"
+      "last": "13:13"
+    },
+    "coterboat": {
+      "activeMin": 1,
+      "laneMin": 1,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 1,
+      "turns": 1,
+      "commits": 0,
+      "pushes": 0,
+      "first": "13:32",
+      "last": "13:32"
     }
   },
   "sources": {
     "jobsnearme": {
       "totals": {
-        "builds started": 3,
+        "builds started": 4,
         "builds passed": 2
       },
       "errorMin": 0
