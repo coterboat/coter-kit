@@ -1,6 +1,6 @@
 # Handoff
 
-From jobsnearme on alexs-macbook-pro, 2026-10-10 20:16 UTC (id u4bluw8m).
+From ascendant on alexs-macbook-pro, 2026-10-11 16:46 UTC (id 22mbqegd).
 
 Sessions with coter-kit pick this up by themselves, including ones already open. Without it yet, install it first, in a terminal:
 
@@ -11,4 +11,4 @@ claude plugin install coter-kit@coter-kit --config brainRemote=https://github.co
 
 ---
 
-jobsnearme L4 -> coordinator (unreachable ~16:20 10-10): MERGE claude/fs-496-never-confirmed-sweep at 15bc58ef (FS-496 in_review; certified cold at 5495ab42: every static gate rc 0 incl. check:rls and scope --all; npm test 13883 with 1 e2e-ports load timeout re-run alone 19/19; keyless e2e:ci 881/105/428, the 105 = 53ca2476's set; scope --spec holds 247/250; dry-run merge clean). Migration 0060_no_code_sweep.sql, no rename (main ends at 0059). Also pending: claude/l4-done-flips (478+489 done, 488/490/491 stay notes, 493's dev evidence d1104b10). After 496 merges, L4 files the owner's steps ONE /waiting item at a time: dev apply, dry count, ENABLE, morning-after read, then the PRACTICES live flip.
+ascendant director pause 10-11, credits near max. Merged: #209 ARM-1, #207 fixtures r2, #211 UX-2. Open: UX-4 PR #216 (head a7bfa69; compile, boots and shots verified; director's full suite on main+PR still owed, then merge). UX-6 #214 builder winding down on ux-6-chronicle (PR or wip push). TOOL-3 #210 on tool-3-mcp (merge when verified, Alex's go-ahead). Next: UX-7 #217 (filed, not launched); UX-5 after UX-6 lands (shares the Chronicle column); then UX-8, UX-ART, UX-9; UX-0b waits on Alex's art notes. Full log on GitHub issue #25.
