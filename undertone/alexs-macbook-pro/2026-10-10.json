@@ -8,7 +8,7 @@
       "laneMin": 783,
       "blockedMin": 0,
       "brokenMin": {
-        "test:vitest": 344
+        "test:vitest": 644
       },
       "sessions": 6,
       "turns": 126,
@@ -18,16 +18,16 @@
       "last": "18:23"
     },
     "ascendant": {
-      "activeMin": 388,
-      "laneMin": 403,
+      "activeMin": 436,
+      "laneMin": 451,
       "blockedMin": 19,
       "brokenMin": {},
       "sessions": 2,
-      "turns": 35,
-      "commits": 44,
-      "pushes": 22,
+      "turns": 40,
+      "commits": 51,
+      "pushes": 24,
       "first": "01:30",
-      "last": "18:43"
+      "last": "19:40"
     },
     "concurrent": {
       "activeMin": 108,
