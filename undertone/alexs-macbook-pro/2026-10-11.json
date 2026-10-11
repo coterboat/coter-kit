@@ -2,6 +2,38 @@
   "v": 1,
   "date": "2026-10-11",
   "device": "alexs-macbook-pro",
-  "projects": {},
-  "sources": {}
+  "projects": {
+    "ascendant": {
+      "activeMin": 26,
+      "laneMin": 36,
+      "blockedMin": 1,
+      "brokenMin": {},
+      "sessions": 1,
+      "turns": 7,
+      "commits": 1,
+      "pushes": 1,
+      "first": "00:17",
+      "last": "00:39"
+    },
+    "jobsnearme": {
+      "activeMin": 26,
+      "laneMin": 58,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 5,
+      "turns": 19,
+      "commits": 5,
+      "pushes": 0,
+      "first": "00:18",
+      "last": "00:43"
+    }
+  },
+  "sources": {
+    "jobsnearme": {
+      "totals": {
+        "builds started": 1
+      },
+      "errorMin": 0
+    }
+  }
 }
