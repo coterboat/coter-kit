@@ -16,16 +16,16 @@
       "last": "13:00"
     },
     "jobsnearme": {
-      "activeMin": 826,
-      "laneMin": 1155,
+      "activeMin": 854,
+      "laneMin": 1192,
       "blockedMin": 2,
       "brokenMin": {},
       "sessions": 5,
-      "turns": 120,
-      "commits": 63,
+      "turns": 135,
+      "commits": 69,
       "pushes": 0,
       "first": "00:18",
-      "last": "14:11"
+      "last": "14:43"
     },
     "coter-kit": {
       "activeMin": 81,
@@ -80,7 +80,7 @@
     "jobsnearme": {
       "totals": {
         "builds started": 4,
-        "builds passed": 2
+        "builds passed": 3
       },
       "errorMin": 0
     }
