@@ -6,7 +6,7 @@
     "ascendant": {
       "activeMin": 201,
       "laneMin": 260,
-      "blockedMin": 72,
+      "blockedMin": 77,
       "brokenMin": {},
       "sessions": 1,
       "turns": 15,
@@ -16,16 +16,16 @@
       "last": "03:49"
     },
     "jobsnearme": {
-      "activeMin": 261,
-      "laneMin": 450,
+      "activeMin": 321,
+      "laneMin": 513,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 5,
-      "turns": 59,
-      "commits": 27,
+      "turns": 61,
+      "commits": 30,
       "pushes": 0,
       "first": "00:18",
-      "last": "04:43"
+      "last": "05:39"
     }
   },
   "sources": {
