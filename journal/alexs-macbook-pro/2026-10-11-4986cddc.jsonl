@@ -1,0 +1,2 @@
+{"id":"bh3lvf4z","at":1791692534659,"device":"alexs-macbook-pro","session":"4986cddc-e19f-44ca-aec7-73ae15717223","project":"jobsnearme","kind":"decision","text":"BQ-502: No, nothing on /demo (answer to \"FS-502 (walk S5): with location denied, '/' will say 'We can't see your location, so these distances are from Buckhead,…\", given in the home dashboard)","status":"active","source":"claude","replaces":"u25owba3","answers":"u25owba3","outside":true}
+{"op":"status","ref":"u25owba3","status":"superseded","at":1791692534662,"device":"alexs-macbook-pro"}
