@@ -8,7 +8,7 @@
       "laneMin": 783,
       "blockedMin": 0,
       "brokenMin": {
-        "test:vitest": 644
+        "test:vitest": 662
       },
       "sessions": 6,
       "turns": 126,
