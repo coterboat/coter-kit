@@ -23,6 +23,8 @@ Every Claude Code session with coter-kit writes one small JSON file describing i
 | `id` | The Claude Code session id |
 | `device` | The machine's name (`alexs-macbook-pro`, `bld`), the same name coter-kit's brain uses |
 | `project`, `worktree`, `branch` | Where it runs: the repository's name, the worktree's folder name (or `""`) and the branch. No absolute paths |
+| `name` | The session's title, as ListAgents shows it and SendMessage takes it, or `""` until Claude Code gives one. Notes addressed by name are matched against it, and two live sessions with the same one are never woken (`docs/addressed-notes.md`). Absent in sessions on older code |
+| `repo` | The repository's origin remote as host/owner/name, no credentials, or `""` without one. It tells apart two repositories that share a folder name. Absent in sessions on older code |
 | `opened_at`, `updated_at`, `last_event_at` | ISO times |
 | `state`, `state_since` | `working` (mid-turn), `needs_ok` (a permission prompt is waiting), `your_move` (turn finished, waiting on you), `idle` (`your_move` for 15 minutes or more, or nothing yet), `ended` |
 | `scheduled` | `true` for a run started by a scheduled task, a routine or `/loop`. It is never `your_move` and earns you no time |
@@ -37,7 +39,7 @@ Every Claude Code session with coter-kit writes one small JSON file describing i
 
 ## Privacy
 
-No prompt text, file paths (not even the session's own folder), commands or note contents. The one piece of your own wording is `checklist.title` and `checklist.current`, so anything that sends a record off the machine (home-agent posting to Grok Bot, a phone push) redacts or drops them.
+No prompt text, file paths (not even the session's own folder), commands or note contents. The pieces of your own wording are `checklist.title`, `checklist.current` and `name` (a session's title is often drawn from its first prompt), so anything that sends a record off the machine (home-agent posting to Grok Bot, a phone push) redacts or drops them.
 
 ## Answering from outside a session
 

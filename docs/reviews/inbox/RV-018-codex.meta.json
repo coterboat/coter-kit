@@ -1,0 +1,12 @@
+{
+  "round": "RV-018",
+  "reviewer": "codex",
+  "rubric_sha256": "c2303a6dd22f05fd48a8fa98def28e45ed0a79fb2606afa367c2e8f42eba0154",
+  "packet_sha256": "0b6a67a2727c12d45e0e57e22374f5d70147bcbf3d299a4eaa74c80107ee7e89",
+  "prompt_sha256": "7e16f3c76f6f37c24340ff800d7f10da92140ae4cbd3e49073311484bf26df05",
+  "response_sha256": "8422e467d0272ceb7291e36e650b6861edbdff5316d0e26bc2503361f92d080b",
+  "started_at": "2026-10-11T17:03:04.735Z",
+  "duration_ms": 167218,
+  "canary": "CANARY: I can see repository/files/tools context beyond the packet.",
+  "packet_only": false
+}

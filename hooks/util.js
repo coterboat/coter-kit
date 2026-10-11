@@ -7,7 +7,9 @@ export const env = {
   python: null,
   sessionRoot: '',
   sessionId: '',
+  formerIds: [], // the ids this session had before a /clear, newest last: notes addressed to them still reach it
   project: '', // the repository's name, the same on every machine
+  repoId: '', // its origin remote as host/owner/name, or '' without one: tells apart two repositories of one name
   worktree: '', // the worktree's folder name when the session runs in one, else ''
   device: '',
   home: '',

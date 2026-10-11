@@ -13,8 +13,8 @@
 // beat anywhere on this machine and the end of this session's last turn, capped at 15
 // minutes. Claude's time is its main-thread turns. Scheduled runs earn the user nothing.
 // The file carries no prompt text, file paths (not even the session's folder: RV-001 F6) or
-// commands; the checklist step is the one piece of the user's own wording in it, so anything
-// that sends it off the machine redacts it.
+// commands; the checklist step and the session's name are the user's own wording in it, so
+// anything that sends it off the machine redacts or drops them.
 
 import { join } from './util.js'
 
@@ -74,6 +74,10 @@ export function liveRecord(s, now) {
     project: s.project,
     worktree: s.worktree || '',
     branch: s.branch || '',
+    // The session's title, as ListAgents shows it: what addressed notes name it by (addressed.js)
+    name: s.name || '',
+    // Its origin remote as host/owner/name, or '': two repositories of one folder name are told apart by it
+    repo: s.repo || '',
     opened_at: iso(s.openedAt),
     updated_at: iso(now),
     last_event_at: iso(s.lastEventAt),

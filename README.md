@@ -5,6 +5,7 @@ A personal Claude Code plugin for the CLI and the desktop app. It answers one pr
 | Mod | What it does |
 | :- | :- |
 | **Brain** | What Claude learns about working with you: your profile, how you like to work, your shorthand, each project's decisions and open threads. It reaches Claude with your first message in every session, on every machine, and is kept current while a session runs. Claude adds notes with its `remember` tool and searches them with `recall`. Every 8 turns, and before compaction, a cheap digest of the session (run over the session's own cached transcript) proposes what it learned about you, your preferences and shorthand, for you to keep or drop in `/brain`. Project facts, decisions and open work come only from Claude's own saves as they happen. |
+| **Addressed notes** | When one session can't reach another with SendMessage (it is restarting or compacting), Claude leaves the message as a note addressed to that session by name (`remember` with `to`). The named session gets it without you: within 2 minutes when it is idle, at the end of its turn when it is busy, with your next prompt if you send one first, and in its snapshot after `/resume`, `/clear` or compaction. Each note is delivered once (two machines that each run a session of that name could both take one between syncs), and the sender hears that it was. It reaches only sessions of its own project, and arrives as a teammate's request, never as your words: the turn it starts can't change CLAUDE.md, settings, hooks or config until you send a message (anything a command changes there anyway is put back, and the replaced bytes kept in `~/.claude/coter-kit/quarantine`). Two sessions with the same name are never woken, and neither is a name no session has; the band says so. Scheduled runs neither get nor send them. No model call is made until a note arrives (`docs/addressed-notes.md`). |
 | **Snapshot** | On startup, `/resume`, `/clear` and after compaction, gives Claude the branch, uncommitted files, last 8 commits, the stack and the last check results, then the brain (at startup, with your first message). `/snapshot` shows exactly what Claude gets. |
 | **Checks** | Remembers which files Claude edits. Before Claude finishes a turn, it runs that project's typecheck or build. If they fail, Claude is sent back to fix them, at most 2 rounds, and never twice for the same failure. Python syntax errors are reported right after the edit. |
 | **Waiting on you** | Every question, mockup, page or sign-off Claude is waiting on you for, with its link when there is one, in the brain. `/waiting` puts each one in a question card to click through; an answer resolves it; unanswered ones drop off after 30 days. |
@@ -43,10 +44,10 @@ A session doesn't have to restart to see what another one wrote, on this machine
 | When | What happens |
 | :- | :- |
 | Session start | Pulls the brain. The snapshot goes in at once, and the brain goes with your first message, because that message shows who is there: a scheduled task's run starts with its `<scheduled-task>` tag and gets only this project's notes and your approved ways of working (no profile, no other projects, never a handoff, nothing more later, no digest). |
-| Every 2 minutes | Pulls the brain and re-reads it. A new handoff shows in the band above the prompt; Claude acts on it only when you say "pick it up". |
-| Each prompt you send | Anything new from other sessions goes along with it, under "New in working memory", once. Only this project's notes and the global ones (handoffs, approved preferences and vocabulary) are sent. |
+| Every 2 minutes | Pulls the brain and re-reads it. A new handoff shows in the band above the prompt; Claude acts on it only when you say "pick it up". A note addressed to this session by name starts a turn of its own once the session is idle, framed as another session's request (Addressed notes, above). |
+| Each prompt you send | Anything new from other sessions goes along with it, under "New in working memory", once. Only this project's notes and the global ones (handoffs, approved preferences and vocabulary) are sent. So does any note addressed to this session that hasn't been delivered yet, and word that a note this session addressed was delivered. |
 | Claude calls `recall` | Pulls first if the last pull is over 15 seconds old, so "pick up what I did on the PC" sees it. |
-| `/clear`, `/resume`, compaction | Pulls and re-reads before giving Claude the fresh snapshot. |
+| `/clear`, `/resume`, compaction | Pulls and re-reads before giving Claude the fresh snapshot, which lists the notes addressed to this session while it was away (an idle session then gets one short turn to act on them) and the ones it was handed in the past day that nobody has retired yet. |
 | `/brain sync` | Pushes this session's notes and pulls everyone else's now; what arrives goes with your next prompt. |
 
 Claude is told all of this at session start, along with when to call `recall`, when to offer `/handoff`, and that `/brain sync` (not `/clear`) is the fix when memory looks out of date. Sessions that started before a plugin update keep running the old code until they are restarted.
@@ -136,10 +137,11 @@ When you release, bump `version` in `.claude-plugin/plugin.json`. Installed copi
 claude --plugin-dir .                        # load it for one session, reloads on save
 claude plugin validate --strict .claude-plugin/plugin.json   # `.` checks only the marketplace manifest
 node --check hooks/*.js                       # validate does not catch syntax errors
-claude plugin test                            # 142 tests, no session or network needed
+claude plugin test                            # 187 tests, no session or network needed
 node --test tests/outside-review.test.mjs     # the outside-review scripts (16 tests), on a throwaway repo
 node --test tests/timesheet.test.mjs           # the timesheet arithmetic (22 tests)
 node --test tests/waiting.test.mjs tests/phone.test.mjs   # question cards, who acts on an answer, phone pushes (19 tests)
+node --test tests/addressed.test.mjs           # who an addressed note is for, what the woken session reads and may not touch (19 tests)
 ```
 
 If `claude plugin test` says hooks modules are turned off in this process, run it with `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` set. Some builds ignore that setting and leave it to a server-side switch; the Claude Code inside the desktop app (`$CLAUDE_CODE_EXECPATH` in its sessions) runs the tests.

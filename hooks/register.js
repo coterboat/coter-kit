@@ -6,7 +6,8 @@
 //   3. Checklist - a live task list above the prompt (and a /checklist pane) that
 //                  Claude keeps current with its own tool.
 //   4. Brain     - what Claude learns about working with you, shared across sessions,
-//                  repositories and machines (see brain.js). /brain reviews it.
+//                  repositories and machines (see brain.js). /brain reviews it. A note can be
+//                  addressed to one session by name, and wakes it (addressed.js).
 
 import { env, norm, dirname, basename, isAbs, join, within, ago, span, clip, safeJson } from './util.js'
 import {
@@ -37,7 +38,11 @@ import {
   REFRESH_EVERY_MS,
   reread,
   ROUTE_WHERE,
+  markDelivered,
+  takeDelivered,
+  flushJournal,
 } from './brain.js'
+import { ADDRESSABLE, cleanName, nameKey, inboxFor, namesakes, pinDevice, wakePrompt, arrivingSection, snapshotSection, stuckNotes, sendHint, takeBatch, heldFor, heldSection, touchesConfig, isShell, PEER_DENIED, peerUndone, repoIdOf, hookTargets, GUARDED_DIRS } from './addressed.js'
 import { formatWaiting, waitingCard, cardAnswer, answerNote, answersRoot, outsideAnswer, followerOf, followUpPrompt, firstAnswer, LATER } from './waiting.js'
 import { formatRoutes } from './routes.js'
 import { updateMachine, sheetFor, weekOf, confirmCheck, parseAdjustment, formatSheet, validSheet } from './timesheet.js'
@@ -113,6 +118,27 @@ const LIVE_COMMANDS = ['catchup', 'glance', 'waiting', 'brain', 'checklist', 'ch
 // This machine's timesheet file in the brain is rewritten at most this often (and when the session ends)
 const TIMESHEET_EVERY_MS = 10 * 60_000
 let lastTimesheetAt = 0
+
+// Addressed notes (addressed.js): this session's name, as Claude Code titles it, and what it was handed
+let myName = ''
+// Someone is or was here: a first prompt that wasn't a scheduled run's, or a resume, /clear or compaction.
+// Before that, nobody can tell a scheduled run from a person, so nothing is delivered
+let attended = false
+let deliverAtIdle = false // notes wait for this session to be idle
+let wakeInFlight = false // a turn the kit started for notes hasn't finished yet
+let lastWakeAt = 0
+let actFor = [] // notes a snapshot handed over whose short "act on them" turn hasn't started yet
+let stuckAddressed = [] // notes of this project no session here can take, for the band
+// A turn the kit started for a note, until the user sends a message: it may not change config (addressed.js),
+// and these files are put back if a shell command changes them meanwhile: path -> what they held (null: absent)
+let peerTurn = false
+let guarded = null
+let wholeDirs = [] // the guarded folders read in full when the turn began: only in these is a new file told apart
+let repoRoot = '' // the repository's main folder, whose CLAUDE.md a worktree's session reads too
+const claimKeys = new Map() // note id -> the claim this session holds for it (claimNotes)
+const WAKE_GAP_MS = 60_000
+// A delivery claim older than this was left by a session that stopped before it delivered (RV-016 F3)
+const CLAIM_STALE_MS = 10 * 60_000
 
 // The session's setup, started once (see prepare)
 let ready = null
@@ -511,7 +537,7 @@ const CHECKLIST_SPEC = {
 const REMEMBER_SPEC = {
   name: 'remember',
   description:
-    "Save something to the user's long-term memory, shared across their sessions, repositories and machines. Use it when the user states a preference or corrects how you work (preference), uses shorthand you should learn (term, written as \"<term>\" = meaning), makes a lasting decision about the project (decision, with the reason), leaves work open (thread), or you learn something non-obvious about the project (fact). Every question or decision the user owes you an answer on, with or without a link (a mockup or page to review, a spec question, a sign-off), is its own waiting note, never a thread: it is what /waiting, the band and catch-up count. Give it a short ref (such as \"Q8\") and its link when there is one, and when the question has set answers, options: two or three short ones, your pick first, which /waiting and the home dashboard show as choices to click; when they answer, save the answer as a decision with resolves set to the waiting note's id. One short sentence per note. Preferences and terms wait for the user's review unless confirmed is true, which you set only when the user explicitly asked you to remember it. To retire a note that is no longer true or a thread that is finished, pass its id as resolves (with a replacing note, or kind 'thread' and text 'done'). When you choose where a piece of work runs (here, a new session, subagents, cloud, a scheduled task, another model), save it as kind route with where set, the task and why in text; when it is done, save the outcome as kind route with resolves set to that note (time, usage, what went well or not). A waiting item or a route for another project takes project, its repository name.",
+    "Save something to the user's long-term memory, shared across their sessions, repositories and machines. Use it when the user states a preference or corrects how you work (preference), uses shorthand you should learn (term, written as \"<term>\" = meaning), makes a lasting decision about the project (decision, with the reason), leaves work open (thread), or you learn something non-obvious about the project (fact). Every question or decision the user owes you an answer on, with or without a link (a mockup or page to review, a spec question, a sign-off), is its own waiting note, never a thread: it is what /waiting, the band and catch-up count. Give it a short ref (such as \"Q8\") and its link when there is one, and when the question has set answers, options: two or three short ones, your pick first, which /waiting and the home dashboard show as choices to click; when they answer, save the answer as a decision with resolves set to the waiting note's id. One short sentence per note. Preferences and terms wait for the user's review unless confirmed is true, which you set only when the user explicitly asked you to remember it. To retire a note that is no longer true or a thread that is finished, pass its id as resolves (with a replacing note, or kind 'thread' and text 'done'). When you choose where a piece of work runs (here, a new session, subagents, cloud, a scheduled task, another model), save it as kind route with where set, the task and why in text; when it is done, save the outcome as kind route with resolves set to that note (time, usage, what went well or not). A waiting item or a route for another project takes project, its repository name. When SendMessage to one of the user's other sessions fails (it is restarting or compacting), save the message as a thread, or a handoff for a longer one, with to set to that session's name as ListAgents shows it: it starts a turn in that session as soon as it is back, on any machine, so write it to stand on its own.",
   inputSchema: {
     type: 'object',
     properties: {
@@ -530,6 +556,7 @@ const REMEMBER_SPEC = {
             options: { type: 'array', items: { type: 'string' }, description: 'waiting only, optional: 2 or 3 short answers the user can click, your recommendation first (Later and a typed answer are always offered)' },
             where: { type: 'string', enum: ROUTE_WHERE, description: 'route only: where the work runs' },
             project: { type: 'string', description: 'waiting and route only: file it under another project, by its repository name' },
+            to: { type: 'string', description: "thread and handoff only: the name of the session it is for (its title, as ListAgents shows it), when SendMessage can't reach it" },
           },
           required: ['kind', 'text'],
         },
@@ -657,6 +684,8 @@ function liveSelf() {
     project: env.project,
     worktree: env.worktree,
     branch,
+    name: myName,
+    repo: env.repoId,
     openedAt,
     lastEventAt,
     state: liveState,
@@ -754,7 +783,7 @@ async function pruneLive($, now) {
   }
   // Claims past a week go too, by the same rule: only folders with a claim's name
   for (const c of await listDir($, claimsRoot())) {
-    if (c.kind !== 'dir' || !/^(acted|push|review)-[\w.-]+$/.test(c.name) || !(c.mtimeMs > 0) || now - c.mtimeMs < KEEP_DAYS * 86_400_000) continue
+    if (c.kind !== 'dir' || !/^(acted|push|review|deliver)-[\w.-]+$/.test(c.name) || !(c.mtimeMs > 0) || now - c.mtimeMs < KEEP_DAYS * 86_400_000) continue
     await run($, shell(['rmdir', join(claimsRoot(), c.name)]), { timeoutMs: 5_000 })
   }
 }
@@ -944,11 +973,12 @@ async function timesheetCommand($, args) {
 
 // Writes the readable copy and pushes at once: the next session may be on another machine
 async function shipHandoff($, handoff) {
-  await writeHandoffFile(ioFor($), handoff)
+  // HANDOFF.md is for whoever picks the work up next; one addressed to a session goes to that session
+  if (!handoff.to) await writeHandoffFile(ioFor($), handoff)
   const sync = await syncNow(ioFor($))
   if (!sync || !sync.ok) return ' Handoff saved on this machine, but the push failed (' + (sync?.error || 'unknown') + '); /brain sync retries.'
   if (sync.local) return ' Handoff saved on this machine only: the brain has no remote.'
-  return ' Handoff ' + handoff.id + ' pushed; the next session on any machine with coter-kit picks it up.'
+  return ' Handoff ' + handoff.id + ' pushed; ' + (handoff.to ? 'it goes to "' + handoff.to + '" on whichever machine it runs.' : 'the next session on any machine with coter-kit picks it up.')
 }
 
 // ---------------------------------------------------------------- register
@@ -959,6 +989,8 @@ async function setUp($, options) {
   env.sessionRoot = norm(await $.session.root())
   env.sessionId = await $.session.id()
   const repo = await $.session.repo().catch(() => null)
+  repoRoot = repo?.root ? norm(repo.root) : ''
+  env.repoId = repoIdOf(repo?.remote)
   env.project = basename(repo?.root || env.sessionRoot) || 'scratch'
   env.worktree = repo?.root && norm(repo.root) !== env.sessionRoot ? basename(env.sessionRoot) : ''
   for (const candidate of env.isWindows ? ['python', 'py'] : ['python3', 'python']) {
@@ -973,6 +1005,11 @@ async function setUp($, options) {
   expanded = (await $.store.get('checklist:expanded')) === true
   const look = await $.store.get('look:' + env.sessionId)
   if (look && typeof look.lastLookAt === 'number') ({ lastLookAt, workSinceLook } = look)
+  const named = await $.store.get('name:' + env.sessionId)
+  if (typeof named === 'string') myName = cleanName(named)
+  peerTurn = (await $.store.get('peer:' + env.sessionId)) === true
+  const former = await $.store.get('former:' + env.sessionId)
+  if (Array.isArray(former)) env.formerIds = former.filter((x) => typeof x === 'string').slice(-10)
 
   try {
     env.home = norm((await $.env.get('USERPROFILE')) || (await $.env.get('HOME')) || '')
@@ -985,9 +1022,12 @@ async function setUp($, options) {
       try {
         const arrived = await refreshIfStale(ioFor($), REFRESH_EVERY_MS / 2)
         if (arrived.length) redraw($)
+        // A journal write that failed (a delivery's row among them) is tried again
+        await flushJournal(ioFor($)).catch((err) => $.ui.log('brain journal still not written: ' + (err?.message || err)))
         await takeAnswers($)
         await takeReviews($)
         await followArrived($)
+        await deliverAddressed($)
       } catch (err) {
         $.ui.log('brain refresh failed: ' + (err?.message || err))
       }
@@ -1000,6 +1040,8 @@ async function setUp($, options) {
     if (env.home) await startLive($)
     // The phone topic and token are masked from the start, before any note could quote them
     if (env.home) await readPhoneFile($)
+    // A reload in the middle of a note's turn guards what the files hold now
+    if (peerTurn) await guardFiles($)
   } catch (err) {
     $.ui.log('live status unavailable: ' + (err?.message || err))
   }
@@ -1185,6 +1227,287 @@ function whoActs({ here, asker, other, nobody, typed }) {
   return parts.length ? 'Next: ' + parts.join('; ') + '.' : ''
 }
 
+// ---------------------------------------------------------------- addressed notes (addressed.js)
+
+const selfIds = () => [env.sessionId, ...env.formerIds]
+const selfAddress = () => ({ id: env.sessionId, ids: selfIds(), name: myName, device: env.device, project: env.project, repo: env.repoId })
+const canDeliver = () => !!brain.dir && !!env.home && !unattended && attended
+const sessionIdle = () => liveState !== 'working' && liveState !== 'needs_ok'
+
+// Held across a reload of the module, so a reload in the middle of a note's turn doesn't lift it
+async function setPeerTurn($, on) {
+  if (on === peerTurn) return
+  peerTurn = on
+  quarantineDir = ''
+  if (on) await guardFiles($)
+  else guarded = null
+  if (env.sessionId) await $.store.set('peer:' + env.sessionId, on)
+}
+
+// The files that grant permissions or carry standing instructions, for a note's turn to leave as they are
+// (RV-017 F1): CLAUDE.md here, in the repository's main folder and the user's own, Claude Code's settings
+// here and the user's, the project's MCP servers, every file in the hooks, agents, commands and rules
+// folders there, and the scripts the settings' hooks run (RV-018 F1)
+const GUARD_DIR_MAX = 200
+const guardedDirs = () => [...new Set([env.sessionRoot, repoRoot, env.home].filter(Boolean))].flatMap((b) => GUARDED_DIRS.map((d) => join(b, d)))
+
+// Up to GUARD_DIR_MAX files under one folder, and whether that was all of them
+async function filesUnder($, dir, out = [], depth = 0) {
+  if (depth > 4) return out
+  for (const x of await listDir($, dir)) {
+    if (out.length > GUARD_DIR_MAX) break
+    // A link may lead out of the folder: never followed, never written through (RV-019 F4)
+    if (x.isLink) continue
+    if (x.kind === 'dir') await filesUnder($, join(dir, x.name), out, depth + 1)
+    else if (x.kind === 'file') out.push(join(dir, x.name))
+  }
+  return out
+}
+async function walkDir($, dir) {
+  const files = await filesUnder($, dir)
+  return { files: files.slice(0, GUARD_DIR_MAX), whole: files.length <= GUARD_DIR_MAX }
+}
+
+async function guardedFiles($) {
+  const roots = [...new Set([env.sessionRoot, repoRoot].filter(Boolean))]
+  const files = [
+    ...roots.flatMap((r) => [join(r, 'CLAUDE.md'), join(r, 'CLAUDE.local.md'), join(r, '.claude/settings.json'), join(r, '.claude/settings.local.json'), join(r, '.mcp.json')]),
+    ...(env.home ? [join(env.home, '.claude/CLAUDE.md'), join(env.home, '.claude/settings.json')] : []),
+  ]
+  for (const p of files.filter((f) => /settings(\.local)?\.json$/.test(f))) files.push(...hookTargets(await readText($, p), { home: env.home, project: env.sessionRoot }))
+  wholeDirs = []
+  for (const d of guardedDirs()) {
+    const w = await walkDir($, d)
+    files.push(...w.files)
+    if (w.whole) wholeDirs.push(d)
+  }
+  return [...new Set(files)]
+}
+
+async function guardFiles($) {
+  guarded = new Map()
+  for (const p of await guardedFiles($)) guarded.set(p, (await exists($, p)) ? await readText($, p) : null)
+}
+
+// Where the bytes a restore replaces are kept, in case they were another session's or the user's own work
+// done meanwhile (RV-019 F4): one folder per turn, the file's path in its name
+const quarantineRoot = () => join(env.home, '.claude/coter-kit/quarantine')
+let quarantineDir = ''
+
+// Puts back any guarded file a command changed, and leaves harmless any file it added to a guarded folder;
+// returns what it put back. What it replaces is saved to the quarantine first, and a file that can't be
+// saved there is left as it is. A file that didn't exist is emptied ({} for settings), never deleted
+async function restoreFiles($) {
+  if (!guarded) return []
+  const back = []
+  const added = []
+  // A file is new only in a folder read in full both times, so one past the limit is never mistaken for it
+  for (const d of wholeDirs) {
+    const w = await walkDir($, d)
+    if (w.whole) for (const p of w.files) if (!guarded.has(p)) added.push(p)
+  }
+  for (const p of added) guarded.set(p, null)
+  for (const [p, was] of guarded) {
+    const now = (await exists($, p)) ? await readText($, p) : null
+    if (now === was || (was === null && now === null)) continue
+    const put = was ?? (p.endsWith('.json') ? '{}\n' : '')
+    if (now === put) continue
+    try {
+      if (now !== null) {
+        quarantineDir ||= join(quarantineRoot(), new Date(await $.clock.now()).toISOString().replace(/[:.]/g, '-'))
+        await $.fs.write(join(quarantineDir, p.replace(/^[A-Za-z]:/, '').replace(/[\\/]+/g, '__')), now)
+      }
+      await $.fs.write(p, put)
+      // What it holds now is the baseline, so the next command isn't told about it again
+      guarded.set(p, put)
+      back.push(p)
+    } catch (err) {
+      $.ui.log('could not put back ' + p + ' after a note\'s turn changed it: ' + (err?.message || err))
+    }
+  }
+  return back
+}
+
+// Claude Code's title for this session: what other sessions address it by. Kept per session, so a
+// reload of the module or a resume still knows it, and written to the live status file
+async function setName($, title) {
+  const name = cleanName(title)
+  if (!name || name === myName) return
+  myName = name
+  if (env.sessionId) await $.store.set('name:' + env.sessionId, myName)
+  publish($)
+}
+
+// The notes this session may be handed now: live, undelivered, addressed to it, and not while another
+// running session here has the same name (then nobody is woken, and the band says so). Ids are never
+// ambiguous
+async function deliverable($, now) {
+  const notes = inboxFor(brain.entries.values(), selfAddress(), { now, isLive })
+  if (!notes.length) return []
+  const twins = myName ? namesakes(await readLive($, now), myName, { now, except: selfIds(), project: env.project, repo: env.repoId }) : []
+  return notes.filter((e) => selfIds().includes(e.to) || !twins.length)
+}
+
+// Claims each note on this machine, so two sessions never take the same one between syncs
+// A claim still undelivered after 10 minutes was left by a session that stopped first (a crash, a quit). It
+// is never removed: the next generation (deliver-<id>-2, -3, ...) is claimed instead, which only one session
+// can do, so two sessions that both find it stale can't both take the note (RV-016 F3, RV-017 F4)
+async function claimNotes($, notes) {
+  const mine = []
+  let claims = null
+  for (const e of notes) {
+    const base = 'deliver-' + e.id
+    let key = (await claim($, base)) ? base : ''
+    if (!key) {
+      claims ??= await listDir($, claimsRoot())
+      const gens = claims
+        .filter((c) => c.name === base || (c.name.startsWith(base + '-') && /^\d+$/.test(c.name.slice(base.length + 1))))
+        .map((c) => ({ n: c.name === base ? 1 : Number(c.name.slice(base.length + 1)), at: c.mtimeMs }))
+        .sort((a, b) => b.n - a.n)
+      const top = gens[0]
+      if (top && top.at > 0 && (await $.clock.now()) - top.at >= CLAIM_STALE_MS && (await claim($, base + '-' + (top.n + 1)))) key = base + '-' + (top.n + 1)
+    }
+    if (!key) continue
+    claimKeys.set(e.id, key)
+    mine.push(e)
+  }
+  return mine
+}
+
+// Lets this session's claims on these notes go, so the next poll can try again
+async function releaseNotes($, notes) {
+  for (const e of notes) {
+    const key = claimKeys.get(e.id)
+    claimKeys.delete(e.id)
+    if (key) await unclaim($, key)
+  }
+}
+
+// Records notes as delivered once they reached Claude. A record that can't be written now keeps its claims,
+// and its rows go out with the journal's next write, so the note is never handed over again (RV-017 F6)
+async function recordDelivered($, notes) {
+  try {
+    await markDelivered(ioFor($), notes.map((e) => e.id))
+  } catch (err) {
+    $.ui.log('notes were delivered, but the record could not be written yet; it goes with the next note: ' + (err?.message || err))
+  }
+  for (const e of notes) claimKeys.delete(e.id)
+}
+
+// Notes that go along with a turn starting anyway: a prompt, or a snapshot. A snapshot's count as
+// delivered at once; a prompt's only once it is in (`record: false`, then deliveredWith). Returns the
+// section to add, and the notes
+async function handOver($, { record = true } = {}) {
+  if (!canDeliver()) return { section: '', notes: [] }
+  const now = await $.clock.now()
+  const notes = await deliverable($, now)
+  const batch = takeBatch(notes)
+  const mine = batch.length ? await claimNotes($, batch) : []
+  if (!mine.length) return { section: '', notes: [] }
+  if (record) await recordDelivered($, mine)
+  if (notes.length > batch.length) deliverAtIdle = true
+  redraw($)
+  return { section: snapshotSection(mine, { name: myName }), notes: mine }
+}
+
+// The prompt that carried notes went in, or it didn't (another hook dropped it, or it failed): delivered,
+// or let go for the next poll
+async function deliveredWith($, notes, entered) {
+  if (!notes.length) return
+  if (entered) return recordDelivered($, notes)
+  await releaseNotes($, notes)
+}
+
+// On the poll, and once a turn ends: an idle session named in a note gets a turn of its own that carries
+// it; a busy one waits until it is idle. One kit turn at a time, at least a minute apart, every note
+// that waits in it (up to 10). No model is called here: a turn is spent only when a note arrives.
+async function deliverAddressed($) {
+  if (!brain.dir || !env.home || unattended) return
+  const now = await $.clock.now()
+  const before = stuckAddressed.length
+  // The live files are read only when some addressed note is still undelivered
+  const open = [...brain.entries.values()].filter((e) => e.to && !e.delivered && ADDRESSABLE.has(e.kind)).sort((a, b) => a.at - b.at)
+  stuckAddressed = open.length ? stuckNotes(open, await readLive($, now), { now, self: selfAddress(), isLive }) : []
+  if (before || stuckAddressed.length) redraw($)
+  if (!canDeliver()) return
+  if (actFor.length) return sendAct($)
+  const notes = await deliverable($, now)
+  if (!notes.length) return
+  if (!sessionIdle() || wakeInFlight || now - lastWakeAt < WAKE_GAP_MS) {
+    deliverAtIdle = true
+    return
+  }
+  const batch = takeBatch(notes)
+  const mine = await claimNotes($, batch)
+  if (!mine.length) return
+  deliverAtIdle = notes.length > batch.length
+  wakeInFlight = true
+  lastWakeAt = now
+  const text = wakePrompt(mine, { name: myName })
+  // Sent from a timer: a hook that awaited its own prompt would wait for a turn that can't start until
+  // it returns. Delivered once the prompt is in; one that is refused lets its claims go and is tried
+  // again on the next poll
+  $.clock.after(0, async () => {
+    const was = peerTurn
+    await setPeerTurn($, true)
+    try {
+      const r = await $.prompt.submit({ text })
+      if (r && r.drop) throw new Error(r.drop)
+    } catch (err) {
+      $.ui.log('could not start a turn for a note addressed to this session, trying again shortly: ' + (err?.message || err))
+      await setPeerTurn($, was)
+      wakeInFlight = false
+      return releaseNotes($, mine)
+    }
+    await recordDelivered($, mine)
+    redraw($)
+  })
+}
+
+// After a restart the snapshot listed the notes; an idle session gets them in full in a turn of their own.
+// They count as delivered once that turn is in (RV-016 F4); if the user speaks first, their prompt carries
+// them (prompt.submit), and a turn that starts some other way leaves them for the next idle moment
+async function sendAct($) {
+  if (!actFor.length || wakeInFlight || !sessionIdle()) return
+  const notes = actFor
+  actFor = []
+  wakeInFlight = true
+  lastWakeAt = await $.clock.now()
+  const was = peerTurn
+  await setPeerTurn($, true)
+  try {
+    const r = await $.prompt.submit({ text: wakePrompt(notes, { name: myName }) })
+    if (r && r.drop) throw new Error(r.drop)
+  } catch (err) {
+    $.ui.log('could not start a turn for the notes in the snapshot, trying again shortly: ' + (err?.message || err))
+    await setPeerTurn($, was)
+    wakeInFlight = false
+    actFor = notes
+    return
+  }
+  await recordDelivered($, notes)
+}
+
+// What the remember tool says about a note addressed to a session: whether that session runs here
+function addressedResult(added, records, now) {
+  const out = []
+  for (const e of added.filter((n) => n.to)) {
+    const named = '"' + e.to + '"'
+    if (selfIds().includes(e.to) || (myName && nameKey(e.to) === nameKey(myName))) {
+      out.push(named + ' is this session\'s own name, so the note wakes nobody.')
+      continue
+    }
+    const project = e.project || e.from || ''
+    const anywhere = [...namesakes(records, e.to, { now, except: selfIds() }), ...records.filter((r) => r.id === e.to && !selfIds().includes(r.id) && liveness(r, now) === 'live')]
+    const takers = anywhere.filter((r) => (r.project || '') === project && (r.repo === undefined || (r.repo || '') === (e.repo || '')))
+    if (!takers.length && anywhere.length) out.push('A session named ' + named + ' runs here, but in ' + (anywhere[0].project || 'another folder') + ': a note reaches only sessions of its own project (' + (project || 'none') + '), so it will not wake it. SendMessage it, or ask the user.')
+    else if (!takers.length) out.push('No ' + (project ? project + ' ' : '') + 'session on this machine is named ' + named + ' right now (names are session titles, as ListAgents shows them). The note waits, and wakes a ' + (project ? project + ' ' : '') + 'session with that name when one runs, on any machine with coter-kit.')
+    else if (takers.length === 1) out.push(named + ' runs on this machine: it gets the note within 2 minutes once it is idle, or with its next prompt.')
+    else out.push(takers.length + ' sessions on this machine are named ' + named + ', so neither is woken; the band shows the note until one is renamed.')
+  }
+  return out.length ? ' ' + out.join(' ') : ''
+}
+
 // ---------------------------------------------------------------- claims
 
 // Something done once on the machine, by whichever session gets there first: it makes a folder named
@@ -1192,7 +1515,8 @@ function whoActs({ here, asker, other, nobody, typed }) {
 // made it: when claims can't be made at all, nothing is done and the log says why, since every session
 // doing it is worse than none (RV-013 F2). Claims go after a week (pruneLive).
 const claimsRoot = () => join(env.home, '.claude/coter-kit/claims')
-const claimPath = (key) => join(claimsRoot(), String(key).replace(/[^\w.-]+/g, '_').slice(0, 120))
+const claimName = (key) => String(key).replace(/[^\w.-]+/g, '_').slice(0, 120)
+const claimPath = (key) => join(claimsRoot(), claimName(key))
 const shell = (argv) => (env.isWindows ? ['cmd', '/d', '/s', '/c', ...argv] : argv)
 
 async function claim($, key) {
@@ -1417,7 +1741,13 @@ export function register(on, options = {}) {
     await prepare($, options)
     if (e.source === 'clear') {
       checklist = { title: '', items: [] }
+      const before = env.sessionId
       env.sessionId = await $.session.id()
+      // The new id keeps the name, unless Claude Code gives another just below, and answers to the old one:
+      // notes addressed to it, and word of this session's own notes delivered (RV-016 F5)
+      if (before && before !== env.sessionId) env.formerIds = [...env.formerIds.filter((x) => x !== env.sessionId), before].slice(-10)
+      await $.store.set('former:' + env.sessionId, env.formerIds)
+      if (myName) await $.store.set('name:' + env.sessionId, myName)
       beats = []
       turns = []
       lastTurnEnd = 0
@@ -1425,6 +1755,11 @@ export function register(on, options = {}) {
       if (env.home) await startLive($)
       redraw($)
     }
+    if (typeof e.session_title === 'string') await setName($, e.session_title)
+    // A resumed, cleared or compacted session someone is looking at is attended; a fresh one, or one with
+    // nothing drawing it (a -p run, maybe a scheduled one), waits for its first prompt (RV-017 F5)
+    if (e.source !== 'startup' && !unattended && !promptSeen && (await $.session.surfaces().catch(() => [])).length) attended = true
+    else if (e.source !== 'startup' && !unattended && promptSeen) attended = true
     let snapshot = ''
     try {
       // At startup the brain was loaded just now; any other start re-reads it first
@@ -1435,6 +1770,24 @@ export function register(on, options = {}) {
       if (later) brainOnFirstPrompt = true
       // The snapshot carries the whole brain, so nothing is left to deliver separately
       else forgetUnseen()
+      // Notes addressed to this session while it was away go in the snapshot. In the middle of a turn
+      // (a compaction) that turn carries them; an idle session gets one short turn to act on them
+      if (!later && !unattended) {
+        const held = heldFor(brain.entries.values(), selfAddress(), { now: await $.clock.now(), isLive })
+        if (held.length) snapshot += '\n\n' + heldSection(held)
+        // Mid-turn (a compaction) the running turn carries them, so they are delivered now; otherwise once
+        // a turn starts with this snapshot (sendAct, turn.start)
+        const midTurn = !sessionIdle()
+        const handed = await handOver($, { record: midTurn })
+        if (handed.section) {
+          // Idle, the snapshot only lists them, and a turn of their own hands them over (RV-019 F6)
+          snapshot += '\n\n' + (midTurn ? handed.section : arrivingSection(handed.notes))
+          if (!midTurn) {
+            actFor = handed.notes
+            $.clock.after(2_000, () => sendAct($))
+          }
+        }
+      }
     } catch (err) {
       $.ui.log('snapshot failed: ' + (err?.message || err))
     }
@@ -1458,6 +1811,9 @@ export function register(on, options = {}) {
       brain.answersArrived = []
     }
     promptSeen = true
+    if (!unattended) attended = true
+    // The user is here: a turn a note started no longer holds back what they ask for
+    if (fromTheUser(e.origin)) await setPeerTurn($, false)
     if (!unattended && fromTheUser(e.origin)) {
       lastLookAt = await $.clock.now()
       workSinceLook = 0
@@ -1466,6 +1822,7 @@ export function register(on, options = {}) {
       await userBeat($)
     }
     const extra = []
+    let handed = { section: '', notes: [] }
     try {
       if (brainOnFirstPrompt) {
         brainOnFirstPrompt = false
@@ -1474,14 +1831,56 @@ export function register(on, options = {}) {
       } else if (brain.dir && !unattended) {
         const arrived = takeUnseen()
         const gone = takeRetired()
-        if (arrived.length || gone.length) extra.push(arrivalsContext(arrived, gone))
+        const delivered = takeDelivered()
+        if (arrived.length || gone.length || delivered.length) extra.push(arrivalsContext(arrived, gone, delivered))
       }
+      // Notes addressed to this session go along with the turn this prompt starts: no turn of their own. Those
+      // a snapshot listed while idle are already claimed here, so they come first
+      if (!unattended && actFor.length) {
+        const listed = actFor
+        actFor = []
+        const more = await handOver($, { record: false })
+        handed = { notes: [...listed, ...more.notes], section: snapshotSection([...listed, ...more.notes], { name: myName }) }
+      } else handed = await handOver($, { record: false })
+      if (handed.section) extra.push(handed.section)
     } catch (err) {
       $.ui.log('brain context failed: ' + (err?.message || err))
     }
     if (unattended) forgetUnseen()
     if (!extra.length) return next(e)
-    return next({ ...e, context: [...(e.context ?? []), ...extra] })
+    let result
+    try {
+      result = await next({ ...e, context: [...(e.context ?? []), ...extra] })
+    } catch (err) {
+      await deliveredWith($, handed.notes, false)
+      throw err
+    }
+    // Delivered only if the prompt went in: one another hook dropped never reached Claude
+    await deliveredWith($, handed.notes, !(result && result.drop))
+    return result
+  })
+
+  // A turn the kit started for another session's note may not change CLAUDE.md, settings, hooks or config
+  on('tool.call', { tool: [...EDIT_TOOLS, 'Bash', 'PowerShell'] }, async ($, e, next) => {
+    if (!peerTurn) return next(e)
+    if (touchesConfig(e)) return { deny: PEER_DENIED }
+    const result = await next(e)
+    // No pattern over shell text is complete: what a command changed anyway is put back (RV-017 F1)
+    const back = isShell(e) ? await restoreFiles($) : []
+    return back.length ? { ...result, context: [...(result?.context || []), peerUndone(back)] } : result
+  })
+
+  // Each prompt carries the session's title, which can change (a rename): what addressed notes match on
+  on('classic.UserPromptSubmit', async ($, e, next) => {
+    if (typeof e.session_title === 'string') await setName($, e.session_title)
+    return next(e)
+  })
+
+  // A SendMessage that failed says how to leave the message for a session that is restarting
+  on('session.send', async ($, e, next) => {
+    const result = await next(e)
+    if (!result || result.isDelivered !== false || !brain.dir || unattended || !cleanName(e.to)) return result
+    return { ...result, reason: String(result.reason || 'Not delivered.') + ' ' + sendHint(e.to) }
   })
 
   // Live activity for the band, from every tool call (main loop and subagents)
@@ -1625,17 +2024,24 @@ export function register(on, options = {}) {
     // A note another session wrote moments ago may not be loaded yet: take it in before resolving
     if (notes.some((n) => n.resolves && !brain.entries.has(n.resolves))) await refresh(ioFor($))
     const missing = notes.map((n) => n.resolves).filter((id) => id && !brain.entries.has(id))
-    const added = await remember(ioFor($), notes)
+    // A note addressed to a session is pinned to this machine when that session lives here (addressed.js)
+    const addressing = notes.some((n) => typeof n.to === 'string' && n.to.trim())
+    const now = await $.clock.now()
+    const records = addressing && env.home ? await readLive($, now) : []
+    const pinFor = (to, project) => pinDevice(records, to, { now, except: selfIds(), device: env.device, project, repo: env.repoId })
+    const added = await remember(ioFor($), notes, { fromName: myName, pinFor, canAddress: !unattended })
     redraw($)
     const notFound = missing.length ? ' Could not find ' + missing.join(', ') + ' to resolve, so nothing was retired: check the id with ' + RECALL_TOOL + '.' : ''
+    const dropped = notes.filter((n) => typeof n.to === 'string' && n.to.trim() && (unattended || !['thread', 'handoff'].includes(n.kind))).length
+    const toNote = !dropped ? '' : unattended ? ' A scheduled run can\'t address notes, so to was dropped.' : ' to is only for thread and handoff notes; it was dropped from ' + dropped + '.'
     const retired = notes.filter((n) => n.resolves && !missing.includes(n.resolves) && /^done[.!]?$/i.test(String(n.text || '').trim())).map((n) => n.resolves)
-    if (!added.length) return { result: (retired.length ? 'Retired ' + retired.join(', ') + '.' : 'Nothing new to save (already known, or empty).') + notFound }
+    if (!added.length) return { result: (retired.length ? 'Retired ' + retired.join(', ') + '.' : 'Nothing new to save (already known, or empty).') + notFound + toNote }
     const waiting = added.filter((n) => n.status === 'pending').length
     const handoff = added.find((n) => n.kind === 'handoff')
     const shipped = handoff ? await shipHandoff($, handoff) : ''
     return {
       result:
-        'Saved ' + added.length + ' note(s): ' + added.map((n) => n.id).join(', ') + '.' + (retired.length ? ' Retired ' + retired.join(', ') + '.' : '') + (waiting ? ' ' + waiting + ' wait for the user to review them in /brain.' : '') + shipped + notFound,
+        'Saved ' + added.length + ' note(s): ' + added.map((n) => n.id).join(', ') + '.' + (retired.length ? ' Retired ' + retired.join(', ') + '.' : '') + (waiting ? ' ' + waiting + ' wait for the user to review them in /brain.' : '') + addressedResult(added, records, now) + shipped + notFound + toNote,
     }
   })
 
@@ -1739,6 +2145,9 @@ export function register(on, options = {}) {
     lastTurnEnd = endedAt
     turnStartedAt = 0
     refreshUsageSoon($)
+    // Notes that came in while the session was busy go now that it is idle (addressed.js)
+    wakeInFlight = false
+    if ((deliverAtIdle || actFor.length) && !unattended) $.clock.after(Math.max(5_000, lastWakeAt + WAKE_GAP_MS - endedAt), () => deliverAddressed($))
     // A scheduled run never waits on the user
     await setLiveState($, unattended ? 'idle' : 'your_move')
     await saveLook($)
@@ -1826,7 +2235,8 @@ export function register(on, options = {}) {
     const away = unattended ? 0 : await workWithoutYou($)
     const offerCatchup = lastLookAt > 0 && away >= CATCHUP_AFTER_MS
     const elsewhere = othersNeedingYou[0]
-    if (!hasList && !working && !showChecks && !toReview && !handoff && !asks && !offerCatchup && !elsewhere) return next(e)
+    const stuck = !working && !unattended ? stuckAddressed[0] : null
+    if (!hasList && !working && !showChecks && !toReview && !handoff && !asks && !offerCatchup && !elsewhere && !stuck) return next(e)
 
     const { Box, Text, Button } = $.ui.resolve(e)
     const width = Math.max(20, (e.props.bodyColumns || 80) - 2)
@@ -1878,6 +2288,11 @@ export function register(on, options = {}) {
       const ready = picks().length
       const hint = ready ? ready + " of the reviewer's picks ready" : toReview >= 15 ? '/coter-kit:review-brain can sort them' : ''
       rows.push(Text({ dimColor: true, wrap: 'truncate', children: [clip('brain: ' + toReview + ' to review · /brain' + (hint ? ' · ' + hint : ''), width)] }))
+    }
+    if (stuck) {
+      const why = stuck.count ? stuck.count + ' sessions here have that name; rename one' : 'no session here has that name'
+      const more = stuckAddressed.length > 1 ? ' (+' + (stuckAddressed.length - 1) + ' more)' : ''
+      rows.push(Text({ color: 'yellow', wrap: 'truncate', children: [clip('note for "' + stuck.note.to + '" not delivered (' + span(Date.now() - stuck.note.at) + '): ' + why + more, width)] }))
     }
     if (asks) rows.push(Text({ dimColor: true, wrap: 'truncate', children: [clip(asks + ' waiting on you · /waiting', width)] }))
     if (offerCatchup) rows.push(Text({ color: 'cyan', wrap: 'truncate', children: [clip('catch up: /catchup · ' + span(away) + ' of work since your last message', width)] }))

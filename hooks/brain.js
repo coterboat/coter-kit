@@ -13,6 +13,7 @@
 import { env, join, norm, safeJson, clip, ago } from './util.js'
 import { waitingFields, waitingSection } from './waiting.js'
 import { redact } from './redact.js'
+import { ADDRESSABLE, cleanName } from './addressed.js'
 
 // Every call into Claude Code goes through `io`, which register.js builds from `$`:
 // { run, list, read, write, exists, after, now, fork, log, pluginRoot }
@@ -44,12 +45,15 @@ export const brain = {
   unseen: [], // ids that other sessions wrote (or approved) after this one loaded, not yet shown to Claude
   retired: [], // notes Claude was using that another session retired since, not yet told
   answersArrived: [], // answers to questions that other sessions saved since, for register.js to act on
+  deliveredArrived: [], // ids of this session's addressed notes that another session took delivery of, not yet told
   lastPull: 0, // when the brain was last re-read (and pulled, with a remote)
   lastSync: null, // { ok, at, error, arrived }
   overrules: [], // the user's disagreements with the reviewer (review.js)
   syncTimer: null,
   refreshing: null,
   lastPullResult: '', // ok | no-branch | busy | failed (pull)
+  writtenLen: 0, // how many of `lines` the journal file is known to hold
+  writing: null, // the journal write under way: writes run one at a time (writeJournal)
 }
 
 // ---------------------------------------------------------------- redaction
@@ -106,6 +110,7 @@ export async function initBrain(io, options = {}) {
   brain.file = join(brain.dir, 'journal/' + env.device + '/' + date + '-' + slug(env.sessionId).slice(0, 8) + '.jsonl')
   // A reload of the module keeps writing the same file, so start from what it holds
   brain.lines = (await io.read(brain.file)).split('\n').filter(Boolean)
+  brain.writtenLen = brain.lines.length
   await loadBrain(io)
   forgetUnseen()
   brain.lastPull = await io.now()
@@ -134,6 +139,8 @@ export async function loadBrain(io) {
     if (entry && op.op === 'status') entries.set(op.ref, { ...entry, status: op.status, updatedAt: op.at })
     // The reviewer's latest verdict on a note (review.js), and the user's disagreements with it
     if (entry && op.op === 'review') entries.set(op.ref, { ...entry, review: op })
+    // An addressed note's first delivery, on whichever machine (addressed.js): it is never delivered again
+    if (entry && op.op === 'delivered' && !entry.delivered) entries.set(op.ref, { ...entry, delivered: { at: op.at, device: op.device, session: op.session } })
     if (op.op === 'overrule') overrules.push(op)
   }
   // Notes saved before 0.7.0 don't say they answer a question. The answer was written in the
@@ -156,16 +163,39 @@ export async function appendOps(io, rows) {
 
 // ---------------------------------------------------------------- writing
 
+// Writes this session's journal file. Writes run one at a time, and each writes every line known when it
+// starts, so an older write can never land after a newer one and drop its lines (RV-019 F3). A failed write
+// leaves its lines in `lines` for the next write, or flushJournal on the poll (RV-018 F3).
+function writeJournal(io) {
+  const run = (brain.writing || Promise.resolve()).then(async () => {
+    const len = brain.lines.length
+    await io.write(brain.file, brain.lines.join('\n') + '\n')
+    brain.writtenLen = Math.max(brain.writtenLen, len)
+  })
+  brain.writing = run.catch(() => {})
+  return run
+}
+
 async function append(io, rows) {
   if (!brain.file || !rows.length) return
   brain.lines.push(...rows.map((r) => JSON.stringify(r)))
-  await io.write(brain.file, brain.lines.join('\n') + '\n')
+  await writeJournal(io)
+  scheduleSync(io)
+}
+
+// Writes the journal again while some of its lines never reached the file, such as a delivery's row
+export async function flushJournal(io) {
+  if (!brain.file || brain.writtenLen >= brain.lines.length) return
+  await writeJournal(io)
   scheduleSync(io)
 }
 
 // Adds notes; returns the ones that were new. `confirmed` skips the review step,
 // for things the user asked to have remembered.
-export async function remember(io, notes, { source = 'claude' } = {}) {
+// A thread or handoff may be addressed `to` a session by its name (addressed.js), unless `canAddress` is
+// false (a scheduled run); `fromName` is this session's own name, so the answer can come back, and
+// `pinFor(to)` the machine the note is pinned to, if any.
+export async function remember(io, notes, { source = 'claude', fromName = '', pinFor = null, canAddress = true } = {}) {
   // The digest's notes are the model's own reading of the conversation: every one waits for
   // the user's review, none may skip it or retire another note, and one the user dropped is
   // not proposed again
@@ -176,6 +206,7 @@ export async function remember(io, notes, { source = 'claude' } = {}) {
     const kind = KINDS.includes(note.kind) ? note.kind : null
     const text = clip(redact(String(note.text || '').trim()), MAX_TEXT[kind] || 400)
     if (!kind || !text) continue
+    const to = ADDRESSABLE.has(kind) && canAddress && !fromDigest ? cleanName(note.to) : ''
     const confirmed = note.confirmed === true && !fromDigest
     const replaced = !fromDigest && note.resolves ? brain.entries.get(note.resolves) : null
     // A waiting item or a route can be filed under another project by its repository name, and
@@ -196,7 +227,10 @@ export async function remember(io, notes, { source = 'claude' } = {}) {
       continue
     }
     const dupe = [...brain.entries.values()].find(
-      (e) => e.kind === kind && (e.project || '') === project && sameNote(e.text, text) && (e.status !== 'rejected' || fromDigest),
+      (e) =>
+        e.kind === kind && (e.project || '') === project && (e.to || '') === to && sameNote(e.text, text) && (e.status !== 'rejected' || fromDigest) &&
+        // An addressed note asked again once the first was delivered or retired is a new request
+        (!to || (!e.delivered && e.status === 'active')),
     )
     if (dupe) {
       // The note is already known, but what it resolves still gets resolved: an answer that repeats
@@ -210,13 +244,17 @@ export async function remember(io, notes, { source = 'claude' } = {}) {
       device: env.device,
       session: env.sessionId,
       project,
-      // A handoff remembers where it came from, though every project sees it
-      from: kind === 'handoff' ? env.project : undefined,
+      // A handoff remembers where it came from, though every project sees it, and so does an addressed note,
+      // which reaches only sessions of that project (addressed.js)
+      from: kind === 'handoff' || to ? env.project : undefined,
       kind,
       text,
       // A 'waiting' item keeps its link and short ref (waiting.js)
       ...(kind === 'waiting' ? waitingFields(note) : {}),
       ...(kind === 'route' && ROUTE_WHERE.includes(note.where) ? { where: note.where } : {}),
+      // Who it is for, who it is from (their name, to answer to), the machine it is pinned to, and the repository
+      ...(to ? addressFields(to, fromName, pinFor, project || env.project) : {}),
+      ...(to && env.repoId ? { repo: env.repoId } : {}),
       status: (NEEDS_REVIEW.has(kind) || fromDigest) && !confirmed ? 'pending' : 'active',
       source,
       // Lineage and authorship, for the reviewer's anti-churn rules (review.js)
@@ -238,11 +276,31 @@ export async function remember(io, notes, { source = 'claude' } = {}) {
   return added
 }
 
+function addressFields(to, fromName, pinFor, project) {
+  const from = cleanName(fromName)
+  const device = typeof pinFor === 'function' ? pinFor(to, project) : ''
+  return { to, ...(from ? { from_name: from } : {}), ...(device ? { to_device: device } : {}) }
+}
+
 function setStatusRow(id, status) {
   const at = Date.now()
   const entry = brain.entries.get(id)
   if (entry) brain.entries.set(id, { ...entry, status, updatedAt: at })
   return { op: 'status', ref: id, status, at, device: env.device }
+}
+
+// Notes addressed to this session that it was just handed: one row each, appended like any line, so no
+// session on any machine delivers them again
+export async function markDelivered(io, ids) {
+  const at = Date.now()
+  const rows = []
+  for (const id of ids) {
+    const entry = brain.entries.get(id)
+    if (!entry || entry.delivered) continue
+    brain.entries.set(id, { ...entry, delivered: { at, device: env.device, session: env.sessionId } })
+    rows.push({ op: 'delivered', ref: id, at, device: env.device, session: env.sessionId })
+  }
+  await append(io, rows)
 }
 
 export async function setStatus(io, id, status) {
@@ -267,7 +325,7 @@ export const waitingOnUser = (project, all = false, now = Date.now()) =>
 // Handoffs left by other sessions (on this machine or another) that nobody has picked up
 export const waitingHandoffs = (now = Date.now()) =>
   [...brain.entries.values()]
-    .filter((e) => e.kind === 'handoff' && e.session !== env.sessionId && isLive(e, now))
+    .filter((e) => e.kind === 'handoff' && !e.to && e.session !== env.sessionId && isLive(e, now))
     .sort(newestFirst)
     .slice(0, 2)
 
@@ -334,7 +392,8 @@ export async function brainContext(io, { lean = false } = {}) {
   if (prefs.length) sections.push('## How they like to work (learned, approved by them)\n' + list(prefs, (e) => e.text))
   const terms = lean ? [] : live.filter((e) => e.kind === 'term').slice(0, 40)
   if (terms.length) sections.push('## Shared vocabulary\n' + list(terms, (e) => e.text))
-  const here = live.filter((e) => e.project === env.project && ['decision', 'fact', 'thread'].includes(e.kind)).slice(0, 15)
+  // A note addressed to one session reaches that session (addressed.js), not everyone's list
+  const here = live.filter((e) => e.project === env.project && !e.to && ['decision', 'fact', 'thread'].includes(e.kind)).slice(0, 15)
   if (here.length) {
     sections.push('## ' + env.project + ': decisions, facts and open threads\n' + list(here, (e) => '[' + e.kind + ' · ' + ago(e.updatedAt || e.at) + ' · ' + e.id + '] ' + e.text))
   }
@@ -345,7 +404,7 @@ export async function brainContext(io, { lean = false } = {}) {
     if (asks) sections.push(asks)
     // One line per other project, its newest thread: enough to know what is in flight
     const latest = new Map()
-    for (const e of live) if (e.kind === 'thread' && e.project && e.project !== env.project && !latest.has(e.project)) latest.set(e.project, e)
+    for (const e of live) if (e.kind === 'thread' && !e.to && e.project && e.project !== env.project && !latest.has(e.project)) latest.set(e.project, e)
     const elsewhere = [...latest.values()].slice(0, 8)
     if (elsewhere.length) {
       sections.push(
@@ -423,6 +482,13 @@ export function takeRetired() {
   return gone
 }
 
+// This session's addressed notes that another session took delivery of since it was last told; telling empties it
+export function takeDelivered() {
+  const done = brain.deliveredArrived.map((id) => brain.entries.get(id)).filter((e) => e && e.delivered)
+  brain.deliveredArrived = []
+  return done
+}
+
 // Nothing is left to tell: a fresh snapshot carries the whole brain
 export function forgetUnseen() {
   brain.unseen = []
@@ -430,7 +496,7 @@ export function forgetUnseen() {
 }
 
 // Attached to the user's next message when other sessions wrote something this one should know
-export function arrivalsContext(entries, retired = []) {
+export function arrivalsContext(entries, retired = [], delivered = []) {
   const handoffs = entries.filter((e) => e.kind === 'handoff').slice(0, 2)
   const notes = entries.filter((e) => e.kind !== 'handoff').slice(0, 20)
   const sections = ['# New in working memory (coter-brain): written by another session or machine since this session loaded it']
@@ -444,6 +510,12 @@ export function arrivalsContext(entries, retired = []) {
   if (notes.length) sections.push('## Notes\nUse these as you would the rest of your memory.\n' + notes.map((e) => '- ' + describe(e)).join('\n'))
   if (retired.length) {
     sections.push('## No longer true\nAnother session retired these. Stop relying on them.\n' + retired.slice(0, 20).map((e) => '- [' + e.id + ' · ' + e.kind + '] ' + clip(e.text, 200)).join('\n'))
+  }
+  if (delivered.length) {
+    sections.push(
+      '## Your addressed notes were delivered\nThe sessions they were for have them now.\n' +
+        delivered.slice(0, 20).map((e) => '- [' + e.id + '] to "' + e.to + '", delivered ' + ago(e.delivered.at) + ' on ' + e.delivered.device + ': ' + clip(e.text, 120)).join('\n'),
+    )
   }
   return clip(sections.join('\n\n'), CONTEXT_BUDGET)
 }
@@ -473,8 +545,9 @@ export function recall(query, project, { lean = false } = {}) {
   return scored.sort((a, b) => b.score - a.score).slice(0, 12).map((s) => s.e)
 }
 
+const addressedTo = (e) => (e.to ? ' · to "' + e.to + '", ' + (e.delivered ? 'delivered ' + ago(e.delivered.at) + ' on ' + e.delivered.device : 'not delivered yet') : '')
 export const describe = (e) =>
-  '[' + e.id + ' · ' + e.kind + (e.project ? ' · ' + e.project : '') + ' · ' + ago(e.updatedAt || e.at) + (e.status !== 'active' ? ' · ' + e.status : '') + '] ' +
+  '[' + e.id + ' · ' + e.kind + (e.project ? ' · ' + e.project : '') + ' · ' + ago(e.updatedAt || e.at) + (e.status !== 'active' ? ' · ' + e.status : '') + addressedTo(e) + '] ' +
   (e.ref ? e.ref + ' · ' : '') + e.text + (e.link ? ' (' + e.link + ')' : '')
 
 // ---------------------------------------------------------------- the digest
@@ -575,6 +648,12 @@ async function reload(io) {
     // An answer to a question, whatever its project: one session on the machine acts on it, and the
     // one that asked may be in another project's folder (followerOf, waiting.js)
     if (!was && e.session !== env.sessionId && e.kind === 'decision' && e.answers) brain.answersArrived.push(e)
+    // A note addressed to one session reaches that session, not everyone's context (addressed.js); when it
+    // is this session's own and another session took delivery, this one is told
+    if (e.to) {
+      if ((e.session === env.sessionId || env.formerIds.includes(e.session)) && e.delivered && !was?.delivered) brain.deliveredArrived.push(e.id)
+      continue
+    }
     if (e.project && e.project !== env.project) continue
     if (!was ? e.session !== env.sessionId : was.status !== 'active' && e.status === 'active') arrived.push(e)
     else if (was && was.status === 'active' && e.status !== 'active') brain.retired.push(e)
