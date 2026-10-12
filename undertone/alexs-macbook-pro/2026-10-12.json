@@ -4,16 +4,16 @@
   "device": "alexs-macbook-pro",
   "projects": {
     "jobsnearme": {
-      "activeMin": 5,
-      "laneMin": 8,
+      "activeMin": 13,
+      "laneMin": 17,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 0,
-      "turns": 6,
-      "commits": 0,
+      "turns": 9,
+      "commits": 2,
       "pushes": 0,
       "first": "00:44",
-      "last": "04:43"
+      "last": "04:51"
     }
   },
   "sources": {
