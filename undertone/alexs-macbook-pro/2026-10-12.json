@@ -4,21 +4,21 @@
   "device": "alexs-macbook-pro",
   "projects": {
     "jobsnearme": {
-      "activeMin": 47,
-      "laneMin": 54,
+      "activeMin": 76,
+      "laneMin": 149,
       "blockedMin": 0,
       "brokenMin": {},
-      "sessions": 2,
-      "turns": 16,
-      "commits": 9,
+      "sessions": 5,
+      "turns": 26,
+      "commits": 13,
       "pushes": 0,
       "first": "00:44",
-      "last": "14:09"
+      "last": "14:43"
     },
     "coter-kit": {
       "activeMin": 1,
       "laneMin": 1,
-      "blockedMin": 46,
+      "blockedMin": 60,
       "brokenMin": {},
       "sessions": 1,
       "turns": 1,
@@ -28,16 +28,16 @@
       "last": "13:28"
     },
     "concurrent": {
-      "activeMin": 3,
-      "laneMin": 3,
+      "activeMin": 4,
+      "laneMin": 4,
       "blockedMin": 0,
       "brokenMin": {},
-      "sessions": 3,
-      "turns": 3,
+      "sessions": 4,
+      "turns": 4,
       "commits": 0,
       "pushes": 0,
       "first": "13:28",
-      "last": "14:12"
+      "last": "14:42"
     }
   },
   "sources": {
