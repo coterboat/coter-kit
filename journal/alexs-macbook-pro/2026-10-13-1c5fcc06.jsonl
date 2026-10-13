@@ -66,3 +66,7 @@
 {"op":"status","ref":"r1lkuwj7","status":"superseded","at":1791903160895,"device":"alexs-macbook-pro"}
 {"id":"0swk7iom","at":1791916474327,"device":"alexs-macbook-pro","session":"1c5fcc06-2f56-4e88-bedb-18a8f618d4ee","project":"jobsnearme","kind":"decision","text":"BQ-539-1b: (a) re-poll after ~1 min: ~1-2 min delay (answer to \"FS-539: with your pick (a), two polls in a row, a seeker's 'accepted' email typically arrives ~30 min later than today,…\", given in /waiting)","status":"active","source":"claude","replaces":"sz200djb","answers":"sz200djb"}
 {"op":"status","ref":"sz200djb","status":"superseded","at":1791916474327,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"tzsmc5wv","status":"superseded","at":1791916523235,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"t3m7egfv","status":"superseded","at":1791916523235,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"sywg9vjv","status":"superseded","at":1791916523235,"device":"alexs-macbook-pro"}
+{"id":"0tyaz0x6","at":1791916523243,"device":"alexs-macbook-pro","session":"1c5fcc06-2f56-4e88-bedb-18a8f618d4ee","project":"jobsnearme","kind":"decision","text":"jobsnearme lanes (10-13): lanes take the one heavy-run slot themselves via /tmp/jnm-certify.lock (write '<lane> <pid> <start>', delete when done; priority D > B > S) and report certified shas to 'JNM director' by name or brain thread; they never wait for the director's ping, because director restarts idled the Mac twice (overnight 10-12, 11:23-14:34 10-13).","status":"active","source":"claude"}
