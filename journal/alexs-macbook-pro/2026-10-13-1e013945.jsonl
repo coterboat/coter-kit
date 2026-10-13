@@ -30,3 +30,5 @@
 {"op":"status","ref":"swwx2adu","status":"superseded","at":1791903547817,"device":"alexs-macbook-pro"}
 {"id":"t40ppxm2","at":1791903555997,"device":"alexs-macbook-pro","session":"1e013945-d0dd-46ca-8e0c-9e79c8e58181","project":"ascendant","kind":"decision","text":"VFX-2: yes, base pair first (answer to \"ascendant ART-VFX #229: make hit_impact and sun_flare first as the base pair (~11 Ludo cr) for your OK before the rest?\", given in /waiting)","status":"active","source":"claude","replaces":"658l9oq3","answers":"658l9oq3"}
 {"op":"status","ref":"658l9oq3","status":"superseded","at":1791903555998,"device":"alexs-macbook-pro"}
+{"id":"t4bfq6uv","at":1791903569894,"device":"alexs-macbook-pro","session":"1e013945-d0dd-46ca-8e0c-9e79c8e58181","project":"ascendant","kind":"decision","text":"VFX-1: b the 7 plus 2 (answer to \"ascendant ART-VFX #229: which effect sheets to make? a the 7 (hit and big impact, ruler fall, sun flare, briar burst, b…\", given in /waiting)","status":"active","source":"claude","replaces":"658l8fwl","answers":"658l8fwl"}
+{"op":"status","ref":"658l8fwl","status":"superseded","at":1791903569894,"device":"alexs-macbook-pro"}
