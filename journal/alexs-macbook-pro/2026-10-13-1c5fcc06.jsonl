@@ -41,3 +41,7 @@
 {"id":"r1lkp8sw","at":1791900083833,"device":"alexs-macbook-pro","session":"1c5fcc06-2f56-4e88-bedb-18a8f618d4ee","project":"","from":"jobsnearme","kind":"handoff","text":"done: lane D given the slot 10-13 10:00 with BQ-537-6's answer","status":"active","source":"claude","replaces":"6bucewkh"}
 {"op":"status","ref":"6bucewkh","status":"superseded","at":1791900083833,"device":"alexs-macbook-pro"}
 {"id":"r1lkuwj7","at":1791900083838,"device":"alexs-macbook-pro","session":"1c5fcc06-2f56-4e88-bedb-18a8f618d4ee","project":"jobsnearme","kind":"waiting","text":"jobsnearme: apply migration 0061_no_answer_email.sql (FS-527, merged bdb72460) on DEV, then on PROD + record it in the prod ledger and commit; exact commands in the director's 10-13 morning message.","ref":"APPLY-0061","status":"active","source":"claude"}
+{"op":"status","ref":"r1lkoix2","status":"superseded","at":1791900090288,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"r1lkp8sw","status":"superseded","at":1791900090288,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"6vdtx91z","status":"superseded","at":1791900090288,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"6bucewkh","status":"superseded","at":1791900090288,"device":"alexs-macbook-pro"}
