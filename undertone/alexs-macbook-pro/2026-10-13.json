@@ -28,16 +28,16 @@
       "last": "00:40"
     },
     "concurrent": {
-      "activeMin": 17,
-      "laneMin": 17,
+      "activeMin": 18,
+      "laneMin": 18,
       "blockedMin": 0,
       "brokenMin": {},
-      "sessions": 17,
-      "turns": 17,
+      "sessions": 18,
+      "turns": 18,
       "commits": 0,
       "pushes": 0,
       "first": "00:12",
-      "last": "08:12"
+      "last": "08:42"
     },
     "coter-kit": {
       "activeMin": 3,
