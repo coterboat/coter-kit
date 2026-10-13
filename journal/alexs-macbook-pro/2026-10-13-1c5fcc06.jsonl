@@ -54,3 +54,11 @@
 {"op":"status","ref":"sl67pk9u","status":"superseded","at":1791902911839,"device":"alexs-macbook-pro"}
 {"op":"status","ref":"sq7ofdjf","status":"superseded","at":1791902916999,"device":"alexs-macbook-pro"}
 {"op":"status","ref":"sl67pk9u","status":"superseded","at":1791902916999,"device":"alexs-macbook-pro"}
+{"id":"stb6xwml","at":1791903056361,"device":"alexs-macbook-pro","session":"1c5fcc06-2f56-4e88-bedb-18a8f618d4ee","project":"jobsnearme","kind":"decision","text":"BQ-540-2: (a) \"This conversation has been closed,… (answer to \"FS-540: the line when a reply hits a closed chat\", given in /waiting)","status":"active","source":"claude","replaces":"slcle7nk","answers":"slcle7nk"}
+{"op":"status","ref":"slcle7nk","status":"superseded","at":1791903056361,"device":"alexs-macbook-pro"}
+{"id":"sti9wo86","at":1791903065540,"device":"alexs-macbook-pro","session":"1c5fcc06-2f56-4e88-bedb-18a8f618d4ee","project":"jobsnearme","kind":"decision","text":"BQ-540-1: (a) fresh Juvo read per reply (answer to \"FS-540: where does the closed-chat check live?\", given in /waiting)","status":"active","source":"claude","replaces":"slclbag7","answers":"slclbag7"}
+{"op":"status","ref":"slclbag7","status":"superseded","at":1791903065540,"device":"alexs-macbook-pro"}
+{"id":"stq0x2zd","at":1791903075585,"device":"alexs-macbook-pro","session":"1c5fcc06-2f56-4e88-bedb-18a8f618d4ee","project":"jobsnearme","kind":"decision","text":"BQ-539-1: (a) two polls in a row see it (answer to \"FS-539: what confirms an employer's accept before we tell the seeker? (Juvo can roll an accept back when the card fails)\", given in /waiting)","status":"active","source":"claude","replaces":"slcl8c3v","answers":"slcl8c3v"}
+{"op":"status","ref":"slcl8c3v","status":"superseded","at":1791903075585,"device":"alexs-macbook-pro"}
+{"id":"stzizm8w","at":1791903087899,"device":"alexs-macbook-pro","session":"1c5fcc06-2f56-4e88-bedb-18a8f618d4ee","project":"jobsnearme","kind":"decision","text":"BQ-SAMPLE-VIS: Yes, show it read-only (answer to \"jobsnearme: after FS-521 (post-Thursday) Dana's /demo sample shows no visibility control (her Contact Info card is omit…\", given in /waiting)","status":"active","source":"claude","replaces":"rbg6ltgf","answers":"rbg6ltgf"}
+{"op":"status","ref":"rbg6ltgf","status":"superseded","at":1791903087899,"device":"alexs-macbook-pro"}
