@@ -25,3 +25,5 @@
 {"op":"status","ref":"yncj6ubo","status":"superseded","at":1791847068113,"device":"alexs-macbook-pro"}
 {"id":"1e7p2him","at":1791857002358,"device":"alexs-macbook-pro","session":"5da27f29-f640-5b8c-8231-50e874a31022","project":"","kind":"preference","text":"Alex was glad Claude's own prod SQL writes got blocked by the safety check ('that's actually good'): Alex runs prod database writes in his own Terminal and Claude does the read-only checks around them.","status":"pending","source":"digest"}
 {"id":"1e7p3pzz","at":1791857002359,"device":"alexs-macbook-pro","session":"5da27f29-f640-5b8c-8231-50e874a31022","project":"","kind":"term","text":"\"rc\" = Claude Code Remote Control (driving a session on the Mac from another computer or the phone)","status":"pending","source":"digest"}
+{"op":"review","ref":"sobyvkux","verdict":"accept","reason":"the user kept it","evidence":"the user","by":"user","at":1791863389378,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"sobyvkux","status":"active","at":1791863389378,"device":"alexs-macbook-pro"}
