@@ -4,3 +4,5 @@
 {"op":"delivered","ref":"wbh780a9","at":1791855155450,"device":"alexs-macbook-pro","session":"1c5fcc06-2f56-4e88-bedb-18a8f618d4ee"}
 {"op":"status","ref":"vh91nygz","status":"superseded","at":1791855177660,"device":"alexs-macbook-pro"}
 {"op":"status","ref":"wbh780a9","status":"superseded","at":1791855177660,"device":"alexs-macbook-pro"}
+{"id":"0ba0d820","at":1791855185773,"device":"alexs-macbook-pro","session":"1c5fcc06-2f56-4e88-bedb-18a8f618d4ee","project":"jobsnearme","kind":"thread","text":"jobsnearme 10-12 21:35: main 302da46b = lane D's Thursday demo fixes merged (FS-517..520: Dana's clip+education, same-day pay chip, wallet coming soon, honest badge requests), deploying run 38332646239. Lane B has the heavy slot (527+528 combined certify). Lane S next (521-524 + 525 items 1/2/4 at fa95148b); the phone card redesign is its own spec FS-536 (supersedes 7 specs' phone layout, ~20 tes…","status":"active","source":"claude","replaces":"tco5tf2w"}
+{"op":"status","ref":"tco5tf2w","status":"superseded","at":1791855185773,"device":"alexs-macbook-pro"}
