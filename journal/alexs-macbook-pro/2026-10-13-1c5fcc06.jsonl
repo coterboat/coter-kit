@@ -45,3 +45,4 @@
 {"op":"status","ref":"r1lkp8sw","status":"superseded","at":1791900090288,"device":"alexs-macbook-pro"}
 {"op":"status","ref":"6vdtx91z","status":"superseded","at":1791900090288,"device":"alexs-macbook-pro"}
 {"op":"status","ref":"6bucewkh","status":"superseded","at":1791900090288,"device":"alexs-macbook-pro"}
+{"id":"rbg6ltgf","at":1791900543405,"device":"alexs-macbook-pro","session":"1c5fcc06-2f56-4e88-bedb-18a8f618d4ee","project":"jobsnearme","kind":"waiting","text":"jobsnearme: after FS-521 (post-Thursday) Dana's /demo sample shows no visibility control (her Contact Info card is omitted and the Privacy card is retired). Mark called privacy 'the first thing'. Show 'Employers can find me' read-only (on, disabled) at the top of her sample profile?","ref":"BQ-SAMPLE-VIS","options":["Yes, show it read-only","No, leave it out"],"status":"active","source":"claude"}
