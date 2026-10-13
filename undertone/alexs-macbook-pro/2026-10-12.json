@@ -4,76 +4,76 @@
   "device": "alexs-macbook-pro",
   "projects": {
     "ascendant": {
-      "activeMin": 11,
-      "laneMin": 11,
+      "activeMin": 41,
+      "laneMin": 41,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 2,
-      "turns": 1,
-      "commits": 1,
-      "pushes": 0,
+      "turns": 2,
+      "commits": 3,
+      "pushes": 3,
       "first": "21:33",
-      "last": "21:42"
+      "last": "22:12"
     },
     "jobsnearme": {
-      "activeMin": 273,
-      "laneMin": 477,
+      "activeMin": 298,
+      "laneMin": 512,
       "blockedMin": 1,
       "brokenMin": {},
-      "sessions": 5,
-      "turns": 104,
-      "commits": 55,
+      "sessions": 6,
+      "turns": 118,
+      "commits": 60,
       "pushes": 4,
       "first": "00:44",
-      "last": "21:43"
+      "last": "22:12"
     },
     "coterboat": {
-      "activeMin": 11,
-      "laneMin": 11,
+      "activeMin": 15,
+      "laneMin": 15,
       "blockedMin": 1,
       "brokenMin": {},
       "sessions": 2,
-      "turns": 7,
-      "commits": 0,
+      "turns": 9,
+      "commits": 1,
       "pushes": 0,
       "first": "18:59",
-      "last": "21:33"
+      "last": "22:03"
     },
     "coter-kit": {
-      "activeMin": 38,
-      "laneMin": 38,
+      "activeMin": 53,
+      "laneMin": 53,
       "blockedMin": 60,
       "brokenMin": {},
       "sessions": 1,
+      "turns": 8,
+      "commits": 0,
+      "pushes": 0,
+      "first": "13:28",
+      "last": "21:58"
+    },
+    "concurrent": {
+      "activeMin": 34,
+      "laneMin": 34,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 19,
+      "turns": 19,
+      "commits": 0,
+      "pushes": 0,
+      "first": "13:28",
+      "last": "22:12"
+    },
+    "home": {
+      "activeMin": 13,
+      "laneMin": 13,
+      "blockedMin": 60,
+      "brokenMin": {},
+      "sessions": 2,
       "turns": 4,
       "commits": 0,
       "pushes": 0,
-      "first": "13:28",
-      "last": "21:40"
-    },
-    "concurrent": {
-      "activeMin": 18,
-      "laneMin": 18,
-      "blockedMin": 0,
-      "brokenMin": {},
-      "sessions": 18,
-      "turns": 18,
-      "commits": 0,
-      "pushes": 0,
-      "first": "13:28",
-      "last": "21:43"
-    },
-    "home": {
-      "activeMin": 6,
-      "laneMin": 6,
-      "blockedMin": 60,
-      "brokenMin": {},
-      "sessions": 1,
-      "turns": 3,
-      "commits": 0,
-      "pushes": 0,
       "first": "18:22",
-      "last": "21:34"
+      "last": "22:12"
     }
   },
   "sources": {
