@@ -4,44 +4,44 @@
   "device": "alexs-macbook-pro",
   "projects": {
     "ascendant": {
-      "activeMin": 41,
-      "laneMin": 41,
+      "activeMin": 71,
+      "laneMin": 93,
       "blockedMin": 0,
       "brokenMin": {},
-      "sessions": 2,
-      "turns": 2,
-      "commits": 3,
-      "pushes": 3,
+      "sessions": 4,
+      "turns": 6,
+      "commits": 8,
+      "pushes": 4,
       "first": "21:33",
-      "last": "22:12"
+      "last": "22:43"
     },
     "jobsnearme": {
-      "activeMin": 298,
-      "laneMin": 512,
+      "activeMin": 328,
+      "laneMin": 574,
       "blockedMin": 1,
       "brokenMin": {},
       "sessions": 6,
-      "turns": 118,
-      "commits": 60,
-      "pushes": 4,
+      "turns": 122,
+      "commits": 62,
+      "pushes": 5,
       "first": "00:44",
-      "last": "22:12"
+      "last": "22:43"
     },
     "coterboat": {
-      "activeMin": 15,
-      "laneMin": 15,
+      "activeMin": 17,
+      "laneMin": 17,
       "blockedMin": 1,
       "brokenMin": {},
       "sessions": 2,
-      "turns": 9,
+      "turns": 10,
       "commits": 1,
       "pushes": 0,
       "first": "18:59",
-      "last": "22:03"
+      "last": "22:32"
     },
     "coter-kit": {
-      "activeMin": 53,
-      "laneMin": 53,
+      "activeMin": 64,
+      "laneMin": 64,
       "blockedMin": 60,
       "brokenMin": {},
       "sessions": 1,
@@ -52,16 +52,16 @@
       "last": "21:58"
     },
     "concurrent": {
-      "activeMin": 34,
-      "laneMin": 34,
+      "activeMin": 35,
+      "laneMin": 35,
       "blockedMin": 0,
       "brokenMin": {},
-      "sessions": 19,
-      "turns": 19,
+      "sessions": 20,
+      "turns": 20,
       "commits": 0,
       "pushes": 0,
       "first": "13:28",
-      "last": "22:12"
+      "last": "22:42"
     },
     "home": {
       "activeMin": 13,
@@ -73,16 +73,16 @@
       "commits": 0,
       "pushes": 0,
       "first": "18:22",
-      "last": "22:12"
+      "last": "22:13"
     }
   },
   "sources": {
     "jobsnearme": {
       "totals": {
-        "builds started": 7,
-        "builds passed": 5
+        "builds started": 8,
+        "builds passed": 6
       },
-      "errorMin": 0
+      "errorMin": 31
     }
   }
 }
