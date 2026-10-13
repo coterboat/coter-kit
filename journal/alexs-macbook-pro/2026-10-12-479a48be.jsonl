@@ -1,3 +1,8 @@
 {"op":"status","ref":"5iykrp6p","status":"superseded","at":1791847133060,"device":"alexs-macbook-pro"}
 {"op":"status","ref":"7xi5gmg5","status":"superseded","at":1791847133088,"device":"alexs-macbook-pro"}
 {"op":"status","ref":"7xpxsbcm","status":"superseded","at":1791847133120,"device":"alexs-macbook-pro"}
+{"id":"0iqrazwi","at":1791855534070,"device":"alexs-macbook-pro","session":"479a48be-b5b0-4ee1-9ff2-41a47bb7c73e","project":"jobsnearme","kind":"decision","text":"jobsnearme GL-Q4 (owner 10-12): the Heroku apps (staging and prod) live in Juvo's Heroku team with Alex as admin, not a personal account; phase C moves everything to Juvo's AWS before Heroku's April 2027 sunset.","status":"active","source":"review","replaces":"0fgegq8b","confirmed":true}
+{"op":"status","ref":"0fgegq8b","status":"superseded","at":1791855534070,"device":"alexs-macbook-pro"}
+{"id":"0iqt6ajz","at":1791855534138,"device":"alexs-macbook-pro","session":"479a48be-b5b0-4ee1-9ff2-41a47bb7c73e","project":"jobsnearme","kind":"decision","text":"jobsnearme lanes (10-12): the director session coordinates, merges, deploys and hands out the one heavy-run slot; lane D builds Thursday demo fixes (specs 517-520), lane S pre-switch seeker UX (521-525), lane B bridge and server work (526-535); nothing visible on /demo merges before Thursday 10-15 except lane D.","status":"active","source":"review","replaces":"0fgejhs1","confirmed":true}
+{"op":"status","ref":"0fgejhs1","status":"superseded","at":1791855534138,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"2q4e5xt8","status":"superseded","at":1791855534211,"device":"alexs-macbook-pro"}
