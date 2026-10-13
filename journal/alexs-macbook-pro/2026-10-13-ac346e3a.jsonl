@@ -7,3 +7,4 @@
 {"op":"status","ref":"1w6c6h6d","status":"superseded","at":1791864178676,"device":"alexs-macbook-pro"}
 {"id":"5ybbrlr6","at":1791864658647,"device":"alexs-macbook-pro","session":"ac346e3a-2db4-4868-bebc-0e103170191f","project":"ascendant","kind":"decision","text":"UXART-1: i picked d, but could be won over with variations of those to see what each faction's could look like (answer to \"ascendant UX-ART: which medallion style for all 32 (review/ux_art in the Review Table, overview.png)? a vignette (Codex…\", given in the home dashboard)","status":"active","source":"claude","replaces":"3jjjgbpc","answers":"3jjjgbpc","outside":true,"typed":true}
 {"op":"status","ref":"3jjjgbpc","status":"superseded","at":1791864658647,"device":"alexs-macbook-pro"}
+{"op":"delivered","ref":"sx4iklcf","at":1791903702005,"device":"alexs-macbook-pro","session":"ac346e3a-2db4-4868-bebc-0e103170191f"}

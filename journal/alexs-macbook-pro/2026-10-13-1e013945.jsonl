@@ -34,3 +34,5 @@
 {"op":"status","ref":"658l8fwl","status":"superseded","at":1791903569894,"device":"alexs-macbook-pro"}
 {"id":"t5lppvbk","at":1791903629869,"device":"alexs-macbook-pro","session":"1e013945-d0dd-46ca-8e0c-9e79c8e58181","project":"ascendant","kind":"decision","text":"FIX: b (answer to \"ascendant Review Table m4_fixtures: the Bloodsworn strike two ways, a) attachments (new body + blade model) and b) fuse…\", given in /waiting)","status":"active","source":"claude","replaces":"q00l778a","answers":"q00l778a"}
 {"op":"status","ref":"q00l778a","status":"superseded","at":1791903629869,"device":"alexs-macbook-pro"}
+{"id":"t77xfgv7","at":1791903705315,"device":"alexs-macbook-pro","session":"1e013945-d0dd-46ca-8e0c-9e79c8e58181","project":"ascendant","kind":"thread","text":"done: delivered directly to lane Art by session message","status":"active","source":"claude","replaces":"sx4iklcf"}
+{"op":"status","ref":"sx4iklcf","status":"superseded","at":1791903705315,"device":"alexs-macbook-pro"}
