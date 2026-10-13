@@ -50,3 +50,8 @@
 {"op":"status","ref":"0xc3ke08","status":"superseded","at":1791922761421,"device":"alexs-macbook-pro"}
 {"op":"status","ref":"18do5q2y","status":"superseded","at":1791922761421,"device":"alexs-macbook-pro"}
 {"op":"status","ref":"1bi345sh","status":"superseded","at":1791922761421,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"s0idvzpu","status":"superseded","at":1791922860867,"device":"alexs-macbook-pro"}
+{"id":"4lsj2i6w","at":1791922860974,"device":"alexs-macbook-pro","session":"1e013945-d0dd-46ca-8e0c-9e79c8e58181","project":"jobsnearme","kind":"decision","text":"jobsnearme (L3 10-6, coordinator accepted): prod 'Confirm email' stays ON; D4 no-pause signup uses anonymous sign-in + updateUser({email}); juvo_hours_* columns stay write-only at launch.","status":"active","source":"review","replaces":"t6ejhubc","confirmed":true}
+{"op":"status","ref":"t6ejhubc","status":"superseded","at":1791922860974,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"umliykob","status":"superseded","at":1791922860978,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"un4xj547","status":"superseded","at":1791922861063,"device":"alexs-macbook-pro"}
