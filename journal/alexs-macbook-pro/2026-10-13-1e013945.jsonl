@@ -15,3 +15,5 @@
 {"op":"status","ref":"1e7p2him","status":"active","at":1791863491542,"device":"alexs-macbook-pro"}
 {"op":"review","ref":"l8losdgv","verdict":"accept","reason":"the user kept it","evidence":"the user","by":"user","at":1791863491579,"device":"alexs-macbook-pro"}
 {"op":"status","ref":"l8losdgv","status":"active","at":1791863491579,"device":"alexs-macbook-pro"}
+{"id":"5z0z3hl0","at":1791864691887,"device":"alexs-macbook-pro","session":"1e013945-d0dd-46ca-8e0c-9e79c8e58181","project":"ascendant","kind":"decision","text":"ART-TRIAGE: yes, prune and re-cut (answer to \"ascendant art backlog (lane Art's triage 10-12): close #63, #64, #72 (done or moot after the 3D pivot); fold #106 and #…\", given in the home dashboard)","status":"active","source":"claude","replaces":"3m3wvxkv","answers":"3m3wvxkv","outside":true}
+{"op":"status","ref":"3m3wvxkv","status":"superseded","at":1791864691887,"device":"alexs-macbook-pro"}
