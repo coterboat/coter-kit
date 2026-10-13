@@ -55,3 +55,4 @@
 {"op":"status","ref":"t6ejhubc","status":"superseded","at":1791922860974,"device":"alexs-macbook-pro"}
 {"op":"status","ref":"umliykob","status":"superseded","at":1791922860978,"device":"alexs-macbook-pro"}
 {"op":"status","ref":"un4xj547","status":"superseded","at":1791922861063,"device":"alexs-macbook-pro"}
+{"id":"59916ui6","at":1791923955450,"device":"alexs-macbook-pro","session":"1e013945-d0dd-46ca-8e0c-9e79c8e58181","project":"ascendant","kind":"waiting","text":"ascendant ART-VFX: the other 7 effect sheets are in the Review Table (review/vfx), each mocked on a real battle shot in normal alpha, for your verdicts (40.3 Ludo cr for all nine). dust_puff failed twice: drop it and keep the code-drawn puffs, or one more try?","link":"https://github.com/coterboat/ascendant/issues/229","ref":"VFX-4","options":["drop dust_puff, keep the code puffs","one more try"],"status":"active","source":"claude"}
