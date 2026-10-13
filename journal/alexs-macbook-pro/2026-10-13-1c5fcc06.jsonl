@@ -52,3 +52,5 @@
 {"op":"delivered","ref":"sl67pk9u","at":1791902857192,"device":"alexs-macbook-pro","session":"1c5fcc06-2f56-4e88-bedb-18a8f618d4ee"}
 {"id":"sq7ofdjf","at":1791902911839,"device":"alexs-macbook-pro","session":"1c5fcc06-2f56-4e88-bedb-18a8f618d4ee","project":"","from":"jobsnearme","kind":"handoff","text":"done: 539/540 confirmed and routed to lane B behind FS-538; 92981d7f pushes after FS-538 lands (main's Verify red until then)","status":"active","source":"claude","replaces":"sl67pk9u"}
 {"op":"status","ref":"sl67pk9u","status":"superseded","at":1791902911839,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"sq7ofdjf","status":"superseded","at":1791902916999,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"sl67pk9u","status":"superseded","at":1791902916999,"device":"alexs-macbook-pro"}
