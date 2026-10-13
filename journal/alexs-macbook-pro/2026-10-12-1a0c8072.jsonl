@@ -4,3 +4,69 @@
 {"op":"status","ref":"mejzqu33","status":"superseded","at":1791843542147,"device":"alexs-macbook-pro"}
 {"op":"status","ref":"0fged1k2","status":"superseded","at":1791847143059,"device":"alexs-macbook-pro"}
 {"op":"status","ref":"3v92rx8b","status":"superseded","at":1791855544478,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"05fz19c7","status":"active","at":1791863227165,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"15neette","status":"active","at":1791863227199,"device":"alexs-macbook-pro"}
+{"id":"53mupmut","at":1791863227249,"device":"alexs-macbook-pro","session":"1a0c8072-74e3-5348-aabb-aa3c3095a117","project":"jobsnearme","kind":"fact","text":"jobsnearme: a change to LandingHeader.tsx must pass the TRANSLATED_FILES raw-copy scans (src/i18n/translated-files.ts) and the header-holds-its-buttons widths (spec 369); FS-465 sidestepped both by putting its control in a fixed pill outside the header.","status":"active","source":"review","replaces":"15nejlzf","confirmed":true}
+{"op":"status","ref":"15nejlzf","status":"superseded","at":1791863227249,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"15nemv9s","status":"rejected","at":1791863227286,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"15neqfes","status":"rejected","at":1791863227315,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"15neyku4","status":"rejected","at":1791863227345,"device":"alexs-macbook-pro"}
+{"id":"53my8uec","at":1791863227376,"device":"alexs-macbook-pro","session":"1a0c8072-74e3-5348-aabb-aa3c3095a117","project":"","kind":"fact","text":"A lane session that went idle mid-task (gone from ListAgents, get_session isRunning false) can be woken with SendMessage to its local_ session id, which starts its turn (ccd_session_mgmt send_message is the older equivalent).","status":"active","source":"review","replaces":"19f1bttj","confirmed":true}
+{"op":"status","ref":"19f1bttj","status":"superseded","at":1791863227376,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"19f1isv5","status":"active","at":1791863227409,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"19f1ncuh","status":"active","at":1791863227443,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"1de7g05r","status":"active","at":1791863227481,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"1e0znkgo","status":"active","at":1791863227513,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"1e10ef4w","status":"active","at":1791863227541,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"1e10rpm3","status":"active","at":1791863227570,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"22mb9euo","status":"active","at":1791863227599,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"29cf2qe5","status":"rejected","at":1791863227633,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"34rly86y","status":"active","at":1791863227662,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"3ceunboc","status":"active","at":1791863227697,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"4r2xl3bm","status":"active","at":1791863227741,"device":"alexs-macbook-pro"}
+{"id":"53na4min","at":1791863227804,"device":"alexs-macbook-pro","session":"1a0c8072-74e3-5348-aabb-aa3c3095a117","project":"","kind":"preference","text":"ascendant: Alex makes his own concept art in Grok Imagine and drops it under concept/ on main; treat it as source material for models and art rounds alongside Codex/Grok output (10-8).","status":"active","source":"review","replaces":"4r2xlrj9","confirmed":true}
+{"op":"status","ref":"4r2xlrj9","status":"superseded","at":1791863227804,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"6y89xtsi","status":"rejected","at":1791863227840,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"6y8a2kv8","status":"rejected","at":1791863227876,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"97lotns2","status":"active","at":1791863227914,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"97lourxd","status":"active","at":1791863227950,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"ajne8mq2","status":"active","at":1791863227986,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"c4nadm7n","status":"rejected","at":1791863228017,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"cp28dyqu","status":"rejected","at":1791863228048,"device":"alexs-macbook-pro"}
+{"id":"53nhuix3","at":1791863228082,"device":"alexs-macbook-pro","session":"1a0c8072-74e3-5348-aabb-aa3c3095a117","project":"","kind":"preference","text":"If a session keeps prompting Alex for routine repo actions (PR merge, branch push, worktree removal, killing its own processes), flag it and propose allow rules for him to add: 'every other session is fine with this' (10-9).","status":"active","source":"review","replaces":"hc08ph7b","confirmed":true}
+{"op":"status","ref":"hc08ph7b","status":"superseded","at":1791863228082,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"hc08zjnz","status":"rejected","at":1791863228116,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"klx06a0c","status":"active","at":1791863228151,"device":"alexs-macbook-pro"}
+{"id":"53nkp7ay","at":1791863228185,"device":"alexs-macbook-pro","session":"1a0c8072-74e3-5348-aabb-aa3c3095a117","project":"","kind":"preference","text":"When Alex wants a client-facing version of an internal doc (e.g. the Mike prep doc, 10-8), strip out the urgency/'need this by' language and keep the plan.","status":"active","source":"review","replaces":"klx0b15n","confirmed":true}
+{"op":"status","ref":"klx0b15n","status":"superseded","at":1791863228185,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"kv3lcxv7","status":"active","at":1791863228225,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"kv3le229","status":"rejected","at":1791863228261,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"l8bl2e2d","status":"active","at":1791863228298,"device":"alexs-macbook-pro"}
+{"id":"53nosylu","at":1791863228332,"device":"alexs-macbook-pro","session":"1a0c8072-74e3-5348-aabb-aa3c3095a117","project":"","kind":"preference","text":"Explanatory copy that 'takes up way too much space' (e.g. the jobsnearme sign-up blurb, 10-9) goes behind an 'i' info hover with only the essential line visible, unless it legally has to be shown.","status":"active","source":"review","replaces":"l8bl3nkf","confirmed":true}
+{"op":"status","ref":"l8bl3nkf","status":"superseded","at":1791863228332,"device":"alexs-macbook-pro"}
+{"id":"53npobot","at":1791863228364,"device":"alexs-macbook-pro","session":"1a0c8072-74e3-5348-aabb-aa3c3095a117","project":"","kind":"preference","text":"For game UI, Alex's references (Dominions, Rome: Total War Remastered) are proven conventions to improve on, not literal specs: 'just improving on Dominions' notification system', and of the candles, 'i didn't mean to be so literal there' (ascendant 10-10).","status":"active","source":"review","replaces":"l8loojjp","confirmed":true}
+{"op":"status","ref":"l8loojjp","status":"superseded","at":1791863228364,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"r1891sof","status":"superseded","at":1791863228364,"device":"alexs-macbook-pro"}
+{"id":"53nrt9mk","at":1791863228441,"device":"alexs-macbook-pro","session":"1a0c8072-74e3-5348-aabb-aa3c3095a117","project":"","kind":"preference","text":"ascendant UI: state like sight and fort level should read from the board itself ('shouldn't need a lens if we do it right'); add a layer only for what the board can't show (like the Making layer).","status":"active","source":"review","replaces":"l8loqzik","confirmed":true}
+{"op":"status","ref":"l8loqzik","status":"superseded","at":1791863228441,"device":"alexs-macbook-pro"}
+{"id":"53nszvc3","at":1791863228483,"device":"alexs-macbook-pro","session":"1a0c8072-74e3-5348-aabb-aa3c3095a117","project":"","kind":"preference","text":"For vendor-console setup (Google Cloud, Supabase, OAuth), give a numbered walkthrough grouped by console with the exact values to paste; when he sends a screenshot mid-step, say which option to pick and the next click (10-9).","status":"active","source":"review","replaces":"lg9ld1eg","confirmed":true}
+{"op":"status","ref":"lg9ld1eg","status":"superseded","at":1791863228483,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"5gsowno2","status":"superseded","at":1791863228483,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"lg9lekbr","status":"rejected","at":1791863228517,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"lkra5oco","status":"active","at":1791863228551,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"n8c7741q","status":"rejected","at":1791863228590,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"njuf7ibz","status":"rejected","at":1791863228630,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"nkb8s8u7","status":"active","at":1791863228673,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"p8zryw0s","status":"active","at":1791863228796,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"r1892lp6","status":"active","at":1791863228865,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"swo2l6qo","status":"rejected","at":1791863228901,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"swo2m70p","status":"rejected","at":1791863228945,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"tx3pxily","status":"rejected","at":1791863228995,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"uo6uq0x5","status":"rejected","at":1791863229037,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"v4oofgdn","status":"rejected","at":1791863229075,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"y0077zcu","status":"rejected","at":1791863229109,"device":"alexs-macbook-pro"}
+{"id":"53obd7wp","at":1791863229145,"device":"alexs-macbook-pro","session":"1a0c8072-74e3-5348-aabb-aa3c3095a117","project":"","kind":"preference","text":"ascendant, Alex 10-10 on Grok's candlebeast concept art: 'those beast concept art images are perfect. grok really knows how to sell the horror.'","status":"active","source":"review","replaces":"yi1i9yay","confirmed":true}
+{"op":"status","ref":"yi1i9yay","status":"superseded","at":1791863229145,"device":"alexs-macbook-pro"}
+{"id":"53ocdrj9","at":1791863229181,"device":"alexs-macbook-pro","session":"1a0c8072-74e3-5348-aabb-aa3c3095a117","project":"","kind":"preference","text":"Keep each client's API billing separate: never run tests or stress runs on a key another client pays for ('all those calls will eat up our place's budget', 10-9); get the project's own future-state setup working, then 'throw the kitchen sink at the site before the demo/go live'.","status":"active","source":"review","replaces":"zxwqi9l5","confirmed":true}
+{"op":"status","ref":"zxwqi9l5","status":"superseded","at":1791863229181,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"5gsoxsxr","status":"superseded","at":1791863229181,"device":"alexs-macbook-pro"}

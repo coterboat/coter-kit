@@ -4,40 +4,40 @@
   "device": "alexs-macbook-pro",
   "projects": {
     "ascendant": {
-      "activeMin": 101,
-      "laneMin": 178,
-      "blockedMin": 0,
+      "activeMin": 121,
+      "laneMin": 208,
+      "blockedMin": 25,
       "brokenMin": {},
       "sessions": 4,
-      "turns": 11,
-      "commits": 12,
-      "pushes": 5,
+      "turns": 16,
+      "commits": 16,
+      "pushes": 6,
       "first": "21:33",
-      "last": "23:12"
+      "last": "23:33"
     },
     "jobsnearme": {
-      "activeMin": 346,
-      "laneMin": 593,
+      "activeMin": 350,
+      "laneMin": 597,
       "blockedMin": 1,
       "brokenMin": {},
       "sessions": 6,
-      "turns": 124,
-      "commits": 63,
+      "turns": 125,
+      "commits": 64,
       "pushes": 5,
       "first": "00:44",
-      "last": "23:03"
+      "last": "23:17"
     },
     "coterboat": {
-      "activeMin": 17,
-      "laneMin": 17,
+      "activeMin": 18,
+      "laneMin": 18,
       "blockedMin": 1,
       "brokenMin": {},
       "sessions": 2,
-      "turns": 10,
+      "turns": 11,
       "commits": 1,
       "pushes": 0,
       "first": "18:59",
-      "last": "22:32"
+      "last": "23:37"
     },
     "coter-kit": {
       "activeMin": 68,
@@ -52,16 +52,16 @@
       "last": "21:58"
     },
     "concurrent": {
-      "activeMin": 36,
-      "laneMin": 36,
+      "activeMin": 37,
+      "laneMin": 37,
       "blockedMin": 0,
       "brokenMin": {},
-      "sessions": 21,
-      "turns": 21,
+      "sessions": 22,
+      "turns": 22,
       "commits": 0,
       "pushes": 0,
       "first": "13:28",
-      "last": "23:12"
+      "last": "23:42"
     },
     "home": {
       "activeMin": 13,
@@ -82,7 +82,7 @@
         "builds started": 8,
         "builds passed": 6
       },
-      "errorMin": 61
+      "errorMin": 91
     }
   }
 }
