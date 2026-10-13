@@ -16,16 +16,16 @@
       "last": "19:41"
     },
     "coterboat": {
-      "activeMin": 5,
-      "laneMin": 5,
+      "activeMin": 6,
+      "laneMin": 6,
       "blockedMin": 1,
       "brokenMin": {},
       "sessions": 2,
-      "turns": 3,
+      "turns": 4,
       "commits": 0,
       "pushes": 0,
       "first": "18:59",
-      "last": "20:01"
+      "last": "21:01"
     },
     "coter-kit": {
       "activeMin": 20,
@@ -40,16 +40,16 @@
       "last": "18:32"
     },
     "concurrent": {
-      "activeMin": 16,
-      "laneMin": 16,
+      "activeMin": 17,
+      "laneMin": 17,
       "blockedMin": 0,
       "brokenMin": {},
-      "sessions": 16,
-      "turns": 16,
+      "sessions": 17,
+      "turns": 17,
       "commits": 0,
       "pushes": 0,
       "first": "13:28",
-      "last": "20:43"
+      "last": "21:13"
     },
     "home": {
       "activeMin": 5,
