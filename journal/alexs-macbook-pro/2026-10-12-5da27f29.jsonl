@@ -27,3 +27,5 @@
 {"id":"1e7p3pzz","at":1791857002359,"device":"alexs-macbook-pro","session":"5da27f29-f640-5b8c-8231-50e874a31022","project":"","kind":"term","text":"\"rc\" = Claude Code Remote Control (driving a session on the Mac from another computer or the phone)","status":"pending","source":"digest"}
 {"op":"review","ref":"sobyvkux","verdict":"accept","reason":"the user kept it","evidence":"the user","by":"user","at":1791863389378,"device":"alexs-macbook-pro"}
 {"op":"status","ref":"sobyvkux","status":"active","at":1791863389378,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"1e7p3pzz","status":"active","at":1791863509524,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"4fr2agny","status":"active","at":1791863509555,"device":"alexs-macbook-pro"}
