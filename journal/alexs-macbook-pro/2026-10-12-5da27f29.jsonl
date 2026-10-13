@@ -31,3 +31,4 @@
 {"op":"status","ref":"4fr2agny","status":"active","at":1791863509555,"device":"alexs-macbook-pro"}
 {"id":"5zezn9g8","at":1791864710051,"device":"alexs-macbook-pro","session":"5da27f29-f640-5b8c-8231-50e874a31022","project":"ascendant","kind":"decision","text":"M52D-2: b cel (answer to \"ascendant ART-M5-2D (#225): which spell icon style for the 14? a emblem (Ludo), b cel (Codex, reads best at 24 px, pair…\", given in the home dashboard)","status":"active","source":"claude","replaces":"4fe446jl","answers":"4fe446jl","outside":true}
 {"op":"status","ref":"4fe446jl","status":"superseded","at":1791864710051,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"ru3byayr","status":"active","at":1791922800020,"device":"alexs-macbook-pro"}
