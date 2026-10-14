@@ -1,7 +1,7 @@
 {
  "v": 1,
  "device": "alexs-macbook-pro",
- "updated_at": "2026-10-14T11:05:43.181Z",
+ "updated_at": "2026-10-14T11:12:37.700Z",
  "days": {
   "2026-10-03": {
    "undertone": {
@@ -424,9 +424,9 @@
    },
    "concurrent": {
     "you_ms": 0,
-    "claude_ms": 131934,
-    "claude_wall_ms": 131934,
-    "scheduled_ms": 131934
+    "claude_ms": 139823,
+    "claude_wall_ms": 139823,
+    "scheduled_ms": 139823
    },
    "coter-kit": {
     "you_ms": 0,
