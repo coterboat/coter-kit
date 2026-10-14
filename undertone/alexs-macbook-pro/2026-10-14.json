@@ -10,34 +10,34 @@
       "brokenMin": {},
       "sessions": 3,
       "turns": 115,
-      "commits": 95,
-      "pushes": 5,
+      "commits": 96,
+      "pushes": 6,
       "first": "00:00",
-      "last": "14:38"
+      "last": "14:43"
     },
     "coterboat": {
-      "activeMin": 11,
-      "laneMin": 11,
+      "activeMin": 13,
+      "laneMin": 13,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 0,
-      "turns": 9,
+      "turns": 11,
       "commits": 1,
       "pushes": 0,
       "first": "09:07",
-      "last": "14:36"
+      "last": "15:00"
     },
     "concurrent": {
-      "activeMin": 30,
-      "laneMin": 30,
+      "activeMin": 31,
+      "laneMin": 31,
       "blockedMin": 0,
       "brokenMin": {},
-      "sessions": 30,
-      "turns": 30,
+      "sessions": 31,
+      "turns": 31,
       "commits": 0,
       "pushes": 0,
       "first": "00:12",
-      "last": "14:42"
+      "last": "15:12"
     },
     "coter-kit": {
       "activeMin": 19,
@@ -55,7 +55,7 @@
   "sources": {
     "jobsnearme": {
       "totals": {
-        "builds started": 6,
+        "builds started": 8,
         "builds passed": 3
       },
       "errorMin": 68
