@@ -34,3 +34,4 @@
 {"op":"status","ref":"ru3byayr","status":"active","at":1791922800020,"device":"alexs-macbook-pro"}
 {"op":"status","ref":"t8gr1v7q","status":"active","at":1791922920143,"device":"alexs-macbook-pro"}
 {"op":"status","ref":"t8gr2n7e","status":"active","at":1791922920243,"device":"alexs-macbook-pro"}
+{"id":"kroxo1r3","at":1791950010108,"device":"alexs-macbook-pro","session":"5da27f29-f640-5b8c-8231-50e874a31022","project":"","kind":"preference","text":"For runbook terminal steps Alex would rather Claude run them on the Mac ('less chance something breaks'), with any password handed over through a macOS Keychain item he adds himself with hidden input, never pasted in chat.","status":"pending","source":"digest"}
