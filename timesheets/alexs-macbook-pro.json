@@ -1,7 +1,7 @@
 {
  "v": 1,
  "device": "alexs-macbook-pro",
- "updated_at": "2026-10-14T05:57:39.025Z",
+ "updated_at": "2026-10-14T06:20:39.333Z",
  "days": {
   "2026-10-03": {
    "undertone": {
@@ -418,15 +418,15 @@
   "2026-10-14": {
    "jobsnearme": {
     "you_ms": 0,
-    "claude_ms": 1436926,
-    "claude_wall_ms": 1267868,
+    "claude_ms": 1485981,
+    "claude_wall_ms": 1316923,
     "scheduled_ms": 0
    },
    "concurrent": {
     "you_ms": 0,
-    "claude_ms": 33721,
-    "claude_wall_ms": 33721,
-    "scheduled_ms": 33721
+    "claude_ms": 51074,
+    "claude_wall_ms": 51074,
+    "scheduled_ms": 51074
    }
   }
  },
