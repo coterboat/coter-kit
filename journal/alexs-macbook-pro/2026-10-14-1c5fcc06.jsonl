@@ -10,3 +10,8 @@
 {"op":"status","ref":"954bjtdn","status":"superseded","at":1791946483604,"device":"alexs-macbook-pro"}
 {"id":"ioe63psj","at":1791946496955,"device":"alexs-macbook-pro","session":"1c5fcc06-2f56-4e88-bedb-18a8f618d4ee","project":"jobsnearme","kind":"decision","text":"EMP-B0b: All picks (answer to \"jobsnearme lane E (B0), picks: BQ-585-1 an owner can remove another owner or leave, but never the last owner (two owner…\", given in /waiting)","status":"active","source":"claude","replaces":"8s2mjc16","answers":"8s2mjc16"}
 {"op":"status","ref":"8s2mjc16","status":"superseded","at":1791946496955,"device":"alexs-macbook-pro"}
+{"op":"delivered","ref":"aybu7gu1","at":1791946611943,"device":"alexs-macbook-pro","session":"1c5fcc06-2f56-4e88-bedb-18a8f618d4ee"}
+{"op":"delivered","ref":"bd2d6a35","at":1791946611943,"device":"alexs-macbook-pro","session":"1c5fcc06-2f56-4e88-bedb-18a8f618d4ee"}
+{"op":"delivered","ref":"bzhhf537","at":1791946611943,"device":"alexs-macbook-pro","session":"1c5fcc06-2f56-4e88-bedb-18a8f618d4ee"}
+{"op":"delivered","ref":"c29jkqxv","at":1791946611943,"device":"alexs-macbook-pro","session":"1c5fcc06-2f56-4e88-bedb-18a8f618d4ee"}
+{"op":"delivered","ref":"dq6s5vhx","at":1791946611943,"device":"alexs-macbook-pro","session":"1c5fcc06-2f56-4e88-bedb-18a8f618d4ee"}
