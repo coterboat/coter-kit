@@ -16,40 +16,40 @@
       "last": "18:24"
     },
     "coterboat": {
-      "activeMin": 98,
-      "laneMin": 99,
+      "activeMin": 128,
+      "laneMin": 129,
       "blockedMin": 2,
       "brokenMin": {},
       "sessions": 1,
-      "turns": 23,
-      "commits": 15,
-      "pushes": 6,
+      "turns": 28,
+      "commits": 36,
+      "pushes": 12,
       "first": "09:07",
-      "last": "18:43"
+      "last": "19:12"
     },
     "ascendant": {
-      "activeMin": 64,
-      "laneMin": 83,
-      "blockedMin": 0,
+      "activeMin": 72,
+      "laneMin": 91,
+      "blockedMin": 21,
       "brokenMin": {},
       "sessions": 2,
-      "turns": 11,
+      "turns": 12,
       "commits": 7,
       "pushes": 1,
       "first": "17:40",
-      "last": "18:40"
+      "last": "18:53"
     },
     "concurrent": {
-      "activeMin": 38,
-      "laneMin": 38,
+      "activeMin": 39,
+      "laneMin": 39,
       "blockedMin": 0,
       "brokenMin": {},
-      "sessions": 38,
-      "turns": 38,
+      "sessions": 39,
+      "turns": 39,
       "commits": 0,
       "pushes": 0,
       "first": "00:12",
-      "last": "18:42"
+      "last": "19:12"
     },
     "coter-kit": {
       "activeMin": 19,
