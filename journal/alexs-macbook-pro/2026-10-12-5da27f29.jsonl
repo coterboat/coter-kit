@@ -35,3 +35,40 @@
 {"op":"status","ref":"t8gr1v7q","status":"active","at":1791922920143,"device":"alexs-macbook-pro"}
 {"op":"status","ref":"t8gr2n7e","status":"active","at":1791922920243,"device":"alexs-macbook-pro"}
 {"id":"kroxo1r3","at":1791950010108,"device":"alexs-macbook-pro","session":"5da27f29-f640-5b8c-8231-50e874a31022","project":"","kind":"preference","text":"For runbook terminal steps Alex would rather Claude run them on the Mac ('less chance something breaks'), with any password handed over through a macOS Keychain item he adds himself with hidden input, never pasted in chat.","status":"pending","source":"digest"}
+{"op":"status","ref":"4nbfbinx","status":"active","at":1791994348555,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"4nbfck7s","status":"active","at":1791994348940,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"74b4gp44","status":"superseded","at":1791994350351,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"8rhjzy12","status":"active","at":1791994350574,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"8rhk1fvn","status":"active","at":1791994353230,"device":"alexs-macbook-pro"}
+{"id":"b653dcj7","at":1791994354249,"device":"alexs-macbook-pro","session":"5da27f29-f640-5b8c-8231-50e874a31022","project":"","kind":"preference","text":"Copy must not overstate what the system does: offer Alex an honest rewording ('this is better, more honest'), and keep a promise like 'we'll let you know' only when a real follow-up backs it (e.g. a switch-time email to savers).","status":"active","source":"review","replaces":"9gyjpz10","confirmed":true}
+{"op":"status","ref":"9gyjpz10","status":"superseded","at":1791994354249,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"a2t0af17","status":"superseded","at":1791994354254,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"9gyjqg4s","status":"active","at":1791994354748,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"a2t0b8id","status":"active","at":1791994356290,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"dtyfnjeh","status":"superseded","at":1791994357022,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"dv6a1y6t","status":"superseded","at":1791994357620,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"e002g9fb","status":"superseded","at":1791994357929,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"f195xw9i","status":"superseded","at":1791994358226,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"ffq2jht7","status":"superseded","at":1791994358495,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"gbiij1tl","status":"superseded","at":1791994358719,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"gnyu5q6g","status":"superseded","at":1791994358896,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"iaoddc57","status":"superseded","at":1791994359040,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"jnu7f6p3","status":"active","at":1791994359202,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"lysswz08","status":"superseded","at":1791994359380,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"n4m4ptar","status":"superseded","at":1791994359541,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"n58ju6we","status":"superseded","at":1791994359769,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"nf0beh0v","status":"superseded","at":1791994360059,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"pcvwlx1e","status":"superseded","at":1791994360227,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"qng07m9p","status":"superseded","at":1791994360415,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"ru3bztri","status":"active","at":1791994360599,"device":"alexs-macbook-pro"}
+{"id":"b6a58yyh","at":1791994360796,"device":"alexs-macbook-pro","session":"5da27f29-f640-5b8c-8231-50e874a31022","project":"","kind":"preference","text":"Director/lane setups: a director restart drops every lane's socket, so lanes never sit idle waiting for its GO, and a restarted director re-contacts every lane at once and keeps the run queue moving (jobsnearme stalled ~9h and ~3h on 10-12/13).","status":"active","source":"review","replaces":"ru3c1jqg","confirmed":true}
+{"op":"status","ref":"ru3c1jqg","status":"superseded","at":1791994360796,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"1igdkukb","status":"superseded","at":1791994360800,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"wntbj7zi","status":"superseded","at":1791994360957,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"wz6nrnki","status":"superseded","at":1791994361124,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"xx42a7j9","status":"superseded","at":1791994361342,"device":"alexs-macbook-pro"}
+{"id":"b6apdfyr","at":1791994361521,"device":"alexs-macbook-pro","session":"5da27f29-f640-5b8c-8231-50e874a31022","project":"undertone","kind":"fact","text":"undertone Love this / This grates save evidence to ~/.undertone/ear (20 s clip, spectrogram, stats, state, events, Gemini critique when quota allows); nothing feeds it into the music automatically: ear/review.mjs summarises it for the weekly listening review, and Claude tuning sessions act on that.","status":"active","source":"review","replaces":"y11k5wx6","confirmed":true}
+{"op":"status","ref":"y11k5wx6","status":"superseded","at":1791994361521,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"y11kcgna","status":"superseded","at":1791994361641,"device":"alexs-macbook-pro"}
+{"id":"b6axq77k","at":1791994361822,"device":"alexs-macbook-pro","session":"5da27f29-f640-5b8c-8231-50e874a31022","project":"undertone","kind":"fact","text":"undertone listening reviews: ear/review.mjs (numbers since a date), docs/listening/README.md (procedure) and the first report docs/listening/2026-10-07.md, on main since 9561ffc; scheduled task undertone-listening-review runs Sundays ~18:11 (app must be open), writes ~/.undertone/listening/<date>.md and a LISTEN-<date> waiting note, read-only.","status":"active","source":"review","replaces":"z6p8qgd8","confirmed":true}
+{"op":"status","ref":"z6p8qgd8","status":"superseded","at":1791994361822,"device":"alexs-macbook-pro"}
