@@ -28,20 +28,20 @@
       "last": "16:40"
     },
     "ascendant": {
-      "activeMin": 80,
-      "laneMin": 88,
+      "activeMin": 99,
+      "laneMin": 116,
       "blockedMin": 144,
       "brokenMin": {},
-      "sessions": 3,
-      "turns": 16,
-      "commits": 4,
+      "sessions": 4,
+      "turns": 20,
+      "commits": 5,
       "pushes": 4,
       "first": "00:07",
-      "last": "17:00"
+      "last": "17:29"
     },
     "concurrent": {
-      "activeMin": 22,
-      "laneMin": 22,
+      "activeMin": 52,
+      "laneMin": 52,
       "blockedMin": 120,
       "brokenMin": {},
       "sessions": 16,
@@ -49,7 +49,7 @@
       "commits": 0,
       "pushes": 0,
       "first": "00:14",
-      "last": "16:58"
+      "last": "17:27"
     },
     "coter-kit": {
       "activeMin": 19,
@@ -64,8 +64,8 @@
       "last": "07:04"
     },
     "EO7": {
-      "activeMin": 31,
-      "laneMin": 31,
+      "activeMin": 34,
+      "laneMin": 34,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 1,
