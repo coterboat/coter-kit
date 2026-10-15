@@ -7,3 +7,4 @@
 {"op":"status","ref":"ri0g03dd","status":"superseded","at":1792098857393,"device":"mac"}
 {"op":"status","ref":"rrdzzvqm","status":"superseded","at":1792098857393,"device":"mac"}
 {"op":"status","ref":"0xg3ykw3","status":"superseded","at":1792098857393,"device":"mac"}
+{"id":"1eid1ihb","at":1792098880885,"device":"mac","session":"1e013945-d0dd-46ca-8e0c-9e79c8e58181","project":"ascendant","kind":"waiting","text":"ascendant medallions: your Table picks for battle_won, province_lost, research_done and needs_you are still the e takes from 10-13, so in the stack they'd look unlike the other 28 (d). Use their d takes (the cel take, and d on parchment for needs-you), which are on the same Table items?","link":"https://github.com/coterboat/ascendant/pull/244","ref":"UXART-7","options":["use the d takes (lane Art adds them)","keep the e takes for those four"],"status":"active","source":"claude"}
