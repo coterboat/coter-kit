@@ -28,22 +28,22 @@
       "last": "00:08"
     },
     "concurrent": {
-      "activeMin": 9,
-      "laneMin": 9,
+      "activeMin": 10,
+      "laneMin": 10,
       "blockedMin": 0,
       "brokenMin": {},
-      "sessions": 8,
-      "turns": 8,
+      "sessions": 9,
+      "turns": 9,
       "commits": 0,
       "pushes": 0,
       "first": "00:14",
-      "last": "03:42"
+      "last": "04:12"
     }
   },
   "sources": {
     "jobsnearme": {
       "totals": {
-        "builds started": 1,
+        "builds started": 2,
         "builds passed": 1
       },
       "errorMin": 0
