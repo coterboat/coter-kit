@@ -28,16 +28,16 @@
       "last": "11:39"
     },
     "ascendant": {
-      "activeMin": 64,
-      "laneMin": 71,
-      "blockedMin": 123,
+      "activeMin": 78,
+      "laneMin": 85,
+      "blockedMin": 144,
       "brokenMin": {},
       "sessions": 3,
-      "turns": 11,
+      "turns": 14,
       "commits": 4,
       "pushes": 4,
       "first": "00:07",
-      "last": "13:02"
+      "last": "13:54"
     },
     "concurrent": {
       "activeMin": 18,
