@@ -28,28 +28,28 @@
       "last": "16:40"
     },
     "ascendant": {
-      "activeMin": 99,
-      "laneMin": 116,
+      "activeMin": 121,
+      "laneMin": 147,
       "blockedMin": 144,
       "brokenMin": {},
       "sessions": 4,
-      "turns": 20,
+      "turns": 26,
       "commits": 5,
       "pushes": 4,
       "first": "00:07",
-      "last": "17:29"
+      "last": "17:59"
     },
     "concurrent": {
-      "activeMin": 52,
-      "laneMin": 52,
-      "blockedMin": 120,
+      "activeMin": 79,
+      "laneMin": 80,
+      "blockedMin": 124,
       "brokenMin": {},
-      "sessions": 16,
-      "turns": 16,
+      "sessions": 17,
+      "turns": 17,
       "commits": 0,
       "pushes": 0,
       "first": "00:14",
-      "last": "17:27"
+      "last": "17:57"
     },
     "coter-kit": {
       "activeMin": 19,
