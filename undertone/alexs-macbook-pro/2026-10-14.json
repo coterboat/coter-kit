@@ -6,7 +6,7 @@
     "jobsnearme": {
       "activeMin": 716,
       "laneMin": 867,
-      "blockedMin": 21,
+      "blockedMin": 51,
       "brokenMin": {},
       "sessions": 7,
       "turns": 126,
@@ -30,7 +30,7 @@
     "ascendant": {
       "activeMin": 148,
       "laneMin": 184,
-      "blockedMin": 35,
+      "blockedMin": 65,
       "brokenMin": {},
       "sessions": 2,
       "turns": 15,
@@ -40,16 +40,16 @@
       "last": "20:31"
     },
     "concurrent": {
-      "activeMin": 42,
-      "laneMin": 42,
+      "activeMin": 43,
+      "laneMin": 43,
       "blockedMin": 0,
       "brokenMin": {},
-      "sessions": 42,
-      "turns": 42,
+      "sessions": 43,
+      "turns": 43,
       "commits": 0,
       "pushes": 0,
       "first": "00:12",
-      "last": "20:42"
+      "last": "21:12"
     },
     "coter-kit": {
       "activeMin": 19,
