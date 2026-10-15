@@ -1,3 +1,4 @@
 {"id":"z1xy8qzf","at":1792034469152,"device":"alexs-macbook-pro","session":"1e013945-d0dd-46ca-8e0c-9e79c8e58181","project":"ascendant","kind":"decision","text":"MERGE-6: lol whoops merged them before i read this hope i didn't fuck up merge conflicts too bad (answer to \"ascendant: six PRs verified together (suite 1873/0, boots clean). Merge in this order: #231 UX-5, #232 test fix, #225 m…\", given in the home dashboard)","status":"active","source":"claude","replaces":"of73pkr6","answers":"of73pkr6","outside":true,"typed":true}
 {"op":"status","ref":"of73pkr6","status":"superseded","at":1792034469152,"device":"alexs-macbook-pro"}
 {"op":"delivered","ref":"zvee7m9k","at":1792073529452,"device":"alexs-macbook-pro","session":"1e013945-d0dd-46ca-8e0c-9e79c8e58181"}
+{"op":"status","ref":"zvee7m9k","status":"superseded","at":1792074042073,"device":"alexs-macbook-pro"}
