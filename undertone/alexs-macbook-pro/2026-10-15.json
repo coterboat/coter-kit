@@ -28,16 +28,16 @@
       "last": "11:39"
     },
     "ascendant": {
-      "activeMin": 44,
-      "laneMin": 51,
-      "blockedMin": 111,
+      "activeMin": 64,
+      "laneMin": 71,
+      "blockedMin": 123,
       "brokenMin": {},
       "sessions": 3,
-      "turns": 10,
-      "commits": 3,
-      "pushes": 3,
+      "turns": 11,
+      "commits": 4,
+      "pushes": 4,
       "first": "00:07",
-      "last": "12:37"
+      "last": "13:02"
     },
     "concurrent": {
       "activeMin": 18,
@@ -64,8 +64,8 @@
       "last": "07:04"
     },
     "EO7": {
-      "activeMin": 4,
-      "laneMin": 4,
+      "activeMin": 16,
+      "laneMin": 16,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 1,
