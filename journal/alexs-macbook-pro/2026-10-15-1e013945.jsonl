@@ -2,3 +2,7 @@
 {"op":"status","ref":"of73pkr6","status":"superseded","at":1792034469152,"device":"alexs-macbook-pro"}
 {"op":"delivered","ref":"zvee7m9k","at":1792073529452,"device":"alexs-macbook-pro","session":"1e013945-d0dd-46ca-8e0c-9e79c8e58181"}
 {"op":"status","ref":"zvee7m9k","status":"superseded","at":1792074042073,"device":"alexs-macbook-pro"}
+{"id":"mo3ibg88","at":1792074133955,"device":"alexs-macbook-pro","session":"1e013945-d0dd-46ca-8e0c-9e79c8e58181","project":"ascendant","kind":"decision","text":"UXART-6 (Alex 10-15, in the Review Table): all 36 ux_art items accepted and installed; the standard d medallion set is the base, and lane Art derives the Crown, Clans and Candlewake sets from it.","status":"active","source":"claude","replaces":"mx6oicyo","answers":"mx6oicyo"}
+{"op":"status","ref":"mx6oicyo","status":"superseded","at":1792074133955,"device":"alexs-macbook-pro"}
+{"id":"mo3ichcp","at":1792074133956,"device":"alexs-macbook-pro","session":"1e013945-d0dd-46ca-8e0c-9e79c8e58181","project":"ascendant","kind":"decision","text":"VFX-4 (Alex 10-15, in the Review Table): 15 of 18 accepted; revise ruler_fall (off-centre from the staff) and cast_channel (align to the facing of the units' bases, and do the same for all similar effects); dust_puff held: maybe a generic dust effect, maybe in-game particles instead, tbd.","status":"active","source":"claude","replaces":"59916ui6","answers":"59916ui6"}
+{"op":"status","ref":"59916ui6","status":"superseded","at":1792074133956,"device":"alexs-macbook-pro"}
