@@ -1,0 +1,126 @@
+{
+  "v": 1,
+  "date": "2026-10-09",
+  "device": "mac",
+  "projects": {
+    "coterboat": {
+      "activeMin": 2,
+      "laneMin": 2,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 2,
+      "turns": 3,
+      "commits": 0,
+      "pushes": 0,
+      "first": "15:41",
+      "last": "15:42"
+    },
+    "scratch-2026-10-05-29a807": {
+      "activeMin": 11,
+      "laneMin": 11,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 0,
+      "turns": 1,
+      "commits": 0,
+      "pushes": 0,
+      "first": "00:00",
+      "last": "00:14"
+    },
+    "jobsnearme": {
+      "activeMin": 1226,
+      "laneMin": 1865,
+      "blockedMin": 1,
+      "brokenMin": {
+        "test:vitest": 931
+      },
+      "sessions": 8,
+      "turns": 184,
+      "commits": 129,
+      "pushes": 7,
+      "first": "00:00",
+      "last": "23:57"
+    },
+    "ascendant": {
+      "activeMin": 155,
+      "laneMin": 155,
+      "blockedMin": 255,
+      "brokenMin": {},
+      "sessions": 0,
+      "turns": 19,
+      "commits": 14,
+      "pushes": 11,
+      "first": "00:20",
+      "last": "22:49"
+    },
+    "coter-kit": {
+      "activeMin": 28,
+      "laneMin": 28,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 1,
+      "turns": 4,
+      "commits": 0,
+      "pushes": 0,
+      "first": "00:10",
+      "last": "00:42"
+    },
+    "scratch-2026-10-09-fba9b2": {
+      "activeMin": 7,
+      "laneMin": 7,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 1,
+      "turns": 2,
+      "commits": 0,
+      "pushes": 0,
+      "first": "12:35",
+      "last": "12:41"
+    },
+    "scratch-2026-10-09-aa0ac1": {
+      "activeMin": 14,
+      "laneMin": 14,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 1,
+      "turns": 3,
+      "commits": 0,
+      "pushes": 0,
+      "first": "12:38",
+      "last": "14:49"
+    },
+    "..": {
+      "activeMin": 0,
+      "laneMin": 0,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 1,
+      "turns": 1,
+      "commits": 0,
+      "pushes": 0,
+      "first": "14:10",
+      "last": "14:10"
+    },
+    "tablehand": {
+      "activeMin": 2,
+      "laneMin": 2,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 1,
+      "turns": 1,
+      "commits": 0,
+      "pushes": 0,
+      "first": "14:53",
+      "last": "14:54"
+    }
+  },
+  "sources": {
+    "jobsnearme": {
+      "totals": {
+        "builds started": 9,
+        "builds passed": 7
+      },
+      "errorMin": 60
+    }
+  }
+}

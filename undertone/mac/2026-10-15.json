@@ -1,0 +1,88 @@
+{
+  "v": 1,
+  "date": "2026-10-15",
+  "device": "mac",
+  "projects": {
+    "coterboat": {
+      "activeMin": 21,
+      "laneMin": 21,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 1,
+      "turns": 4,
+      "commits": 0,
+      "pushes": 0,
+      "first": "09:46",
+      "last": "10:55"
+    },
+    "jobsnearme": {
+      "activeMin": 60,
+      "laneMin": 60,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 2,
+      "turns": 15,
+      "commits": 7,
+      "pushes": 2,
+      "first": "00:00",
+      "last": "15:58"
+    },
+    "ascendant": {
+      "activeMin": 79,
+      "laneMin": 86,
+      "blockedMin": 144,
+      "brokenMin": {},
+      "sessions": 3,
+      "turns": 15,
+      "commits": 4,
+      "pushes": 4,
+      "first": "00:07",
+      "last": "15:12"
+    },
+    "concurrent": {
+      "activeMin": 18,
+      "laneMin": 18,
+      "blockedMin": 120,
+      "brokenMin": {},
+      "sessions": 16,
+      "turns": 16,
+      "commits": 0,
+      "pushes": 0,
+      "first": "00:14",
+      "last": "10:49"
+    },
+    "coter-kit": {
+      "activeMin": 19,
+      "laneMin": 19,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 1,
+      "turns": 1,
+      "commits": 0,
+      "pushes": 0,
+      "first": "07:01",
+      "last": "07:04"
+    },
+    "EO7": {
+      "activeMin": 31,
+      "laneMin": 31,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 1,
+      "turns": 1,
+      "commits": 0,
+      "pushes": 2,
+      "first": "12:32",
+      "last": "12:35"
+    }
+  },
+  "sources": {
+    "jobsnearme": {
+      "totals": {
+        "builds started": 3,
+        "builds passed": 2
+      },
+      "errorMin": 0
+    }
+  }
+}

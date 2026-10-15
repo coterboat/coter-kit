@@ -1,0 +1,253 @@
+{
+ "v": 1,
+ "device": "mac",
+ "updated_at": "2026-10-15T19:53:07.677Z",
+ "days": {
+  "2026-10-08": {
+   "jobsnearme": {
+    "you_ms": 1800000,
+    "claude_ms": 78776,
+    "claude_wall_ms": 78776,
+    "scheduled_ms": 0
+   },
+   "ascendant": {
+    "you_ms": 541725,
+    "claude_ms": 1269524,
+    "claude_wall_ms": 1269524,
+    "scheduled_ms": 0
+   },
+   "coter-kit": {
+    "you_ms": 372303,
+    "claude_ms": 21945,
+    "claude_wall_ms": 21945,
+    "scheduled_ms": 0
+   }
+  },
+  "2026-10-09": {
+   "coterboat": {
+    "you_ms": 902916,
+    "claude_ms": 13,
+    "claude_wall_ms": 13,
+    "scheduled_ms": 0
+   },
+   "jobsnearme": {
+    "you_ms": 9348593,
+    "claude_ms": 21700844,
+    "claude_wall_ms": 16564780,
+    "scheduled_ms": 0
+   },
+   "scratch-2026-10-09-aa0ac1": {
+    "you_ms": 1306772,
+    "claude_ms": 710284,
+    "claude_wall_ms": 710284,
+    "scheduled_ms": 0
+   },
+   "scratch-2026-10-09-fba9b2": {
+    "you_ms": 900000,
+    "claude_ms": 322735,
+    "claude_wall_ms": 322735,
+    "scheduled_ms": 0
+   },
+   "home": {
+    "you_ms": 0,
+    "claude_ms": 11,
+    "claude_wall_ms": 11,
+    "scheduled_ms": 11
+   },
+   "tablehand": {
+    "you_ms": 400599,
+    "claude_ms": 53175,
+    "claude_wall_ms": 53175,
+    "scheduled_ms": 0
+   }
+  },
+  "2026-10-10": {
+   "jobsnearme": {
+    "you_ms": 487526,
+    "claude_ms": 9953942,
+    "claude_wall_ms": 9786938,
+    "scheduled_ms": 0
+   },
+   "concurrent": {
+    "you_ms": 1849613,
+    "claude_ms": 5139715,
+    "claude_wall_ms": 5139715,
+    "scheduled_ms": 0
+   },
+   "ascendant": {
+    "you_ms": 3779555,
+    "claude_ms": 789373,
+    "claude_wall_ms": 789373,
+    "scheduled_ms": 0
+   }
+  },
+  "2026-10-11": {
+   "coterboat": {
+    "you_ms": 253568,
+    "claude_ms": 13,
+    "claude_wall_ms": 13,
+    "scheduled_ms": 0
+   },
+   "jobsnearme": {
+    "you_ms": 211216,
+    "claude_ms": 11979092,
+    "claude_wall_ms": 11967392,
+    "scheduled_ms": 3150617
+   },
+   "ascendant": {
+    "you_ms": 2894983,
+    "claude_ms": 1975073,
+    "claude_wall_ms": 1975073,
+    "scheduled_ms": 0
+   },
+   "coter-kit": {
+    "you_ms": 1330248,
+    "claude_ms": 4628391,
+    "claude_wall_ms": 4628391,
+    "scheduled_ms": 0
+   },
+   "probe-run": {
+    "you_ms": 168399,
+    "claude_ms": 10,
+    "claude_wall_ms": 10,
+    "scheduled_ms": 0
+   },
+   "undertone": {
+    "you_ms": 0,
+    "claude_ms": 7773061,
+    "claude_wall_ms": 7773061,
+    "scheduled_ms": 0
+   },
+   "sideline": {
+    "you_ms": 1138018,
+    "claude_ms": 74563,
+    "claude_wall_ms": 74563,
+    "scheduled_ms": 0
+   }
+  },
+  "2026-10-12": {
+   "jobsnearme": {
+    "you_ms": 280780,
+    "claude_ms": 1487916,
+    "claude_wall_ms": 1487916,
+    "scheduled_ms": 620474
+   },
+   "concurrent": {
+    "you_ms": 0,
+    "claude_ms": 175245,
+    "claude_wall_ms": 175245,
+    "scheduled_ms": 155117
+   },
+   "coter-kit": {
+    "you_ms": 568358,
+    "claude_ms": 18506151,
+    "claude_wall_ms": 18506151,
+    "scheduled_ms": 0
+   },
+   "home": {
+    "you_ms": 817940,
+    "claude_ms": 11471798,
+    "claude_wall_ms": 11471798,
+    "scheduled_ms": 0
+   }
+  },
+  "2026-10-13": {
+   "jobsnearme": {
+    "you_ms": 1887848,
+    "claude_ms": 15704700,
+    "claude_wall_ms": 13295489,
+    "scheduled_ms": 0
+   },
+   "concurrent": {
+    "you_ms": 0,
+    "claude_ms": 353864,
+    "claude_wall_ms": 353864,
+    "scheduled_ms": 353864
+   },
+   "ascendant": {
+    "you_ms": 0,
+    "claude_ms": 27641676,
+    "claude_wall_ms": 27641676,
+    "scheduled_ms": 0
+   },
+   "coter-kit": {
+    "you_ms": 0,
+    "claude_ms": 169628,
+    "claude_wall_ms": 169628,
+    "scheduled_ms": 169628
+   }
+  },
+  "2026-10-14": {
+   "coterboat": {
+    "you_ms": 9688485,
+    "claude_ms": 4911012,
+    "claude_wall_ms": 4876998,
+    "scheduled_ms": 0
+   },
+   "jobsnearme": {
+    "you_ms": 6341919,
+    "claude_ms": 25174275,
+    "claude_wall_ms": 23221997,
+    "scheduled_ms": 0
+   },
+   "concurrent": {
+    "you_ms": 0,
+    "claude_ms": 439610,
+    "claude_wall_ms": 439610,
+    "scheduled_ms": 439610
+   },
+   "ascendant": {
+    "you_ms": 1009392,
+    "claude_ms": 86343766,
+    "claude_wall_ms": 85736994,
+    "scheduled_ms": 0
+   },
+   "coter-kit": {
+    "you_ms": 0,
+    "claude_ms": 225387,
+    "claude_wall_ms": 225387,
+    "scheduled_ms": 0
+   }
+  },
+  "2026-10-15": {
+   "coterboat": {
+    "you_ms": 2177159,
+    "claude_ms": 1212012,
+    "claude_wall_ms": 1212012,
+    "scheduled_ms": 0
+   },
+   "jobsnearme": {
+    "you_ms": 4208828,
+    "claude_ms": 960600,
+    "claude_wall_ms": 960600,
+    "scheduled_ms": 0
+   },
+   "concurrent": {
+    "you_ms": 0,
+    "claude_ms": 178643,
+    "claude_wall_ms": 178643,
+    "scheduled_ms": 178643
+   },
+   "ascendant": {
+    "you_ms": 2274457,
+    "claude_ms": 18377520,
+    "claude_wall_ms": 15012074,
+    "scheduled_ms": 0
+   },
+   "coter-kit": {
+    "you_ms": 0,
+    "claude_ms": 226701,
+    "claude_wall_ms": 226701,
+    "scheduled_ms": 0
+   },
+   "EO7": {
+    "you_ms": 98182,
+    "claude_ms": 192708,
+    "claude_wall_ms": 192708,
+    "scheduled_ms": 0
+   }
+  }
+ },
+ "adjustments": [],
+ "confirmed": {}
+}

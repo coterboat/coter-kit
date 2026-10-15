@@ -1,0 +1,54 @@
+{
+  "v": 1,
+  "date": "2026-10-10",
+  "device": "mac",
+  "projects": {
+    "jobsnearme": {
+      "activeMin": 474,
+      "laneMin": 783,
+      "blockedMin": 0,
+      "brokenMin": {
+        "test:vitest": 662
+      },
+      "sessions": 6,
+      "turns": 126,
+      "commits": 81,
+      "pushes": 0,
+      "first": "00:00",
+      "last": "18:23"
+    },
+    "ascendant": {
+      "activeMin": 436,
+      "laneMin": 451,
+      "blockedMin": 19,
+      "brokenMin": {},
+      "sessions": 2,
+      "turns": 40,
+      "commits": 51,
+      "pushes": 24,
+      "first": "01:30",
+      "last": "19:40"
+    },
+    "concurrent": {
+      "activeMin": 108,
+      "laneMin": 108,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 1,
+      "turns": 10,
+      "commits": 0,
+      "pushes": 0,
+      "first": "14:14",
+      "last": "16:43"
+    }
+  },
+  "sources": {
+    "jobsnearme": {
+      "totals": {
+        "builds started": 9,
+        "builds passed": 5
+      },
+      "errorMin": 644
+    }
+  }
+}
