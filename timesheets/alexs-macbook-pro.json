@@ -1,7 +1,7 @@
 {
  "v": 1,
  "device": "alexs-macbook-pro",
- "updated_at": "2026-10-15T10:16:12.163Z",
+ "updated_at": "2026-10-15T10:46:12.507Z",
  "days": {
   "2026-10-03": {
    "undertone": {
@@ -456,9 +456,9 @@
    },
    "concurrent": {
     "you_ms": 0,
-    "claude_ms": 165050,
-    "claude_wall_ms": 165050,
-    "scheduled_ms": 165050
+    "claude_ms": 171063,
+    "claude_wall_ms": 171063,
+    "scheduled_ms": 171063
    },
    "jobsnearme": {
     "you_ms": 0,
