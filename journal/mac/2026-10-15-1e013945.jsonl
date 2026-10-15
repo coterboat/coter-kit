@@ -2,3 +2,8 @@
 {"op":"delivered","ref":"ri0g03dd","at":1792098697601,"device":"mac","session":"1e013945-d0dd-46ca-8e0c-9e79c8e58181"}
 {"op":"delivered","ref":"rrdzzvqm","at":1792098697601,"device":"mac","session":"1e013945-d0dd-46ca-8e0c-9e79c8e58181"}
 {"op":"delivered","ref":"0xg3ykw3","at":1792098697601,"device":"mac","session":"1e013945-d0dd-46ca-8e0c-9e79c8e58181"}
+{"id":"1e08dz2v","at":1792098857389,"device":"mac","session":"1e013945-d0dd-46ca-8e0c-9e79c8e58181","project":"ascendant","kind":"waiting","text":"ascendant effects: ruler_fall and cast_channel are redone in the Review Table (review/vfx). ruler_fall is now centred on the staff head. cast_channel is redrawn top-down as a flat ring the stage will lay on the ground, turned to the units' facing (#242). Judge them in the Table.","link":"https://github.com/coterboat/ascendant/issues/229","ref":"VFX-5","status":"active","source":"claude"}
+{"op":"status","ref":"rbo16ema","status":"superseded","at":1792098857393,"device":"mac"}
+{"op":"status","ref":"ri0g03dd","status":"superseded","at":1792098857393,"device":"mac"}
+{"op":"status","ref":"rrdzzvqm","status":"superseded","at":1792098857393,"device":"mac"}
+{"op":"status","ref":"0xg3ykw3","status":"superseded","at":1792098857393,"device":"mac"}
