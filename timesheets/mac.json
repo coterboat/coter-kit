@@ -1,7 +1,7 @@
 {
  "v": 1,
  "device": "mac",
- "updated_at": "2026-10-16T03:28:21.804Z",
+ "updated_at": "2026-10-16T03:29:21.450Z",
  "days": {
   "2026-10-08": {
    "jobsnearme": {
@@ -218,8 +218,8 @@
    },
    "jobsnearme": {
     "you_ms": 8084083,
-    "claude_ms": 3765863,
-    "claude_wall_ms": 1962372,
+    "claude_ms": 4012009,
+    "claude_wall_ms": 2019632,
     "scheduled_ms": 0
    },
    "concurrent": {
@@ -236,8 +236,8 @@
    },
    "coter-kit": {
     "you_ms": 324121,
-    "claude_ms": 803000,
-    "claude_wall_ms": 803000,
+    "claude_ms": 862677,
+    "claude_wall_ms": 862677,
     "scheduled_ms": 0
    },
    "EO7": {
@@ -248,8 +248,8 @@
    },
    "home": {
     "you_ms": 147416,
-    "claude_ms": 1918848,
-    "claude_wall_ms": 1918848,
+    "claude_ms": 1949054,
+    "claude_wall_ms": 1949054,
     "scheduled_ms": 0
    },
    "foundry": {
