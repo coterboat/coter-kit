@@ -6,3 +6,4 @@
 {"op":"status","ref":"lxsmrv2e","status":"superseded","at":1792124973493,"device":"alexs-macbook-pro"}
 {"id":"h7qiofvi","at":1792125438720,"device":"alexs-macbook-pro","session":"f24f6646-19a4-46dd-97d3-edf119b95a24","project":"jobsnearme","kind":"thread","text":"done: PROFILE-LOGO2 answers recorded in FS-452/453/592-595 (774e1034) and their confirm round run and folded (723c456a); FS-453 stays draft on its gates-project spike.","status":"active","source":"claude","replaces":"zw6ydb48"}
 {"op":"status","ref":"zw6ydb48","status":"superseded","at":1792125438720,"device":"alexs-macbook-pro"}
+{"id":"hx525icg","at":1792126623965,"device":"alexs-macbook-pro","session":"f24f6646-19a4-46dd-97d3-edf119b95a24","project":"","kind":"term","text":"\"call you from the depths to fuck shit up\" = wake a dormant lane session, read its coter-kit notes and handoffs, and work through the queued tasks hard without waiting for further prompts","status":"pending","source":"digest"}
