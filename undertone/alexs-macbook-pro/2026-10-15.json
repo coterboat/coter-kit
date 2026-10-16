@@ -16,40 +16,40 @@
       "last": "10:55"
     },
     "jobsnearme": {
-      "activeMin": 51,
-      "laneMin": 51,
+      "activeMin": 66,
+      "laneMin": 66,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 2,
-      "turns": 11,
+      "turns": 19,
       "commits": 7,
       "pushes": 2,
       "first": "00:00",
-      "last": "11:39"
+      "last": "16:40"
     },
     "ascendant": {
-      "activeMin": 78,
-      "laneMin": 85,
-      "blockedMin": 144,
+      "activeMin": 157,
+      "laneMin": 195,
+      "blockedMin": 179,
       "brokenMin": {},
-      "sessions": 3,
-      "turns": 14,
-      "commits": 4,
-      "pushes": 4,
+      "sessions": 4,
+      "turns": 30,
+      "commits": 5,
+      "pushes": 5,
       "first": "00:07",
-      "last": "13:54"
+      "last": "18:49"
     },
     "concurrent": {
-      "activeMin": 18,
-      "laneMin": 18,
-      "blockedMin": 120,
+      "activeMin": 93,
+      "laneMin": 94,
+      "blockedMin": 170,
       "brokenMin": {},
-      "sessions": 16,
-      "turns": 16,
+      "sessions": 18,
+      "turns": 18,
       "commits": 0,
       "pushes": 0,
       "first": "00:14",
-      "last": "10:49"
+      "last": "18:20"
     },
     "coter-kit": {
       "activeMin": 19,
@@ -64,8 +64,8 @@
       "last": "07:04"
     },
     "EO7": {
-      "activeMin": 16,
-      "laneMin": 16,
+      "activeMin": 34,
+      "laneMin": 34,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 1,
