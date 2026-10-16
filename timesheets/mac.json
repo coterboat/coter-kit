@@ -1,7 +1,7 @@
 {
  "v": 1,
  "device": "mac",
- "updated_at": "2026-10-16T03:49:37.708Z",
+ "updated_at": "2026-10-16T04:00:03.039Z",
  "days": {
   "2026-10-08": {
    "jobsnearme": {
@@ -218,8 +218,8 @@
    },
    "jobsnearme": {
     "you_ms": 8084083,
-    "claude_ms": 10143296,
-    "claude_wall_ms": 3230648,
+    "claude_ms": 12928499,
+    "claude_wall_ms": 3861221,
     "scheduled_ms": 0
    },
    "concurrent": {
@@ -248,8 +248,8 @@
    },
    "home": {
     "you_ms": 147416,
-    "claude_ms": 2691592,
-    "claude_wall_ms": 2691592,
+    "claude_ms": 2759276,
+    "claude_wall_ms": 2759276,
     "scheduled_ms": 0
    },
    "foundry": {
@@ -260,14 +260,22 @@
    },
    "JoinOurPlace": {
     "you_ms": 732178,
-    "claude_ms": 890596,
-    "claude_wall_ms": 890596,
+    "claude_ms": 1465238,
+    "claude_wall_ms": 1465238,
     "scheduled_ms": 0
    },
    "scratch-2026-10-16-53291a": {
     "you_ms": 566562,
     "claude_ms": 70232,
     "claude_wall_ms": 70232,
+    "scheduled_ms": 0
+   }
+  },
+  "2026-10-16": {
+   "jobsnearme": {
+    "you_ms": 0,
+    "claude_ms": 2692,
+    "claude_wall_ms": 2692,
     "scheduled_ms": 0
    }
   }
