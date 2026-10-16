@@ -54,16 +54,16 @@
       "last": "01:25"
     },
     "coter-kit": {
-      "activeMin": 8,
-      "laneMin": 8,
+      "activeMin": 33,
+      "laneMin": 36,
       "blockedMin": 0,
       "brokenMin": {},
-      "sessions": 2,
-      "turns": 2,
+      "sessions": 3,
+      "turns": 6,
       "commits": 0,
       "pushes": 0,
       "first": "07:02",
-      "last": "15:49"
+      "last": "16:19"
     }
   },
   "sources": {
