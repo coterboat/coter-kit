@@ -1,7 +1,7 @@
 {
  "v": 1,
  "device": "mac",
- "updated_at": "2026-10-16T20:46:41.247Z",
+ "updated_at": "2026-10-16T20:56:41.324Z",
  "days": {
   "2026-10-08": {
    "jobsnearme": {
@@ -273,9 +273,9 @@
   },
   "2026-10-16": {
    "jobsnearme": {
-    "you_ms": 4388394,
-    "claude_ms": 67509290,
-    "claude_wall_ms": 32050360,
+    "you_ms": 4626813,
+    "claude_ms": 67701243,
+    "claude_wall_ms": 32235385,
     "scheduled_ms": 0
    },
    "JoinOurPlace": {
@@ -304,8 +304,8 @@
    },
    "coterboat": {
     "you_ms": 900000,
-    "claude_ms": 57668,
-    "claude_wall_ms": 57668,
+    "claude_ms": 657655,
+    "claude_wall_ms": 657655,
     "scheduled_ms": 0
    }
   }
