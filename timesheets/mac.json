@@ -1,7 +1,7 @@
 {
  "v": 1,
  "device": "mac",
- "updated_at": "2026-10-16T07:41:55.899Z",
+ "updated_at": "2026-10-16T07:51:56.083Z",
  "days": {
   "2026-10-08": {
    "jobsnearme": {
@@ -274,8 +274,8 @@
   "2026-10-16": {
    "jobsnearme": {
     "you_ms": 779438,
-    "claude_ms": 35471020,
-    "claude_wall_ms": 13107111,
+    "claude_ms": 36502575,
+    "claude_wall_ms": 13706857,
     "scheduled_ms": 0
    },
    "JoinOurPlace": {
