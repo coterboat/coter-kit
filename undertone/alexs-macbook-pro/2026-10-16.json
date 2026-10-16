@@ -4,18 +4,18 @@
   "device": "alexs-macbook-pro",
   "projects": {
     "jobsnearme": {
-      "activeMin": 261,
-      "laneMin": 1094,
+      "activeMin": 291,
+      "laneMin": 1164,
       "blockedMin": 0,
       "brokenMin": {
-        "typecheck:tsc": 128
+        "typecheck:tsc": 158
       },
       "sessions": 0,
-      "turns": 184,
-      "commits": 122,
-      "pushes": 59,
+      "turns": 201,
+      "commits": 139,
+      "pushes": 61,
       "first": "00:00",
-      "last": "04:20"
+      "last": "04:50"
     },
     "scratch-2026-10-16-53291a": {
       "activeMin": 5,
