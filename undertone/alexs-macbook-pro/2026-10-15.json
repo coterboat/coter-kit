@@ -16,21 +16,21 @@
       "last": "10:55"
     },
     "jobsnearme": {
-      "activeMin": 104,
-      "laneMin": 256,
+      "activeMin": 115,
+      "laneMin": 321,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 7,
-      "turns": 32,
+      "turns": 34,
       "commits": 13,
       "pushes": 5,
       "first": "00:00",
-      "last": "23:50"
+      "last": "23:59"
     },
     "ascendant": {
       "activeMin": 181,
       "laneMin": 221,
-      "blockedMin": 194,
+      "blockedMin": 205,
       "brokenMin": {},
       "sessions": 4,
       "turns": 38,
@@ -76,8 +76,8 @@
       "last": "12:35"
     },
     "home": {
-      "activeMin": 52,
-      "laneMin": 52,
+      "activeMin": 51,
+      "laneMin": 51,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 2,
@@ -100,8 +100,8 @@
       "last": "22:58"
     },
     "JoinOurPlace": {
-      "activeMin": 17,
-      "laneMin": 17,
+      "activeMin": 28,
+      "laneMin": 28,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 1,
@@ -109,11 +109,11 @@
       "commits": 0,
       "pushes": 0,
       "first": "23:34",
-      "last": "23:49"
+      "last": "23:59"
     },
     "scratch-2026-10-16-53291a": {
-      "activeMin": 7,
-      "laneMin": 7,
+      "activeMin": 18,
+      "laneMin": 18,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 1,
@@ -121,7 +121,7 @@
       "commits": 0,
       "pushes": 0,
       "first": "23:44",
-      "last": "23:50"
+      "last": "23:59"
     }
   },
   "sources": {

@@ -1,0 +1,44 @@
+{
+  "v": 1,
+  "date": "2026-10-16",
+  "device": "alexs-macbook-pro",
+  "projects": {
+    "jobsnearme": {
+      "activeMin": 21,
+      "laneMin": 122,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 0,
+      "turns": 6,
+      "commits": 2,
+      "pushes": 1,
+      "first": "00:00",
+      "last": "00:20"
+    },
+    "scratch-2026-10-16-53291a": {
+      "activeMin": 5,
+      "laneMin": 5,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 0,
+      "turns": 1,
+      "commits": 0,
+      "pushes": 0,
+      "first": "00:00",
+      "last": "00:03"
+    },
+    "JoinOurPlace": {
+      "activeMin": 19,
+      "laneMin": 19,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 0,
+      "turns": 0,
+      "commits": 0,
+      "pushes": 0,
+      "first": "00:02",
+      "last": "00:19"
+    }
+  },
+  "sources": {}
+}
