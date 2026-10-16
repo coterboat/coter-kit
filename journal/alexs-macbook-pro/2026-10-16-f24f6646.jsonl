@@ -2,3 +2,5 @@
 {"op":"delivered","ref":"zw6ydb48","at":1792120882745,"device":"alexs-macbook-pro","session":"f24f6646-19a4-46dd-97d3-edf119b95a24"}
 {"op":"delivered","ref":"dyqysv3d","at":1792120882745,"device":"alexs-macbook-pro","session":"f24f6646-19a4-46dd-97d3-edf119b95a24"}
 {"op":"delivered","ref":"gdi8znhx","at":1792124107738,"device":"alexs-macbook-pro","session":"f24f6646-19a4-46dd-97d3-edf119b95a24"}
+{"id":"gxrjpfbg","at":1792124973493,"device":"alexs-macbook-pro","session":"f24f6646-19a4-46dd-97d3-edf119b95a24","project":"jobsnearme","kind":"thread","text":"done: NEW-10-14, B1-DESK and PROFILE-LOGO answers recorded in 27 lane E specs (774e1034); SEEKER-IMPORT 586/589/590 handed to lane C with the BQ-586-5 (b) carry; lane-e/b0 rebased onto build/next (bf9993f2).","status":"active","source":"claude","replaces":"lxsmrv2e"}
+{"op":"status","ref":"lxsmrv2e","status":"superseded","at":1792124973493,"device":"alexs-macbook-pro"}
