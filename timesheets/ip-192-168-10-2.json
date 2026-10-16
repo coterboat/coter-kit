@@ -1,7 +1,7 @@
 {
  "v": 1,
  "device": "ip-192-168-10-2",
- "updated_at": "2026-10-16T20:56:47.906Z",
+ "updated_at": "2026-10-16T20:56:51.047Z",
  "days": {
   "2026-10-09": {
    "coterboat": {
@@ -248,8 +248,8 @@
   "2026-10-16": {
    "jobsnearme": {
     "you_ms": 4626813,
-    "claude_ms": 67721883,
-    "claude_wall_ms": 32241421,
+    "claude_ms": 67725774,
+    "claude_wall_ms": 32244705,
     "scheduled_ms": 0
    },
    "coter-kit": {
