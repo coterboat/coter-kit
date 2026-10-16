@@ -14,3 +14,4 @@
 {"op":"status","ref":"n13irmx1","status":"superseded","at":1792135463086,"device":"alexs-macbook-pro"}
 {"id":"o2yepvxy","at":1792136972977,"device":"alexs-macbook-pro","session":"dbe555a0-d96f-47b5-b023-9a75a8e1ab4c","project":"jobsnearme","kind":"thread","text":"done: lane S rebased and certified, lane-s/next 19302acf on origin/build/next 0016ac3d (the keyed certify of 2b74a638 stands; FS-525 A1's two keyed-only re-aims fixed; check:scope rc 0); reported to the director 10-16.","status":"active","source":"claude","replaces":"eabhj0ep"}
 {"op":"status","ref":"eabhj0ep","status":"superseded","at":1792136972977,"device":"alexs-macbook-pro"}
+{"op":"delivered","ref":"9lwmitzg","at":1792173183394,"device":"alexs-macbook-pro","session":"dbe555a0-d96f-47b5-b023-9a75a8e1ab4c"}
