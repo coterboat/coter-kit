@@ -1,7 +1,7 @@
 {
  "v": 1,
  "device": "alexs-macbook-pro",
- "updated_at": "2026-10-16T03:42:33.760Z",
+ "updated_at": "2026-10-16T03:43:27.433Z",
  "days": {
   "2026-10-03": {
    "undertone": {
@@ -462,8 +462,8 @@
    },
    "jobsnearme": {
     "you_ms": 8084083,
-    "claude_ms": 8274637,
-    "claude_wall_ms": 2814983,
+    "claude_ms": 8561949,
+    "claude_wall_ms": 2868657,
     "scheduled_ms": 0
    },
    "coter-kit": {
@@ -486,8 +486,8 @@
    },
    "home": {
     "you_ms": 147416,
-    "claude_ms": 2417649,
-    "claude_wall_ms": 2417649,
+    "claude_ms": 2477304,
+    "claude_wall_ms": 2477304,
     "scheduled_ms": 0
    },
    "foundry": {
@@ -498,8 +498,8 @@
    },
    "JoinOurPlace": {
     "you_ms": 732178,
-    "claude_ms": 475478,
-    "claude_wall_ms": 475478,
+    "claude_ms": 530164,
+    "claude_wall_ms": 530164,
     "scheduled_ms": 0
    }
   }
