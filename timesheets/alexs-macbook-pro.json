@@ -1,7 +1,7 @@
 {
  "v": 1,
  "device": "alexs-macbook-pro",
- "updated_at": "2026-10-16T04:37:17.061Z",
+ "updated_at": "2026-10-16T04:47:37.184Z",
  "days": {
   "2026-10-03": {
    "undertone": {
@@ -450,8 +450,8 @@
   "2026-10-15": {
    "ascendant": {
     "you_ms": 6504242,
-    "claude_ms": 45783563,
-    "claude_wall_ms": 35830154,
+    "claude_ms": 47202971,
+    "claude_wall_ms": 37249562,
     "scheduled_ms": 0
    },
    "concurrent": {
@@ -462,7 +462,7 @@
    },
    "jobsnearme": {
     "you_ms": 8084083,
-    "claude_ms": 13024891,
+    "claude_ms": 13024893,
     "claude_wall_ms": 3861221,
     "scheduled_ms": 0
    },
@@ -498,8 +498,8 @@
    },
    "JoinOurPlace": {
     "you_ms": 732178,
-    "claude_ms": 1523640,
-    "claude_wall_ms": 1523640,
+    "claude_ms": 1523849,
+    "claude_wall_ms": 1523849,
     "scheduled_ms": 0
    },
    "scratch-2026-10-16-53291a": {
@@ -512,20 +512,26 @@
   "2026-10-16": {
    "jobsnearme": {
     "you_ms": 564322,
-    "claude_ms": 10317084,
-    "claude_wall_ms": 2237064,
+    "claude_ms": 12548384,
+    "claude_wall_ms": 2856543,
     "scheduled_ms": 0
    },
    "JoinOurPlace": {
-    "you_ms": 0,
-    "claude_ms": 1301030,
-    "claude_wall_ms": 1301030,
+    "you_ms": 900000,
+    "claude_ms": 2764705,
+    "claude_wall_ms": 2764705,
     "scheduled_ms": 0
    },
    "scratch-2026-10-16-53291a": {
     "you_ms": 0,
     "claude_ms": 225453,
     "claude_wall_ms": 225453,
+    "scheduled_ms": 0
+   },
+   "ascendant": {
+    "you_ms": 27840,
+    "claude_ms": 2667942,
+    "claude_wall_ms": 2667942,
     "scheduled_ms": 0
    }
   }
