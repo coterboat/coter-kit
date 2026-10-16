@@ -1,7 +1,7 @@
 {
  "v": 1,
  "device": "mac",
- "updated_at": "2026-10-16T20:15:41.040Z",
+ "updated_at": "2026-10-16T20:25:41.125Z",
  "days": {
   "2026-10-08": {
    "jobsnearme": {
@@ -298,8 +298,8 @@
    },
    "coter-kit": {
     "you_ms": 1424875,
-    "claude_ms": 1801719,
-    "claude_wall_ms": 1644192,
+    "claude_ms": 2010451,
+    "claude_wall_ms": 1852924,
     "scheduled_ms": 268397
    }
   }
