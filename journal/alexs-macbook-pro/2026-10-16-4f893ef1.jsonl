@@ -6,3 +6,6 @@
 {"op":"delivered","ref":"j9yum2yf","at":1792165947583,"device":"alexs-macbook-pro","session":"4f893ef1-fa5e-4b15-8d63-cfa320f7974d"}
 {"op":"delivered","ref":"nmqekiom","at":1792165947583,"device":"alexs-macbook-pro","session":"4f893ef1-fa5e-4b15-8d63-cfa320f7974d"}
 {"op":"delivered","ref":"pg4ynlx2","at":1792165947583,"device":"alexs-macbook-pro","session":"4f893ef1-fa5e-4b15-8d63-cfa320f7974d"}
+{"op":"status","ref":"pg4ynlx2","status":"superseded","at":1792166016150,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"nmqekiom","status":"superseded","at":1792166016150,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"j9yum2yf","status":"superseded","at":1792166016150,"device":"alexs-macbook-pro"}
