@@ -1,7 +1,7 @@
 {
  "v": 1,
  "device": "mac",
- "updated_at": "2026-10-16T03:39:22.293Z",
+ "updated_at": "2026-10-16T03:49:37.708Z",
  "days": {
   "2026-10-08": {
    "jobsnearme": {
@@ -218,8 +218,8 @@
    },
    "jobsnearme": {
     "you_ms": 8084083,
-    "claude_ms": 7118821,
-    "claude_wall_ms": 2623525,
+    "claude_ms": 10143296,
+    "claude_wall_ms": 3230648,
     "scheduled_ms": 0
    },
    "concurrent": {
@@ -236,8 +236,8 @@
    },
    "coter-kit": {
     "you_ms": 324121,
-    "claude_ms": 1480284,
-    "claude_wall_ms": 1480284,
+    "claude_ms": 1518849,
+    "claude_wall_ms": 1518849,
     "scheduled_ms": 0
    },
    "EO7": {
@@ -248,8 +248,8 @@
    },
    "home": {
     "you_ms": 147416,
-    "claude_ms": 2299262,
-    "claude_wall_ms": 2299262,
+    "claude_ms": 2691592,
+    "claude_wall_ms": 2691592,
     "scheduled_ms": 0
    },
    "foundry": {
@@ -260,8 +260,14 @@
    },
    "JoinOurPlace": {
     "you_ms": 732178,
-    "claude_ms": 282901,
-    "claude_wall_ms": 282901,
+    "claude_ms": 890596,
+    "claude_wall_ms": 890596,
+    "scheduled_ms": 0
+   },
+   "scratch-2026-10-16-53291a": {
+    "you_ms": 566562,
+    "claude_ms": 70232,
+    "claude_wall_ms": 70232,
     "scheduled_ms": 0
    }
   }

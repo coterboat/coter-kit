@@ -16,28 +16,28 @@
       "last": "10:55"
     },
     "jobsnearme": {
-      "activeMin": 73,
-      "laneMin": 73,
+      "activeMin": 104,
+      "laneMin": 256,
       "blockedMin": 0,
       "brokenMin": {},
-      "sessions": 2,
-      "turns": 22,
-      "commits": 7,
-      "pushes": 4,
+      "sessions": 7,
+      "turns": 32,
+      "commits": 13,
+      "pushes": 5,
       "first": "00:00",
-      "last": "23:16"
+      "last": "23:50"
     },
     "ascendant": {
-      "activeMin": 172,
-      "laneMin": 212,
-      "blockedMin": 179,
+      "activeMin": 181,
+      "laneMin": 221,
+      "blockedMin": 194,
       "brokenMin": {},
       "sessions": 4,
-      "turns": 32,
+      "turns": 38,
       "commits": 6,
       "pushes": 5,
       "first": "00:07",
-      "last": "23:01"
+      "last": "23:36"
     },
     "concurrent": {
       "activeMin": 93,
@@ -52,8 +52,8 @@
       "last": "18:20"
     },
     "coter-kit": {
-      "activeMin": 22,
-      "laneMin": 22,
+      "activeMin": 41,
+      "laneMin": 41,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 2,
@@ -61,7 +61,7 @@
       "commits": 0,
       "pushes": 0,
       "first": "07:01",
-      "last": "23:19"
+      "last": "23:39"
     },
     "EO7": {
       "activeMin": 34,
@@ -76,16 +76,16 @@
       "last": "12:35"
     },
     "home": {
-      "activeMin": 27,
-      "laneMin": 27,
+      "activeMin": 52,
+      "laneMin": 52,
       "blockedMin": 0,
       "brokenMin": {},
       "sessions": 2,
-      "turns": 1,
-      "commits": 3,
+      "turns": 5,
+      "commits": 9,
       "pushes": 0,
       "first": "22:53",
-      "last": "23:19"
+      "last": "23:49"
     },
     "foundry": {
       "activeMin": 8,
@@ -98,6 +98,30 @@
       "pushes": 0,
       "first": "22:56",
       "last": "22:58"
+    },
+    "JoinOurPlace": {
+      "activeMin": 17,
+      "laneMin": 17,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 1,
+      "turns": 1,
+      "commits": 0,
+      "pushes": 0,
+      "first": "23:34",
+      "last": "23:49"
+    },
+    "scratch-2026-10-16-53291a": {
+      "activeMin": 7,
+      "laneMin": 7,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 1,
+      "turns": 1,
+      "commits": 0,
+      "pushes": 0,
+      "first": "23:44",
+      "last": "23:50"
     }
   },
   "sources": {
