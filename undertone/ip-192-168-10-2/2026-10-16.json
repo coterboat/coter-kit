@@ -1,0 +1,77 @@
+{
+  "v": 1,
+  "date": "2026-10-16",
+  "device": "ip-192-168-10-2",
+  "projects": {
+    "jobsnearme": {
+      "activeMin": 843,
+      "laneMin": 2559,
+      "blockedMin": 3,
+      "brokenMin": {
+        "typecheck:tsc": 704
+      },
+      "sessions": 2,
+      "turns": 423,
+      "commits": 288,
+      "pushes": 128,
+      "first": "00:00",
+      "last": "14:08"
+    },
+    "scratch-2026-10-16-53291a": {
+      "activeMin": 5,
+      "laneMin": 5,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 0,
+      "turns": 1,
+      "commits": 0,
+      "pushes": 0,
+      "first": "00:00",
+      "last": "00:03"
+    },
+    "JoinOurPlace": {
+      "activeMin": 26,
+      "laneMin": 26,
+      "blockedMin": 19,
+      "brokenMin": {},
+      "sessions": 0,
+      "turns": 0,
+      "commits": 1,
+      "pushes": 0,
+      "first": "00:02",
+      "last": "00:43"
+    },
+    "ascendant": {
+      "activeMin": 10,
+      "laneMin": 10,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 0,
+      "turns": 2,
+      "commits": 1,
+      "pushes": 2,
+      "first": "00:41",
+      "last": "01:25"
+    },
+    "coter-kit": {
+      "activeMin": 4,
+      "laneMin": 4,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 2,
+      "turns": 1,
+      "commits": 0,
+      "pushes": 0,
+      "first": "07:02",
+      "last": "07:04"
+    }
+  },
+  "sources": {
+    "jobsnearme": {
+      "totals": {
+        "builds started": 1
+      },
+      "errorMin": 0
+    }
+  }
+}

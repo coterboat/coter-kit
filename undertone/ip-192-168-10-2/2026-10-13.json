@@ -1,0 +1,76 @@
+{
+  "v": 1,
+  "date": "2026-10-13",
+  "device": "ip-192-168-10-2",
+  "projects": {
+    "jobsnearme": {
+      "activeMin": 573,
+      "laneMin": 1030,
+      "blockedMin": 53,
+      "brokenMin": {},
+      "sessions": 8,
+      "turns": 193,
+      "commits": 150,
+      "pushes": 5,
+      "first": "00:00",
+      "last": "23:59"
+    },
+    "ascendant": {
+      "activeMin": 119,
+      "laneMin": 212,
+      "blockedMin": 313,
+      "brokenMin": {},
+      "sessions": 3,
+      "turns": 29,
+      "commits": 18,
+      "pushes": 11,
+      "first": "00:00",
+      "last": "16:49"
+    },
+    "coterboat": {
+      "activeMin": 7,
+      "laneMin": 7,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 0,
+      "turns": 6,
+      "commits": 0,
+      "pushes": 0,
+      "first": "23:21",
+      "last": "23:56"
+    },
+    "concurrent": {
+      "activeMin": 48,
+      "laneMin": 48,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 48,
+      "turns": 48,
+      "commits": 0,
+      "pushes": 0,
+      "first": "00:12",
+      "last": "23:42"
+    },
+    "coter-kit": {
+      "activeMin": 3,
+      "laneMin": 3,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 1,
+      "turns": 1,
+      "commits": 0,
+      "pushes": 0,
+      "first": "07:01",
+      "last": "07:02"
+    }
+  },
+  "sources": {
+    "jobsnearme": {
+      "totals": {
+        "builds started": 4,
+        "builds passed": 2
+      },
+      "errorMin": 0
+    }
+  }
+}

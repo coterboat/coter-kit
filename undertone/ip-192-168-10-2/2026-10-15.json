@@ -1,0 +1,136 @@
+{
+  "v": 1,
+  "date": "2026-10-15",
+  "device": "ip-192-168-10-2",
+  "projects": {
+    "coterboat": {
+      "activeMin": 21,
+      "laneMin": 21,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 1,
+      "turns": 4,
+      "commits": 0,
+      "pushes": 0,
+      "first": "09:46",
+      "last": "10:55"
+    },
+    "jobsnearme": {
+      "activeMin": 115,
+      "laneMin": 321,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 7,
+      "turns": 34,
+      "commits": 13,
+      "pushes": 5,
+      "first": "00:00",
+      "last": "23:59"
+    },
+    "ascendant": {
+      "activeMin": 181,
+      "laneMin": 221,
+      "blockedMin": 205,
+      "brokenMin": {},
+      "sessions": 4,
+      "turns": 38,
+      "commits": 6,
+      "pushes": 5,
+      "first": "00:07",
+      "last": "23:36"
+    },
+    "concurrent": {
+      "activeMin": 93,
+      "laneMin": 94,
+      "blockedMin": 170,
+      "brokenMin": {},
+      "sessions": 18,
+      "turns": 18,
+      "commits": 0,
+      "pushes": 0,
+      "first": "00:14",
+      "last": "18:20"
+    },
+    "coter-kit": {
+      "activeMin": 41,
+      "laneMin": 41,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 2,
+      "turns": 2,
+      "commits": 0,
+      "pushes": 0,
+      "first": "07:01",
+      "last": "23:39"
+    },
+    "EO7": {
+      "activeMin": 34,
+      "laneMin": 34,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 1,
+      "turns": 1,
+      "commits": 0,
+      "pushes": 2,
+      "first": "12:32",
+      "last": "12:35"
+    },
+    "home": {
+      "activeMin": 51,
+      "laneMin": 51,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 2,
+      "turns": 5,
+      "commits": 9,
+      "pushes": 0,
+      "first": "22:53",
+      "last": "23:49"
+    },
+    "foundry": {
+      "activeMin": 8,
+      "laneMin": 8,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 1,
+      "turns": 1,
+      "commits": 0,
+      "pushes": 0,
+      "first": "22:56",
+      "last": "22:58"
+    },
+    "JoinOurPlace": {
+      "activeMin": 28,
+      "laneMin": 28,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 1,
+      "turns": 1,
+      "commits": 0,
+      "pushes": 0,
+      "first": "23:34",
+      "last": "23:59"
+    },
+    "scratch-2026-10-16-53291a": {
+      "activeMin": 18,
+      "laneMin": 18,
+      "blockedMin": 0,
+      "brokenMin": {},
+      "sessions": 1,
+      "turns": 1,
+      "commits": 0,
+      "pushes": 0,
+      "first": "23:44",
+      "last": "23:59"
+    }
+  },
+  "sources": {
+    "jobsnearme": {
+      "totals": {
+        "builds started": 3,
+        "builds passed": 2
+      },
+      "errorMin": 0
+    }
+  }
+}
