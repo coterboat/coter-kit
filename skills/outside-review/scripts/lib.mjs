@@ -93,7 +93,12 @@ export function changes(repo, base) {
 
 // Ties a packet to the code: the base commit, HEAD, and every changed byte
 export function fingerprint(repo, base) {
-  const { diff, untracked, binaries } = changes(repo, base)
+  return fingerprintOf(repo, changes(repo, base))
+}
+
+// The same, for changes already read: a packet fingerprints the very snapshot its diff came from, so a file edited
+// while the gates run makes it stale instead of slipping past (found building RV-021)
+export function fingerprintOf(repo, { diff, untracked, binaries }) {
   const head = git(repo, ['rev-parse', 'HEAD']).trim()
   return sha(head + '\n' + diff + '\n' + [...untracked, ...binaries].map((f) => f.path + '\n' + f.hash).join('\n'))
 }

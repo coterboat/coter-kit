@@ -6,6 +6,13 @@
     { "glob": "hooks/waiting.js", "why": "links written to the brain" },
     { "glob": "hooks/live.js", "why": "the status-file contract other tools read" },
     { "glob": "hooks/timesheet.js", "why": "the billable-hours rules, and the per-machine file the owner's invoices come from" },
-    { "glob": "skills/outside-review/scripts/**", "why": "what leaves this machine for another lab" }
+    { "glob": "skills/outside-review/scripts/**", "why": "what leaves this machine for another lab" },
+    { "glob": "skills/outside-review/walk/**", "why": "the walk guard: what a walker may send to a live site, and the Maps budget" }
+  ],
+  "exportFakes": [
+    "tests/coter-kit.test.ts",
+    "tests/addressed.test.mjs",
+    "tests/phone.test.mjs",
+    { "path": "tests/coter-kit.test.ts", "digests": ["8d015894aa655d03", "f419886e26c74511", "03aafb028d538b06"], "why": "the redactor's own fake sk-/ghp_ tokens (alphabet runs), checked 10-16" }
   ]
 }

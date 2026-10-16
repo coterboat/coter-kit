@@ -1,0 +1,18 @@
+{
+  "round": "RV-021",
+  "reviewer": "codex",
+  "rubric_sha256": "00c14ab5f67e1a588e865ea410cbac4e01b9c9bdd4faef41b0cdf3cc1756bdc7",
+  "packet_sha256": "0bfef56bf40b51e9c5fa5d9e9dc2c7eaa8cf5e59f5c5faf1903b0d2b83c75e23",
+  "prompt_sha256": "c55195f5d2abb856694cba910219f51ec6efc43eaf764e31c0aa9f5cddb53b2d",
+  "response_sha256": "38443f509ee42465fd1aada458139f04d99177e597e2da7615dbdc88abcd4fb1",
+  "started_at": "2026-10-16T21:16:20.695Z",
+  "duration_ms": 166442,
+  "canary": "EXPORT c284d293eb56f603d35a7e46cb072c25",
+  "export": {
+    "head": "658c1d1434ae09d49aa8072e7860f33119c814e3",
+    "files": 55,
+    "bytes": 759951,
+    "left_out": [],
+    "isolation_problems": []
+  }
+}

@@ -6,10 +6,10 @@ This is the house standard for every project. It is lifted from what jobsnearme'
 
 ## Principles
 
-1. **Different eyes find different holes.** Work is reviewed by a model from another lab that sees only a packet, never the builder's reasoning: Codex for each change, Grok as the red team at milestones, a fresh Claude subagent when neither is available. In jobsnearme, Codex raised 308 findings and 96% were confirmed, among them privacy leaks, a consent chain that didn't hold, and an ingest bug that would have archived every live posting. Grok's product red team found that every demo would have died.
+1. **Different eyes find different holes.** Work is reviewed by a model from another lab that sees the packet and a read-only copy of the code, never the builder's reasoning: Codex for each change, Grok as the red team at milestones, a fresh Claude subagent when neither is available. In jobsnearme, Codex raised 308 findings and 96% were confirmed, among them privacy leaks, a consent chain that didn't hold, and an ingest bug that would have archived every live posting. Grok's product red team found that every demo would have died.
 2. **Aim reviews at the product, not the process.** Give the reviewer hostile targets: what a user, an attacker or bad data could break. A review left to wander turns to the review machinery and to wording. jobsnearme ran 67 rounds on a prototype with no users, and in RV-067 five of six findings were about packet arithmetic.
 3. **Rules that matter are scripts.** A rule left as prose doesn't fire; every retro said so. If a rule matters, it exits non-zero. If it doesn't, cut it.
-4. **Done means a named test passes.** Each acceptance criterion names the test that proves it. A skipped check reads "not verified", never "pass". Watch every new test and gate fail before you trust it.
+4. **Done means a named test passes.** Each acceptance criterion names the test that proves it. A model's read, the builder's or a reviewer's, is never the judge: the judge is something that runs, such as a test, a check over real data, or a walk's `assert` line made into a check. A skipped check reads "not verified", never "pass". Watch every new test and gate fail before you trust it.
 5. **Writing and verifying are separate jobs.** The builder doesn't grade its own work. Critics, testers and reviewers are read-only, and "no evidence" counts as a fail. In RETRO-001, a read-only tester found 2 defects after three clean reviews.
 6. **Verify every finding, and keep the rejects.** Save the reviewer's response verbatim before anyone reads it. Then check each finding against the code with your own evidence, and log it as confirmed, partial, rejected or duplicate to an append-only file.
 7. **Fix the class, not the instance.** Search for the claim, not just the cited line, and pin the fix with a test that stays.
@@ -65,10 +65,11 @@ If you wouldn't push it yet, it isn't ready, whatever the iteration.
 ## The outside review (`/coter-kit:outside-review`)
 
 1. **Packet.** A script builds the packet. It contains the goal or spec, the diff (untracked files included), the gate results, and the decisions to challenge and the hostile targets you name. It refuses an empty diff, and it refuses red gates unless you say why.
-2. **Relay.** Another model reviews it in a read-only sandbox, from an empty folder. The prompt carries a canary that asks the reviewer to say whether it can see anything beyond the packet. The prompt's and the packet's sha256 are recorded, and the response is saved verbatim before anyone reads it.
+2. **Relay.** Another model reviews it in a read-only sandbox, in a copy of the code as it is now with a random id planted in it; the relay checks that the reply quotes the id and names no path of the real checkout. Nothing secret-shaped leaves: a hit in the packet refuses the relay, and a hit in the copy sends the packet alone. The prompt's and the packet's sha256 are recorded, and the response is saved verbatim before anyone reads it.
 3. **Verify.** Check every finding against the code with your own evidence, and log each verdict to `docs/reviews/findings.jsonl` in the project.
 4. **Fix and repeat.** Fix the class, rebuild the packet, and send another round. Point each new round at the previous round's fixes first: in coter-kit's own first arc, 3 of 28 findings were bugs introduced by earlier fixes. Stop when a round comes back with no confirmed high finding, or after 4 rounds, when the owner decides.
 5. **Never merge.** The loop never commits or merges. The owner does, after the walk.
+6. **Walk it, for anything a user sees.** A review reads the change; a walk uses the product. A model that didn't build it uses the deployed build as one person doing one task, logged out, on a phone, on real data, without the spec, behind a guard that blocks writes and holds a Maps budget (`walk.mjs`). Each `CHECK` it reports is reproduced failing, then made a check that runs, and the walker never closes its own. jobsnearme's 10-14 user test found three P0s every spec and review had passed.
 
 ## Left behind on purpose
 

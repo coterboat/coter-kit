@@ -12,7 +12,7 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, isAbsolute } from 'node:path'
-import { args, die, git, repoRoot, reviewDirs, changes, fingerprint, nextRound, sha } from './lib.mjs'
+import { args, die, git, repoRoot, reviewDirs, changes, fingerprintOf, nextRound, sha } from './lib.mjs'
 
 const a = args()
 const repo = repoRoot(a.repo || process.cwd())
@@ -33,7 +33,9 @@ if (!base) {
 }
 const baseSha = git(repo, ['rev-parse', base]).trim()
 const head = git(repo, ['rev-parse', 'HEAD']).trim()
-const { diff, untracked, binaries } = changes(repo, baseSha)
+const snapshot = changes(repo, baseSha)
+const { diff, untracked, binaries } = snapshot
+const snapshotPrint = fingerprintOf(repo, snapshot)
 if (!diff.trim() && !untracked.length) die('nothing changed since ' + base + ': there is nothing to review', 2)
 
 // A packet that leaves out changed source can't pass for a full review (RV-002 F7), and neither
@@ -73,21 +75,13 @@ const parts = [
   '- repo: ' + repo.split('/').pop(),
   '- base: ' + baseSha,
   '- head: ' + head,
-  '- fingerprint: ' + fingerprint(repo, baseSha),
+  '- fingerprint: ' + snapshotPrint,
   '- built: ' + new Date().toISOString(),
   '- complete: ' + (omitted.length ? 'no' : 'yes'),
   '',
   '## Goal',
   '',
   goal.trim(),
-  '',
-  '## What to attack',
-  '',
-  a.targets && a.targets !== true ? String(a.targets) : 'Whatever a real user, an attacker or bad data could break in this change.',
-  '',
-  '## Decisions to challenge',
-  '',
-  a.decisions && a.decisions !== true ? String(a.decisions) : '(none declared)',
   '',
   '## Gates',
   '',
@@ -101,6 +95,18 @@ const parts = [
   '',
   diff.trim() ? fence(diff, 'diff') : '(no tracked changes)',
   ...(untracked.length ? ['', '## New files', '', ...untracked.map((f) => '### ' + f.path + '\n\n' + fence(f.text))] : []),
+  '',
+  // The builder's theory of risk comes after the evidence, labelled, so it doesn't steer the
+  // review (Codex, 2026-10-15: targets "anchor me toward the builder's theory of risk")
+  "## The builder's hypotheses (check them; don't trust them)",
+  '',
+  '### What to attack',
+  '',
+  a.targets && a.targets !== true ? String(a.targets) : 'Whatever a real user, an attacker or bad data could break in this change.',
+  '',
+  '### Decisions to challenge',
+  '',
+  a.decisions && a.decisions !== true ? String(a.decisions) : '(none declared)',
   '',
 ]
 const packet = parts.join('\n')

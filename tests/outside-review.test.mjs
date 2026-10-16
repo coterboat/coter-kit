@@ -65,14 +65,15 @@ test('the relay saves the answer verbatim with pins, warns without the canary, a
   // The fake reviewer's answer lives outside the repo: any new file in it makes the packet stale
   const reply = join(mkdtempSync(join(tmpdir(), 'or-reply-')), 'reply.txt')
   writeFileSync(reply, REPLY)
-  const ok = node(dir, 'relay.mjs', '--packet', 'docs/reviews/packets/RV-001.md', '--cmd', 'cat ' + reply)
+  // The packet-only way, kept for "export": false and --packet-only (the export has its own tests below)
+  const ok = node(dir, 'relay.mjs', '--packet', 'docs/reviews/packets/RV-001.md', '--packet-only', '--cmd', 'cat ' + reply)
   assert.equal(ok.status, 0, ok.stderr)
   assert.equal(readFileSync(join(dir, 'docs/reviews/inbox/RV-001-custom.md'), 'utf8'), REPLY)
   const meta = JSON.parse(readFileSync(join(dir, 'docs/reviews/inbox/RV-001-custom.meta.json'), 'utf8'))
   assert.equal(meta.packet_only, true)
   assert.match(meta.packet_sha256, /^[0-9a-f]{64}$/)
 
-  const leaky = node(dir, 'relay.mjs', '--packet', 'docs/reviews/packets/RV-001.md', '--cmd', 'echo I can see your repo')
+  const leaky = node(dir, 'relay.mjs', '--packet', 'docs/reviews/packets/RV-001.md', '--packet-only', '--cmd', 'echo I can see your repo')
   assert.match(leaky.stdout, /did not confirm it saw only the packet/)
 
   writeFileSync(join(dir, 'app.js'), 'export const add = (a, b) => a * b\n')
@@ -251,4 +252,332 @@ test('a fresh checkout numbers the next round past the logged ones, so a reply i
   const ok = node(dir, 'packet.mjs', '--goal', 'Add numbers', '--base', 'HEAD', '--gate', 'true')
   assert.equal(ok.status, 0, ok.stderr)
   assert.ok(existsSync(join(dir, 'docs/reviews/packets/RV-010.md')))
+})
+
+// ── The export (Codex's ask, 2026-10-15; jobsnearme FS-650), and nothing secret leaving with it ──
+
+// Secret-shaped values are built at run time, so this file itself holds none
+const FAKE = {
+  storage: 'Account' + 'Key=' + 'Zq9'.repeat(12),
+  conn: 'Server=db.example.net;Database=app;User Id=app;Pass' + 'word=' + 'Hx7'.repeat(4) + ';',
+  setting: '"api' + 'Key": "' + 'k7Q'.repeat(8) + '"',
+}
+const EXPORT_REVIEWER = 'printf "EXPORT %s\\n" "$(head -1 .review-export)"; pwd; ls -a; cat app.js'
+const exportRepo = () => {
+  const dir = repo()
+  writeFileSync(join(dir, '.gitignore'), 'ignored.txt\n.env\n')
+  writeFileSync(join(dir, 'ignored.txt'), 'never exported\n')
+  writeFileSync(join(dir, 'pic.png'), 'not really a png\n')
+  git(dir, 'add', '-A')
+  git(dir, 'commit', '-q', '-m', 'fixture')
+  writeFileSync(join(dir, 'app.js'), 'export const add = (a, b) => a - b\n')
+  writeFileSync(join(dir, 'new.js'), 'export const x = 1\n')
+  return dir
+}
+const relay = (dir, ...extra) => node(dir, 'relay.mjs', '--packet', 'docs/reviews/packets/RV-001.md', ...extra)
+
+test('the export: the reviewer runs in a copy of the code as it is now, without .git, ignored files, media or the review trail, removed after', () => {
+  const dir = exportRepo()
+  assert.equal(node(dir, 'packet.mjs', '--goal', 'g', '--base', 'HEAD').status, 0)
+  const r = relay(dir, '--cmd', EXPORT_REVIEWER)
+  assert.equal(r.status, 0, r.stderr)
+  const reply = readFileSync(join(dir, 'docs/reviews/inbox/RV-001-custom.md'), 'utf8')
+  assert.match(reply, /^EXPORT [0-9a-f]{32}\n/)
+  assert.match(reply, /a - b/, 'the working tree, not HEAD')
+  const listing = reply.split('\n')
+  assert.ok(listing.includes('new.js'), 'untracked files go')
+  for (const gone of ['.git', 'docs', 'ignored.txt', 'pic.png']) assert.ok(!listing.includes(gone), gone + ' must not be exported')
+  const exportDir = listing[1]
+  assert.ok(!existsSync(exportDir), 'the export is removed after the reply is saved')
+  const meta = JSON.parse(readFileSync(join(dir, 'docs/reviews/inbox/RV-001-custom.meta.json'), 'utf8'))
+  assert.equal(meta.export.files, 3) // .gitignore, app.js and new.js; pic.png is media
+  assert.deepEqual(meta.export.isolation_problems, [])
+  assert.match(r.stdout, /isolation: the reply quotes the export id/)
+})
+
+test('the relay checks the reply itself: no EXPORT line, or a path of the real checkout, is written down and warned', () => {
+  const dir = exportRepo()
+  node(dir, 'packet.mjs', '--goal', 'g', '--base', 'HEAD')
+  const r = relay(dir, '--cmd', 'echo "I read ' + dir + '/app.js"')
+  assert.equal(r.status, 0, r.stderr)
+  const meta = JSON.parse(readFileSync(join(dir, 'docs/reviews/inbox/RV-001-custom.meta.json'), 'utf8'))
+  assert.equal(meta.export.isolation_problems.length, 2)
+  assert.match(r.stdout, /does not begin with the EXPORT line/)
+  assert.match(r.stdout, /names the checkout/)
+})
+
+test('a secret-shaped value in an exported file means packet only this round, named by place and never by value', () => {
+  const dir = exportRepo()
+  writeFileSync(join(dir, 'settings.ps1'), '$conn = "' + FAKE.storage + '"\n')
+  git(dir, 'add', 'settings.ps1')
+  git(dir, 'commit', '-q', '-m', 'a key, committed long ago')
+  node(dir, 'packet.mjs', '--goal', 'g', '--base', 'HEAD')
+  const r = relay(dir, '--cmd', 'cat; true')
+  assert.equal(r.status, 0, r.stderr)
+  assert.match(r.stdout, /packet only this round: secret-shaped values in settings\.ps1:1 \(storage account key, digest [0-9a-f]{16}\)/)
+  assert.ok(!r.stdout.includes('Zq9Zq9'), 'the value is never printed')
+  const sent = readFileSync(join(dir, 'docs/reviews/inbox/RV-001-custom.md'), 'utf8')
+  assert.match(sent, /CANARY: you should have been given only this rubric and the packet/)
+  const meta = JSON.parse(readFileSync(join(dir, 'docs/reviews/inbox/RV-001-custom.meta.json'), 'utf8'))
+  assert.equal(meta.export, false)
+  assert.match(meta.export_off, /settings\.ps1:1/)
+})
+
+test('files the owner declares fake (exportFakes) are exported anyway; "export": false keeps the packet-only way', () => {
+  const dir = exportRepo()
+  writeFileSync(join(dir, 'fixtures.js'), 'export const conn = "' + FAKE.conn + '"\n')
+  mkdirSync(join(dir, '.claude'), { recursive: true })
+  writeFileSync(join(dir, '.claude', 'review.json'), JSON.stringify({ exportFakes: ['fixtures.js'] }))
+  git(dir, 'add', 'fixtures.js', '.claude')
+  git(dir, 'commit', '-q', '-m', 'fixtures')
+  node(dir, 'packet.mjs', '--goal', 'g', '--base', 'HEAD')
+  const r = relay(dir, '--cmd', EXPORT_REVIEWER)
+  assert.equal(r.status, 0, r.stderr)
+  assert.ok(JSON.parse(readFileSync(join(dir, 'docs/reviews/inbox/RV-001-custom.meta.json'), 'utf8')).export.files > 0)
+
+  writeFileSync(join(dir, '.claude', 'review.json'), JSON.stringify({ export: false }))
+  git(dir, 'commit', '-qam', 'export off')
+  node(dir, 'packet.mjs', '--goal', 'g', '--base', 'HEAD~1')
+  const off = node(dir, 'relay.mjs', '--packet', 'docs/reviews/packets/RV-002.md', '--cmd', 'cat; true')
+  assert.equal(off.status, 0, off.stderr)
+  assert.match(off.stdout, /packet only this round: \.claude\/review\.json "export": false/)
+})
+
+test('a broken .claude/review.json refuses the relay rather than reading as no settings', () => {
+  const dir = exportRepo()
+  node(dir, 'packet.mjs', '--goal', 'g', '--base', 'HEAD')
+  mkdirSync(join(dir, '.claude'), { recursive: true })
+  writeFileSync(join(dir, '.claude', 'review.json'), '{ "export": false,')
+  // The broken file is itself a change, so build the packet again with it in place
+  node(dir, 'packet.mjs', '--goal', 'g', '--base', 'HEAD')
+  const r = node(dir, 'relay.mjs', '--packet', 'docs/reviews/packets/RV-002.md', '--cmd', 'cat')
+  assert.equal(r.status, 1)
+  assert.match(r.stderr, /review\.json is not valid JSON/)
+})
+
+test('a secret-shaped value in the packet itself refuses the relay, unless --allow-secrets says why', () => {
+  const dir = exportRepo()
+  writeFileSync(join(dir, 'config.json'), '{ ' + FAKE.setting + ' }\n')
+  node(dir, 'packet.mjs', '--goal', 'g', '--base', 'HEAD')
+  const refused = relay(dir, '--cmd', 'cat')
+  assert.equal(refused.status, 1)
+  assert.match(refused.stderr, /secret-shaped value\(s\) in what would be sent: the packet:\d+ \(secret-named setting\)/)
+  assert.ok(!refused.stderr.includes('k7Qk7Q'), 'the value is never printed')
+  assert.ok(!existsSync(join(dir, 'docs/reviews/inbox/RV-001-custom.md')), 'nothing was sent')
+  const sent = relay(dir, '--allow-secrets', 'a fake key in a fixture, checked', '--cmd', 'cat; true')
+  assert.equal(sent.status, 0, sent.stderr)
+  const meta = JSON.parse(readFileSync(join(dir, 'docs/reviews/inbox/RV-001-custom.meta.json'), 'utf8'))
+  assert.equal(meta.secrets_allowed.why, 'a fake key in a fixture, checked')
+})
+
+test("a value from the project's own .env in a tracked file withholds the export; a public build variable doesn't", () => {
+  const dir = exportRepo()
+  const real = 'q8' + 'Lm3vT9xR2kWp'
+  writeFileSync(join(dir, '.env'), 'NEXT_PUBLIC_API=https://api.example.com/v2\nSERVICE_SECRET=' + real + '\n')
+  writeFileSync(join(dir, 'docs.md'), 'The API lives at https://api.example.com/v2\n')
+  node(dir, 'packet.mjs', '--goal', 'g', '--base', 'HEAD')
+  const clean = relay(dir, '--cmd', EXPORT_REVIEWER)
+  assert.equal(clean.status, 0, clean.stderr)
+  assert.doesNotMatch(clean.stdout, /packet only/)
+
+  writeFileSync(join(dir, 'client.js'), 'const s = "' + real + '"\n')
+  node(dir, 'packet.mjs', '--goal', 'g', '--base', 'HEAD')
+  const leak = node(dir, 'relay.mjs', '--packet', 'docs/reviews/packets/RV-002.md', '--cmd', 'cat')
+  assert.equal(leak.status, 1, 'the value is in the packet too, so the relay refuses outright')
+  assert.match(leak.stderr, /a value from the project \.env/)
+  assert.ok(!leak.stderr.includes(real))
+})
+
+test('the scanner leaves placeholders and ordinary code alone', async () => {
+  const { secretsIn } = await import('../skills/outside-review/scripts/export.mjs')
+  const quiet = [
+    'const password = await hash(pw, 10)',
+    'Server=db;Database=app;Password=${DB_PASSWORD};',
+    '"apiKey": "your-api-key-goes-here-123"',
+    'postgres://postgres:postgres@localhost:5432/app',
+    'const url = `${proto}://${user}:${pass}@${host}`',
+    'sha: 3f786850e387550fdab836ed7e6dc881de23001b',
+  ]
+  for (const line of quiet) assert.deepEqual(secretsIn(line), [], line)
+  assert.equal(secretsIn(FAKE.conn)[0].kind, 'connection string password')
+  assert.equal(secretsIn(FAKE.storage)[0].kind, 'storage account key')
+  assert.equal(secretsIn('-----BEGIN ' + 'RSA PRIVATE KEY-----')[0].kind, 'private key')
+})
+
+test("the packet puts the builder's targets and decisions after the evidence, as hypotheses", () => {
+  const dir = repo()
+  writeFileSync(join(dir, 'app.js'), 'export const add = (a, b) => a - b\n')
+  node(dir, 'packet.mjs', '--goal', 'g', '--base', 'HEAD', '--targets', 'wrong sums', '--decisions', 'kept it small')
+  const packet = readFileSync(join(dir, 'docs/reviews/packets/RV-001.md'), 'utf8')
+  const diffAt = packet.indexOf('## Diff since base')
+  const hypAt = packet.indexOf("## The builder's hypotheses")
+  assert.ok(diffAt > 0 && hypAt > diffAt, 'hypotheses come after the diff')
+  assert.ok(packet.indexOf('wrong sums') > hypAt && packet.indexOf('kept it small') > hypAt)
+})
+
+// ── RV-020 (Codex on the export itself): each finding pinned ──
+
+test('RV-020 F1: a letters-only secret is still a secret; only an explicit placeholder is let off', async () => {
+  const { secretsIn } = await import('../skills/outside-review/scripts/export.mjs')
+  const pw = 'pass' + 'word'
+  assert.equal(secretsIn(pw + ': "Correct' + 'HorseBatteryStaple"').length, 1)
+  assert.equal(secretsIn('Server=db;Database=app;Pass' + 'word=OnlyLettersPassword')[0].kind, 'connection string password')
+  // ...and the two jobsnearme lines the stricter rule first caught: an autocomplete token, and a value named as a test
+  const quietList = [
+    'Server=db;Database=app;Password=DB_PASSWORD;',
+    '"password": "your-password-goes-here"',
+    'Server=db;Database=app;Password=${PW};',
+    'autoComplete={creating ? "new-password" : "current-password"}',
+    'access_token: "test-access-token",',
+  ]
+  assert.equal(secretsIn('config.pass' + 'word = "Zebra' + 'QuietLanternRiver"').length, 1)
+  for (const quiet of quietList) {
+    assert.deepEqual(secretsIn(quiet), [], quiet)
+  }
+})
+
+test('RV-020 F2: a file too large to scan whole, or a binary, is left out of the export and named, never sent unscanned', () => {
+  const dir = exportRepo()
+  const key = '"api' + 'Key": "' + 'k7Q'.repeat(8) + '"'
+  writeFileSync(join(dir, 'big.txt'), 'x'.repeat(1024 * 1024 + 1) + '\n' + key + '\n')
+  writeFileSync(join(dir, 'data.db'), Buffer.concat([Buffer.from([0, 1, 2]), Buffer.from(key)]))
+  git(dir, 'add', 'big.txt', 'data.db')
+  git(dir, 'commit', '-q', '-m', 'a big file and a binary')
+  node(dir, 'packet.mjs', '--goal', 'g', '--base', 'HEAD')
+  const r = relay(dir, '--cmd', EXPORT_REVIEWER)
+  assert.equal(r.status, 0, r.stderr)
+  const listing = readFileSync(join(dir, 'docs/reviews/inbox/RV-001-custom.md'), 'utf8').split('\n')
+  assert.ok(!listing.includes('big.txt') && !listing.includes('data.db'), 'neither is exported')
+  const meta = JSON.parse(readFileSync(join(dir, 'docs/reviews/inbox/RV-001-custom.meta.json'), 'utf8'))
+  assert.deepEqual(meta.export.left_out.sort(), ['big.txt (too large)', 'data.db (binary)'])
+})
+
+test('RV-020 F5: relaying the same round again never writes over the saved answer', () => {
+  const dir = exportRepo()
+  node(dir, 'packet.mjs', '--goal', 'g', '--base', 'HEAD')
+  assert.equal(relay(dir, '--packet-only', '--cmd', 'printf first').status, 0)
+  const again = relay(dir, '--packet-only', '--cmd', 'printf second')
+  assert.equal(again.status, 0, again.stderr)
+  assert.equal(readFileSync(join(dir, 'docs/reviews/inbox/RV-001-custom.md'), 'utf8'), 'first')
+  assert.equal(readFileSync(join(dir, 'docs/reviews/inbox/RV-001-custom-2.md'), 'utf8'), 'second')
+  assert.ok(existsSync(join(dir, 'docs/reviews/inbox/RV-001-custom-2.meta.json')))
+})
+
+test('RV-021 F1: unquoted and prefixed secret-named settings are caught; a test word only excuses a value made of nothing else', async () => {
+  const { secretsIn } = await import('../skills/outside-review/scripts/export.mjs')
+  const v = 'Abc' + 'DefGhiJklMnoPqrStuVwx'
+  const caught = [
+    'API_' + 'KEY=' + v,
+    'api_' + 'key: ' + v,
+    'pass' + 'word: "prod-test-' + 'UltraSecretValue"',
+    '"GOOGLE_MAPS_API_' + 'KEY": "' + v + '"',
+    'googleMapsApi' + 'Key: "' + v + '"',
+    'DB_PASS' + 'WORD=CorrectHorseBatteryStaple',
+  ]
+  for (const line of caught) assert.equal(secretsIn(line).length > 0, true, line)
+  const quiet = [
+    'apiKey: config.mapsKey,',
+    'API_KEY=process.env.API_KEY',
+    'API_KEY=os.environ.get("X")',
+    '<li key="landing.hero.title.long">',
+    'password: string;',
+    'password: Enter your password here',
+    'SECRET_KEY=${SECRET_KEY}',
+  ]
+  for (const line of quiet) assert.deepEqual(secretsIn(line), [], line)
+})
+
+test('a file edited while the gates run makes the packet stale: its fingerprint is the snapshot its diff came from', () => {
+  const dir = repo()
+  writeFileSync(join(dir, 'app.js'), 'export const add = (a, b) => a - b\n')
+  // The gate itself edits the code after the diff was read
+  const built = node(dir, 'packet.mjs', '--goal', 'g', '--base', 'HEAD', '--gate', "printf '// edited mid-gate\\n' >> app.js")
+  assert.equal(built.status, 0, built.stderr)
+  // The gate's own command text is listed in the packet; what matters is that the diff doesn't carry the edit
+  assert.doesNotMatch(readFileSync(join(dir, 'docs/reviews/packets/RV-001.md'), 'utf8'), /^\+\/\/ edited mid-gate/m)
+  const r = node(dir, 'relay.mjs', '--packet', 'docs/reviews/packets/RV-001.md', '--packet-only', '--cmd', 'cat')
+  assert.equal(r.status, 2, 'the packet no longer describes the code')
+  assert.match(r.stderr, /stale packet/)
+})
+
+test('RV-022 F1: suffixed names, quoted passwords with spaces, and a real value after a placeholder on one line are caught, through the relay too', async () => {
+  const { secretsIn } = await import('../skills/outside-review/scripts/export.mjs')
+  const v = 'Abc' + 'DefGhiJklMnoPqrStuVwx'
+  assert.equal(secretsIn('AWS_SECRET_ACCESS_' + 'KEY=' + v).length > 0, true)
+  assert.equal(secretsIn(JSON.stringify({ apiKey: 'your-api-key-goes-here-123', clientSecret: 'RealCredential' + 'ValueAbcDef123' })).length > 0, true)
+  assert.equal(secretsIn('Server=db;Database=app;User Id=app;Pass' + 'word="Correct Horse Battery Staple";').length > 0, true)
+
+  const dir = exportRepo()
+  writeFileSync(join(dir, 'deploy.env.sh'), 'AWS_SECRET_ACCESS_' + 'KEY=' + v + '\n')
+  node(dir, 'packet.mjs', '--goal', 'g', '--base', 'HEAD')
+  const refused = relay(dir, '--cmd', 'cat')
+  assert.equal(refused.status, 1)
+  assert.match(refused.stderr, /secret-named setting/)
+  assert.ok(!refused.stderr.includes(v))
+})
+
+test('RV-022: a file whose purpose is secrets is never exported, whatever the patterns make of it', () => {
+  const dir = exportRepo()
+  mkdirSync(join(dir, 'config'), { recursive: true })
+  writeFileSync(join(dir, 'config', 'appsettings.Production.json'), '{ "Feature": "on" }\n')
+  writeFileSync(join(dir, '.npmrc'), 'registry=https://registry.npmjs.org/\n')
+  git(dir, 'add', 'config', '.npmrc')
+  git(dir, 'commit', '-q', '-m', 'config')
+  node(dir, 'packet.mjs', '--goal', 'g', '--base', 'HEAD')
+  const r = relay(dir, '--cmd', EXPORT_REVIEWER + '; ls -a config 2>/dev/null; true')
+  assert.equal(r.status, 0, r.stderr)
+  const reply = readFileSync(join(dir, 'docs/reviews/inbox/RV-001-custom.md'), 'utf8')
+  assert.doesNotMatch(reply, /appsettings|\.npmrc/)
+  const meta = JSON.parse(readFileSync(join(dir, 'docs/reviews/inbox/RV-001-custom.meta.json'), 'utf8'))
+  assert.deepEqual(meta.export.left_out.sort(), ['.npmrc (secret-bearing file)', 'config/appsettings.Production.json (secret-bearing file)'])
+})
+
+test('a name that describes a secret, a type annotation or a regex is not a secret (the false positives RV-022 fixes first raised)', async () => {
+  const { secretsIn } = await import('../skills/outside-review/scripts/export.mjs')
+  for (const quiet of [
+    '  tokens: ReadonlySet<AvailabilityToken>',
+    'export const CLAIM_TOKEN_HEADER = "x-employer-claim-token";',
+    "const SECRET_NAME = '(?:api[_-]?key|apikey|secret|token)[A-Za-z0-9_]*'",
+  ]) assert.deepEqual(secretsIn(quiet), [], quiet)
+  assert.equal(secretsIn('JWT_SEC' + 'RET="' + 'Abc' + 'DefGhiJklMnoPqrStuVwx"').length, 1, 'a real name still counts')
+})
+
+test('RV-023 F1: an all-caps credential is not a variable name, and a quoted password with spaces counts unless it reads as a sentence', async () => {
+  const { secretsIn } = await import('../skills/outside-review/scripts/export.mjs')
+  const pw = 'PASS' + 'WORD'
+  assert.equal(secretsIn('API_' + 'KEY="ABCDEFGHIJKLMNOP' + '1234567890"').length, 1)
+  assert.equal(secretsIn(pw + '="Correct Horse ' + 'Battery Staple"').length, 1)
+  assert.deepEqual(secretsIn(pw.toLowerCase() + ': "Enter your password here"'), [])
+  assert.deepEqual(secretsIn(pw.toLowerCase() + ': "Your password must be at least 8 characters."'), [])
+  assert.deepEqual(secretsIn('API_' + 'KEY=DB_API_KEY'), [], 'an ENV_VAR_NAME with its underscores is a reference')
+})
+
+test('RV-023 F2: a path in exportFakes excuses only fixture-shaped hits; a key or token needs its exact digest; a .env value never', async () => {
+  const { unexcused } = await import('../skills/outside-review/scripts/export.mjs')
+  const hits = [
+    { path: 'fx.js', line: 1, kind: 'secret-named setting', digest: 'aaaa' },
+    { path: 'fx.js', line: 2, kind: 'private key', digest: 'bbbb' },
+    { path: 'fx.js', line: 3, kind: 'api token', digest: 'cccc' },
+    { path: 'fx.js', line: 4, kind: 'a value from the project .env', digest: 'dddd' },
+  ]
+  assert.deepEqual(unexcused(hits, ['fx.js']).map((h) => h.line), [2, 3, 4], 'a path alone excuses only the shape')
+  assert.deepEqual(unexcused(hits, ['fx.js', { path: 'fx.js', digests: ['cccc', 'dddd'] }]).map((h) => h.line), [2, 4], 'a digest excuses that one; a .env value never')
+
+  // Through the relay: a real-looking key added to a file listed as fake still withholds the export, and the message gives its digest
+  const dir = exportRepo()
+  mkdirSync(join(dir, '.claude'), { recursive: true })
+  writeFileSync(join(dir, '.claude', 'review.json'), JSON.stringify({ exportFakes: ['fixtures.js'] }))
+  writeFileSync(join(dir, 'fixtures.js'), 'export const k = "' + '-----BEGIN ' + 'RSA PRIVATE KEY-----' + '"\n')
+  git(dir, 'add', '.claude', 'fixtures.js')
+  git(dir, 'commit', '-q', '-m', 'a key in a fixture file')
+  node(dir, 'packet.mjs', '--goal', 'g', '--base', 'HEAD')
+  const r = relay(dir, '--cmd', 'cat; true')
+  assert.equal(r.status, 0, r.stderr)
+  assert.match(r.stdout, /packet only this round: secret-shaped values in fixtures\.js:1 \(private key, digest [0-9a-f]{16}\)/)
+})
+
+test('exportFakes entries for one path merge in any order', async () => {
+  const { unexcused } = await import('../skills/outside-review/scripts/export.mjs')
+  const hits = [{ path: 'fx.js', line: 1, kind: 'api token', digest: 'cccc' }, { path: 'fx.js', line: 2, kind: 'secret-named setting', digest: 'aaaa' }]
+  for (const fakes of [['fx.js', { path: 'fx.js', digests: ['cccc'] }], [{ path: 'fx.js', digests: ['cccc'] }, 'fx.js']]) assert.deepEqual(unexcused(hits, fakes), [], JSON.stringify(fakes))
 })

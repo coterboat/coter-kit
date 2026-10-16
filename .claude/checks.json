@@ -2,12 +2,12 @@
   "checks": [
     {
       "name": "syntax",
-      "run": ["node", "-e", "for (const d of ['hooks', 'skills/outside-review/scripts']) for (const f of require('fs').readdirSync(d)) if (/\\.m?js$/.test(f)) require('child_process').execFileSync(process.execPath, ['--check', d + '/' + f], { stdio: 'inherit' })"],
+      "run": ["node", "-e", "for (const d of ['hooks', 'skills/outside-review/scripts', 'skills/outside-review/walk']) for (const f of require('fs').readdirSync(d)) if (/\\.m?js$/.test(f)) require('child_process').execFileSync(process.execPath, ['--check', d + '/' + f], { stdio: 'inherit' })"],
       "timeoutSec": 60
     },
     {
-      "name": "outside-review scripts, timesheet arithmetic, waiting cards, phone pushes, the review inbox and addressed notes",
-      "run": ["node", "--test", "tests/outside-review.test.mjs", "tests/timesheet.test.mjs", "tests/waiting.test.mjs", "tests/phone.test.mjs", "tests/review-inbox.test.mjs", "tests/addressed.test.mjs"],
+      "name": "outside-review scripts and the walker, timesheet arithmetic, waiting cards, phone pushes, the review inbox and addressed notes",
+      "run": ["node", "--test", "tests/outside-review.test.mjs", "tests/walk.test.mjs", "tests/timesheet.test.mjs", "tests/waiting.test.mjs", "tests/phone.test.mjs", "tests/review-inbox.test.mjs", "tests/addressed.test.mjs"],
       "timeoutSec": 180
     }
   ]
