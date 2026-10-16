@@ -1,7 +1,7 @@
 {
  "v": 1,
  "device": "mac",
- "updated_at": "2026-10-16T04:09:17.428Z",
+ "updated_at": "2026-10-16T04:10:30.351Z",
  "days": {
   "2026-10-08": {
    "jobsnearme": {
@@ -273,15 +273,15 @@
   },
   "2026-10-16": {
    "jobsnearme": {
-    "you_ms": 0,
-    "claude_ms": 2291999,
-    "claude_wall_ms": 555659,
+    "you_ms": 564322,
+    "claude_ms": 2404070,
+    "claude_wall_ms": 611422,
     "scheduled_ms": 0
    },
    "JoinOurPlace": {
     "you_ms": 0,
-    "claude_ms": 529301,
-    "claude_wall_ms": 529301,
+    "claude_ms": 630626,
+    "claude_wall_ms": 630626,
     "scheduled_ms": 0
    },
    "scratch-2026-10-16-53291a": {
