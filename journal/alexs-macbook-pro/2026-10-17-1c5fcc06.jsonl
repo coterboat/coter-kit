@@ -4,3 +4,4 @@
 {"op":"status","ref":"t8pdhkns","status":"superseded","at":1792208772105,"device":"alexs-macbook-pro"}
 {"id":"v2x6gkbf","at":1792209194872,"device":"alexs-macbook-pro","session":"1c5fcc06-2f56-4e88-bedb-18a8f618d4ee","project":"jobsnearme","kind":"decision","text":"SIGN-S3: Sign as written (answer to \"jobsnearme /privacy gap (lane S): playing an imported Juvo video makes the visitor's browser load it from Juvo's Amazon…\", given in /waiting)","status":"active","source":"claude","replaces":"utuyfa26","answers":"utuyfa26"}
 {"op":"status","ref":"utuyfa26","status":"superseded","at":1792209194872,"device":"alexs-macbook-pro"}
+{"op":"delivered","ref":"v9qdyax2","at":1792210335131,"device":"alexs-macbook-pro","session":"1c5fcc06-2f56-4e88-bedb-18a8f618d4ee"}
