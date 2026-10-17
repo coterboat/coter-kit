@@ -1,0 +1,2 @@
+{"id":"vam9otye","at":1792209553980,"device":"alexs-macbook-pro","session":"74b08a63-33e3-4ebb-be58-fdd84ff46a9a","project":"coter-kit","kind":"decision","text":"M4-Q1: Yes, or done (answer to \"Claude's-time definitions differ between coter-kit M4 and undertone 0.5.0's /timesheet. coter-kit: minutes a main-threa…\", given in /waiting)","status":"active","source":"claude","replaces":"bqmzv9tj","answers":"bqmzv9tj"}
+{"op":"status","ref":"bqmzv9tj","status":"superseded","at":1792209553980,"device":"alexs-macbook-pro"}
