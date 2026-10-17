@@ -15,3 +15,10 @@
 {"id":"69r64rdv","at":1792167523276,"device":"alexs-macbook-pro","session":"4f893ef1-fa5e-4b15-8d63-cfa320f7974d","project":"jobsnearme","kind":"waiting","text":"jobsnearme: may the JNM director sign compliance blocks on build/next under your 10-16 delegation (batched for your later review), or do compliance signatures stay yours? The director asked lane C to record its signature on FS-588/642; lane C declined because your 10-16 rule kept signatures yours and the director had said a safety check blocked it signing for you.","ref":"SIGN-DELEGATE","options":["Signatures stay mine (batched weekly)","Director may sign on build/next; I revi…"],"status":"active","source":"claude"}
 {"id":"6bchl9xn","at":1792167597561,"device":"alexs-macbook-pro","session":"4f893ef1-fa5e-4b15-8d63-cfa320f7974d","project":"jobsnearme","kind":"decision","text":"SIGN-DELEGATE withdrawn (10-16): the JNM director confirmed compliance signatures stay the owner's (it recommends, he signs via /waiting); lane C's FS-588/642/643 stay draft after certify and merge to build/next as draft with the certify record, flipping to in_review only when his signature is recorded.","status":"active","source":"claude","replaces":"69r64rdv","answers":"69r64rdv"}
 {"op":"status","ref":"69r64rdv","status":"superseded","at":1792167597562,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"emht19fo","status":"active","at":1792209721286,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"gks68pfz","status":"active","at":1792209721470,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"i1sdxjuz","status":"active","at":1792209721663,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"k1yie3z1","status":"superseded","at":1792209721842,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"kn64bo57","status":"superseded","at":1792209722104,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"yv6dyam2","status":"active","at":1792209722288,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"zwj72w6z","status":"active","at":1792209722465,"device":"alexs-macbook-pro"}

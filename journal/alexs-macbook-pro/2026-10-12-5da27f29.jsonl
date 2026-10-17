@@ -75,3 +75,13 @@
 {"id":"dygrduy3","at":1791999034969,"device":"alexs-macbook-pro","session":"5da27f29-f640-5b8c-8231-50e874a31022","project":"","kind":"preference","text":"Bundle small owner-requested changes (e.g. a verification file) into the director's next scheduled push rather than triggering their own deploy ('wrap it in with the next push').","status":"pending","source":"digest"}
 {"id":"llacefg0","at":1792011857054,"device":"alexs-macbook-pro","session":"5da27f29-f640-5b8c-8231-50e874a31022","project":"","kind":"preference","text":"Alex's pre-demo deploy freeze protects /demo only: urgent live-site fixes may push inside the freeze window as long as /demo is unaffected.","status":"pending","source":"digest"}
 {"id":"llacegwh","at":1792011857054,"device":"alexs-macbook-pro","session":"5da27f29-f640-5b8c-8231-50e874a31022","project":"","kind":"term","text":"\"cutoff window\" = the pre-demo deploy freeze period","status":"pending","source":"digest"}
+{"op":"status","ref":"8fs47zqv","status":"superseded","at":1792209720791,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"99yeorr1","status":"superseded","at":1792209720940,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"a6xewsuk","status":"superseded","at":1792209721071,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"cg9ulyk4","status":"superseded","at":1792209721216,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"fyle5rpe","status":"superseded","at":1792209721383,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"h7kby0ba","status":"superseded","at":1792209721566,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"i7e2qq5a","status":"superseded","at":1792209721743,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"k2o8q2hk","status":"superseded","at":1792209721932,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"n8uhhmic","status":"superseded","at":1792209722141,"device":"alexs-macbook-pro"}
+{"op":"status","ref":"ztcmkypr","status":"superseded","at":1792209722321,"device":"alexs-macbook-pro"}
