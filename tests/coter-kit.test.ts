@@ -1658,7 +1658,7 @@ function reviewBrain(now = Date.now()) {
   const rows = [
     n('p1', { kind: 'fact', source: 'digest', status: 'pending', text: 'The e2e gate stops after the flake hunt' }),
     n('p2', { kind: 'fact', source: 'digest', status: 'pending', text: 'Node modules in the main checkout are stale' }),
-    n('l1', { kind: 'thread', source: 'digest', text: 'Lane 1 is building FS-301' }),
+    n('l1', { at: now - 3 * DAY, kind: 'thread', source: 'digest', text: 'Lane 1 is building FS-301' }),
     n('l2', { kind: 'fact', source: 'digest', text: 'Node modules in the main checkout are stale' }),
     n('u1', { kind: 'decision', text: 'Q8: tag the art as Example', answers: 'w8' }),
     n('old', { at: now - 30 * DAY, text: 'An old fact nobody needs to look at again' }),
@@ -1679,6 +1679,8 @@ t('the reviewer gets everything waiting for review and what went live this week,
   expect(out.result).toMatch(/\[u1 · live · decision · work · claude · [^\]]*the user's own/)
   expect(out.result).toMatch(/\[t3 [^\]]*replaced t2 · unsettled/)
   expect(out.result).not.toContain('An old fact nobody needs')
+  // Waiting notes lead the queue, so a capped run reaches them before live ones
+  expect(out.result.indexOf('[p1 ')).toBeLessThan(out.result.indexOf('[l1 '))
 })
 
 t('every verdict needs evidence, and changing a live note also needs the best case for keeping it', async ($, on) => {

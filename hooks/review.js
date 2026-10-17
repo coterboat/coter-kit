@@ -51,12 +51,15 @@ export function isUnsettled(e, replacementText, now = Date.now()) {
 }
 
 // What the reviewer looks at: everything waiting for review, and every note that went live in
-// the last week without a verdict (handoffs and waiting items are the user's, not the reviewer's)
+// the last week without a verdict (handoffs and waiting items are the user's, not the reviewer's).
+// Waiting notes come first, oldest first, so a capped run never spends itself on live ones while
+// /brain's queue waits
 export function reviewQueue(now = Date.now()) {
+  const live = (e) => (e.status === 'pending' ? 0 : 1)
   return [...brain.entries.values()]
     .filter((e) => e.kind !== 'handoff' && e.kind !== 'waiting' && e.kind !== 'route' && !e.review)
     .filter((e) => e.status === 'pending' || (e.status === 'active' && now - e.at <= QUEUE_DAYS * 86_400_000))
-    .sort((a, b) => a.at - b.at)
+    .sort((a, b) => live(a) - live(b) || a.at - b.at)
 }
 
 export function queueText(items, now = Date.now()) {
