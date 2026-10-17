@@ -16,18 +16,18 @@
       "last": "00:04"
     },
     "jobsnearme": {
-      "activeMin": 116,
-      "laneMin": 272,
+      "activeMin": 146,
+      "laneMin": 378,
       "blockedMin": 0,
       "brokenMin": {
         "typecheck:tsc": 9
       },
       "sessions": 6,
-      "turns": 71,
-      "commits": 35,
-      "pushes": 16,
+      "turns": 89,
+      "commits": 45,
+      "pushes": 26,
       "first": "00:00",
-      "last": "03:56"
+      "last": "04:27"
     }
   },
   "sources": {
