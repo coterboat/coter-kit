@@ -29,6 +29,8 @@ const GLOBAL_KINDS = new Set(['preference', 'term', 'handoff'])
 // An unanswered 'waiting' item (waiting.js) leaves the list after a month
 const TTL_DAYS = { thread: 21, decision: 180, fact: 180, handoff: 7, waiting: 30, route: 180 }
 const MAX_TEXT = { handoff: 4000 }
+// How long a note of this kind may be; anything longer is cut, and the remember tool says so
+export const textLimit = (kind) => MAX_TEXT[kind] || 400
 const DAY = 86_400_000
 const CONTEXT_BUDGET = 13000
 const SYNC_DELAY_MS = 20_000
@@ -204,7 +206,7 @@ export async function remember(io, notes, { source = 'claude', fromName = '', pi
   const rows = []
   for (const note of notes) {
     const kind = KINDS.includes(note.kind) ? note.kind : null
-    const text = clip(redact(String(note.text || '').trim()), MAX_TEXT[kind] || 400)
+    const text = clip(redact(String(note.text || '').trim()), textLimit(kind))
     if (!kind || !text) continue
     const to = ADDRESSABLE.has(kind) && canAddress && !fromDigest ? cleanName(note.to) : ''
     const confirmed = note.confirmed === true && !fromDigest
@@ -214,13 +216,29 @@ export async function remember(io, notes, { source = 'claude', fromName = '', pi
     // another belongs where that one did: answering jobsnearme's question from coter-kit files the
     // answer under jobsnearme (RV-004 F4)
     const named = typeof note.project === 'string' && note.project.trim() ? note.project.trim().slice(0, 40) : null
-    const project = named && (kind === 'waiting' || kind === 'route' || source === 'review')
-      ? named
-      : GLOBAL_KINDS.has(kind) || note.scope === 'global'
-        ? ''
-        : replaced && replaced.project
-          ? replaced.project
-          : env.project
+    // A preference is about the person, so it is global unless the caller scopes it on purpose, by naming a
+    // project or with scope 'project'; one that replaces another keeps the old one's scope unless it names one.
+    // The digest never scopes (Grok's ruling 10-08, conditions 1 to 3)
+    // Global and a project at once is a contradiction: it is not saved, and the remember tool says why (RV-020 F5)
+    if (kind === 'preference' && !fromDigest && named && note.scope === 'global') continue
+    const scoped = kind !== 'preference' || fromDigest
+      ? null
+      : named
+        ? named
+        : note.scope === 'project'
+          ? env.project
+          : note.scope === 'global' || !replaced || replaced.kind !== 'preference'
+            ? ''
+            : replaced.project || ''
+    const project = scoped !== null
+      ? scoped
+      : named && (kind === 'waiting' || kind === 'route' || source === 'review')
+        ? named
+        : GLOBAL_KINDS.has(kind) || note.scope === 'global'
+          ? ''
+          : replaced && replaced.project
+            ? replaced.project
+            : env.project
     // "done" with resolves retires the note it names; it isn't a note of its own
     if (note.resolves && /^done[.!]?$/i.test(text)) {
       if (replaced) rows.push(setStatusRow(replaced.id, 'superseded'))
@@ -323,11 +341,16 @@ export const waitingOnUser = (project, all = false, now = Date.now()) =>
     .sort(newestFirst)
 
 // Handoffs left by other sessions (on this machine or another) that nobody has picked up
-export const waitingHandoffs = (now = Date.now()) =>
-  [...brain.entries.values()]
-    .filter((e) => e.kind === 'handoff' && !e.to && e.session !== env.sessionId && isLive(e, now))
-    .sort(newestFirst)
-    .slice(0, 2)
+const liveHandoffs = (now) =>
+  [...brain.entries.values()].filter((e) => e.kind === 'handoff' && !e.to && e.session !== env.sessionId && isLive(e, now)).sort(newestFirst)
+export const waitingHandoffs = (now = Date.now()) => liveHandoffs(now).slice(0, 2)
+// The two a session is told about: this project's first, then the newest from elsewhere, so newer handoffs of
+// other projects never push this project's out (RV-020 F3; the cap stays 2, Grok's condition 6)
+const handoffsFor = (now) => {
+  const all = liveHandoffs(now)
+  const own = all.filter((h) => h.from && h.from === env.project)
+  return [...own, ...all.filter((h) => !own.includes(h))].slice(0, 2)
+}
 
 // ---------------------------------------------------------------- handoffs
 
@@ -380,59 +403,152 @@ const OTHER_PROJECT_LINE = 140
 // What a session is told: the profile, then what was learned, within a budget. A lean
 // brain, for a run nobody is watching (a scheduled task), is this project's notes and the
 // approved ways of working alone: no profile, no other projects, never a handoff.
+//
+// The instructions (where work runs, how we build, how to use this memory) always arrive whole. What's left
+// of the budget goes to the rest in order of need, and a section that doesn't fit gives way from the bottom
+// of that order (NEED_ORDER), whole items or whole profile sections at a time, never mid-sentence
+// (docs/scoped-brain-plan.md, Grok's ruling 10-08, condition 5)
 export async function brainContext(io, { lean = false } = {}) {
   const now = Date.now()
   const live = [...brain.entries.values()].filter((e) => isLive(e, now)).sort(newestFirst)
-  const sections = []
-  const list = (rows, fmt) => rows.map((e) => '- ' + fmt(e)).join('\n')
+  const item = (s) => '- ' + s
+  const head = lean
+    ? '# Working memory (coter-brain): this project\'s notes, for a run nobody is watching'
+    : '# Working memory (coter-brain, shared across their sessions, repos and machines)'
 
-  const profile = lean ? '' : (await io.read(join(brain.dir, 'profile.md'))).trim()
-  if (profile) sections.push('## Who you are working with (their own profile)\n' + profile)
-  const prefs = live.filter((e) => e.kind === 'preference').slice(0, 25)
-  if (prefs.length) sections.push('## How they like to work (learned, approved by them)\n' + list(prefs, (e) => e.text))
-  const terms = lean ? [] : live.filter((e) => e.kind === 'term').slice(0, 40)
-  if (terms.length) sections.push('## Shared vocabulary\n' + list(terms, (e) => e.text))
+  // Each optional section is built to fit the room it is given: whole items while they fit, or nothing
+  const fitList = (title, lines) => (room) => {
+    let out = title
+    let n = 0
+    for (const l of lines) {
+      if (out.length + 1 + l.length > room) break
+      out += '\n' + l
+      n++
+    }
+    return n ? out : ''
+  }
+  const optional = {}
+  // This project's own preferences first: the fold leaves them as preferences, so nothing else carries them,
+  // and they are kept ahead of the profile (RV-020 F2). The global ones come after the profile
+  const prefs = visiblePreferences(live)
+  const shownPrefs = [...prefs.filter((e) => e.project), ...prefs.filter((e) => !e.project)].slice(0, PREFERENCE_CAP)
+  const PREFS_TITLE = '## How they like to work (learned, approved by them)'
+  optional.projectPrefs = fitList(PREFS_TITLE, shownPrefs.filter((e) => e.project).map((e) => item(e.text)))
+  optional.prefs = fitList(PREFS_TITLE, shownPrefs.filter((e) => !e.project).map((e) => item(e.text)))
   // A note addressed to one session reaches that session (addressed.js), not everyone's list
   const here = live.filter((e) => e.project === env.project && !e.to && ['decision', 'fact', 'thread'].includes(e.kind)).slice(0, 15)
-  if (here.length) {
-    sections.push('## ' + env.project + ': decisions, facts and open threads\n' + list(here, (e) => '[' + e.kind + ' · ' + ago(e.updatedAt || e.at) + ' · ' + e.id + '] ' + e.text))
-  }
+  optional.here = fitList('## ' + env.project + ': decisions, facts and open threads', here.map((e) => item('[' + e.kind + ' · ' + ago(e.updatedAt || e.at) + ' · ' + e.id + '] ' + e.text)))
   if (!lean) {
-    const handoffs = waitingHandoffs(now)
-    if (handoffs.length) sections.push('## Handoff waiting\n' + HANDOFF_WAITS + '\n\n' + handoffs.map(handoffBlock).join('\n\n'))
-    const asks = waitingSection(waitingOnUser(env.project, false, now).slice(0, 12), env.project)
-    if (asks) sections.push(asks)
+    const profile = (await io.read(join(brain.dir, 'profile.md'))).trim()
+    optional.profile = (room) => fitProfile(profile, join(brain.dir, 'profile.md'), room)
+    optional.terms = fitList('## Shared vocabulary', live.filter((e) => e.kind === 'term').slice(0, 40).map((e) => item(e.text)))
+    // A handoff from this project in full; one from anywhere else is a line with its id, since a session in
+    // another project rarely picks it up, and recall gives the rest (A3)
+    const handoffs = handoffsFor(now)
+    const own = handoffs.filter((h) => h.from && h.from === env.project)
+    const others = handoffs.filter((h) => !own.includes(h))
+    // Whole handoffs, newest first, as many as fit (RV-021 F3)
+    optional.handoff = (room) => {
+      let s = '## Handoff waiting\n' + HANDOFF_WAITS
+      let n = 0
+      for (const block of own.map(handoffBlock)) {
+        if (s.length + 2 + block.length > room) break
+        s += '\n\n' + block
+        n++
+      }
+      return n ? s : ''
+    }
+    optional.otherHandoffs = fitList('## Handoffs waiting in other projects\n' + HANDOFF_LINES_WAIT, others.map((h) => item(handoffLine(h))))
+    const asks = waitingOnUser(env.project, false, now).slice(0, 12)
+    optional.waiting = (room) => {
+      for (let n = asks.length; n > 0; n--) {
+        const s = waitingSection(asks.slice(0, n), env.project)
+        if (s.length <= room) return s
+      }
+      return ''
+    }
     // One line per other project, its newest thread: enough to know what is in flight
     const latest = new Map()
     for (const e of live) if (e.kind === 'thread' && !e.to && e.project && e.project !== env.project && !latest.has(e.project)) latest.set(e.project, e)
-    const elsewhere = [...latest.values()].slice(0, 8)
-    if (elsewhere.length) {
-      sections.push(
-        '## In flight in their other projects (the latest thread of each; ' + RECALL_TOOL + ' has the rest)\n' +
-          list(elsewhere, (e) => '[' + e.project + ' · ' + ago(e.updatedAt || e.at) + '] ' + clip(e.text, OTHER_PROJECT_LINE)),
-      )
-    }
+    optional.elsewhere = fitList(
+      '## In flight in their other projects (the latest thread of each; ' + RECALL_TOOL + ' has the rest)',
+      [...latest.values()].slice(0, 8).map((e) => item('[' + e.project + ' · ' + ago(e.updatedAt || e.at) + '] ' + clip(e.text, OTHER_PROJECT_LINE))),
+    )
   }
 
+  const required = instructions(io, { lean, now, live, prefs })
+  let room = CONTEXT_BUDGET - head.length - Object.values(required).reduce((n, s) => n + s.length + 2, 0)
+  const kept = {}
+  for (const key of NEED_ORDER) {
+    if (!optional[key]) continue
+    const s = optional[key](room - 2)
+    if (!s) continue
+    kept[key] = s
+    room -= s.length + 2
+  }
+  // One preferences section: this project's, then the global ones that fit
+  if (kept.projectPrefs) kept.prefs = kept.prefs ? kept.projectPrefs + kept.prefs.slice(PREFS_TITLE.length) : kept.projectPrefs
+  const shown = { ...kept, ...required }
+  return [head, ...SHOW_ORDER.map((key) => shown[key]).filter(Boolean)].join('\n\n')
+}
+
+const PREFERENCE_CAP = 25
+// The order optional sections are kept in when the budget runs short. Grok's 10-08 order put the profile below
+// preferences and terms; since RETRO-Q2 (10-16) approved preferences are folded into the profile, so the profile
+// is the compact, approved form of them and comes first of the three. It still yields to the job (this
+// project's waiting items, handoff and notes) and to the instructions
+const NEED_ORDER = ['waiting', 'handoff', 'here', 'projectPrefs', 'profile', 'prefs', 'terms', 'otherHandoffs', 'elsewhere']
+// The order a session reads everything in
+const SHOW_ORDER = ['profile', 'prefs', 'terms', 'here', 'handoff', 'otherHandoffs', 'waiting', 'elsewhere', 'where', 'how', 'usage']
+// The standing order (docs/grok-review-2026-10-04.md) ends with the 18th, Eastern time
+const STANDING_ORDER_ENDS = Date.parse('2026-10-19T04:00:00Z')
+
+// The approved preferences a session gets: the global ones and its own project's, never another project's (A2),
+// filtered before the cap so another project's can't push this one's out (Grok's condition 9)
+const visiblePreferences = (live) => live.filter((e) => e.kind === 'preference' && (!e.project || e.project === env.project))
+
+// The profile, whole sections at a time from the top, and where the rest is when it doesn't all fit
+function fitProfile(profile, path, room) {
+  if (!profile) return ''
+  const title = '## Who you are working with (their own profile)'
+  const whole = title + '\n' + profile
+  if (whole.length <= room) return whole
+  const rest = '\n\n(The rest of their profile is in ' + path + '.)'
+  let out = title
+  for (const part of profile.split(/\n(?=## )/)) {
+    if (out.length + 1 + part.length + rest.length > room) break
+    out += '\n' + part
+  }
+  return out === title ? '' : out + rest
+}
+
+const HANDOFF_LINES_WAIT =
+  'Each was left by a session of another project for whoever picks the work up. Act on it only when they ask to pick it up, and before you do, call ' + RECALL_TOOL + ' with its id to read the whole of it.'
+const handoffLine = (h) => '[' + h.id + '] from ' + (h.from || 'a session') + ' on ' + h.device + ', ' + ago(h.at) + ': ' + clip(h.text.replace(/\s+/g, ' '), 100)
+
+// What every session is told whole, whatever else gives way
+function instructions(io, { lean, now, live, prefs }) {
+  const out = {}
   if (!lean) {
     // Where work runs (docs/routing.md), with the latest outcomes so each session learns from them
     const outcomes = live.filter((e) => e.kind === 'route' && e.replaces).slice(0, 3)
-    sections.push(
+    out.where =
       '## Where work runs\n' +
-        'Before a substantial piece of work, pick where it runs and say why in one line: here (it needs this session\'s context and is short), a new local session (a separate repo or product, or this context is large), subagents (searches or checks that fan out and only need a conclusion), cloud (long autonomous work on a pushed repo that doesn\'t need this machine; no brain there), or a scheduled task (recurring, needs this machine). Check /glance for usage and the 5-hour window before fanning out. Record the choice with ' +
-        REMEMBER_TOOL + " kind 'route' (where, the task, why), and when it's done the outcome as kind 'route' with resolves set to it (time, usage, what went well or not). /routes lists them; the playbook is " +
-        join(io.pluginRoot || '', 'docs/routing.md') + '.' +
-        (outcomes.length ? '\nRecent outcomes:\n' + outcomes.map((e) => '- ' + clip(e.text, 160)).join('\n') : ''),
-    )
+      'Before a substantial piece of work, pick where it runs and say why in one line: here (it needs this session\'s context and is short), a new local session (a separate repo or product, or this context is large), subagents (searches or checks that fan out and only need a conclusion), cloud (long autonomous work on a pushed repo that doesn\'t need this machine; no brain there), or a scheduled task (recurring, needs this machine). Check /glance for usage and the 5-hour window before fanning out. Record the choice with ' +
+      REMEMBER_TOOL + " kind 'route' (where, the task, why), and when it's done the outcome as kind 'route' with resolves set to it (time, usage, what went well or not). /routes lists them; the playbook is " +
+      join(io.pluginRoot || '', 'docs/routing.md') + '.' +
+      (outcomes.length ? '\nRecent outcomes:\n' + outcomes.map((e) => '- ' + clip(e.text, 160)).join('\n') : '')
     // The house standard (docs/standard.md): every project inherits the same pipeline
-    sections.push(
+    out.how =
       '## How we build\n' +
-        'Follow the house standard, ' + join(io.pluginRoot || '', 'docs/standard.md') + '. Standing order through 2026-10-18 (' + join(io.pluginRoot || '', 'docs/grok-review-2026-10-04.md') + '): do the work of the repo you were opened in. coter-kit and undertone are in use. Do not start a milestone, review arc, engine, source, or cleanup on them unless the user asks in this conversation. Wheat from chaff is what they used; cutting means removing what they did not use, not redesigning it. ' +
-        'Pick the tier by stakes: light (prototypes, small internal changes), standard (client features, anything a user sees), full (privacy, consent, money, auth, deleting data). ' +
-        'Standard and full: acceptance criteria that each name the test proving them, a read-only critic pass on the plan before building (2 rounds at most), tests watched failing first, every gate green (a skip is "not verified"). ' +
-        'An outside review (/coter-kit:outside-review) only when its triage says a trigger fired (data that lasts, who can do what, things others depend on, things that run on their own, a big change, a fix to a high finding): once per push, once you would push it right now; verify every finding with your own evidence, fix the class. Only a confirmed high finding or a compliance issue blocks shipping; mediums are fixed if quick or deferred with a reason. ' +
-        'Aim reviews at what users, attackers or bad data could break, not at wording or the process. Compliance, privacy and judgment calls go to the user; anything user-visible is done once they have walked it.',
-    )
+      'Follow the house standard, ' + join(io.pluginRoot || '', 'docs/standard.md') + '. ' +
+      (now < STANDING_ORDER_ENDS
+        ? 'Standing order through 2026-10-18 (' + join(io.pluginRoot || '', 'docs/grok-review-2026-10-04.md') + '): do the work of the repo you were opened in. coter-kit and undertone are in use. Do not start a milestone, review arc, engine, source, or cleanup on them unless the user asks in this conversation. Wheat from chaff is what they used; cutting means removing what they did not use, not redesigning it. '
+        : '') +
+      'Pick the tier by stakes: light (prototypes, small internal changes), standard (client features, anything a user sees), full (privacy, consent, money, auth, deleting data). ' +
+      'Standard and full: acceptance criteria that each name the test proving them, a read-only critic pass on the plan before building (2 rounds at most), tests watched failing first, every gate green (a skip is "not verified"). ' +
+      'An outside review (/coter-kit:outside-review) only when its triage says a trigger fired (data that lasts, who can do what, things others depend on, things that run on their own, a big change, a fix to a high finding): once per push, once you would push it right now; verify every finding with your own evidence, fix the class. Only a confirmed high finding or a compliance issue blocks shipping; mediums are fixed if quick or deferred with a reason. ' +
+      'Aim reviews at what users, attackers or bad data could break, not at wording or the process. Compliance, privacy and judgment calls go to the user; anything user-visible is done once they have walked it.'
   }
 
   const pending = lean ? 0 : pendingEntries().length
@@ -450,21 +566,17 @@ export async function brainContext(io, { lean = false } = {}) {
       '- When they are about to switch machines or sessions, or wrap up a long stretch of work, offer /handoff: it leaves this conversation\'s state for the next session to pick up, on any machine, including sessions already open.',
     )
     if (pending) usage.push('- ' + pending + ' learned item(s) wait for their review in /brain. Do not bring it up unless it matters to the task.')
+    // Past the cap the oldest approved preferences stop reaching sessions, so they belong in the profile (RETRO-Q2)
+    const over = prefs.length - PREFERENCE_CAP
+    if (over > 0) {
+      usage.push(
+        '- ' + over + ' of their approved preferences are past the ' + PREFERENCE_CAP + ' a session gets, so the oldest no longer reach sessions. At a natural pause, offer to fold them into their profile with /coter-kit:fold-profile.',
+      )
+    }
   } else {
     usage.push('- Call ' + RECALL_TOOL + ' to search the rest of their notes on this project.')
   }
-  sections.push(usage.join('\n'))
-
-  let out = lean
-    ? '# Working memory (coter-brain): this project\'s notes, for a run nobody is watching'
-    : '# Working memory (coter-brain, shared across their sessions, repos and machines)'
-  for (const s of sections) {
-    if (out.length + s.length + 2 > CONTEXT_BUDGET) {
-      out += '\n\n' + clip(s, Math.max(200, CONTEXT_BUDGET - out.length - 2))
-      break
-    }
-    out += '\n\n' + s
-  }
+  out.usage = usage.join('\n')
   return out
 }
 
@@ -524,16 +636,32 @@ export function arrivalsContext(entries, retired = [], delivered = []) {
 // A run nobody watches (a scheduled task) gets what its lean brain promises, nothing more: this
 // project's decisions, facts and threads, and the approved ways of working; never another project,
 // a handoff, a waiting item or a route (RV-003 F2)
-const leanVisible = (e) => (e.project === env.project && ['decision', 'fact', 'thread'].includes(e.kind)) || (e.kind === 'preference' && !e.project && e.status === 'active')
+const leanVisible = (e) =>
+  (e.project === env.project && ['decision', 'fact', 'thread'].includes(e.kind)) || (e.kind === 'preference' && (!e.project || e.project === env.project) && e.status === 'active')
+const approved = (e) => e.status !== 'rejected' && e.status !== 'pending'
 
-export function recall(query, project, { lean = false } = {}) {
+// `kind` keeps to notes of one kind. With no words to search for, a preference or term lists every live one: the
+// fold-profile skill reads the approved preferences this way. Other kinds get the usual 12, so a listing never
+// pours out every project's notes (RV-020 F1, F4)
+const LISTABLE = new Set(['preference', 'term'])
+export function recall(query, project, { lean = false, kind = '' } = {}) {
+  // A whole query that is a note's id is that note, in any project: a one-line handoff says to look it up
+  // this way. Never on the lean path, which promises this project's notes alone (Grok's condition 8)
+  const exact = String(query || '').trim()
+  if (!lean && brain.entries.has(exact) && approved(brain.entries.get(exact))) return [brain.entries.get(exact)]
   // Words in any script; a CJK query has no spaces, so one character is a word there (RV-003 F3)
   const words = String(query || '').normalize('NFKC').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 3 || /\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana}|\p{Script=Hangul}/u.test(w))
   const now = Date.now()
+  if (LISTABLE.has(kind) && !words.length) {
+    return [...brain.entries.values()]
+      .filter((e) => e.kind === kind && isLive(e, now) && (!lean || leanVisible(e)) && (!project || !e.project || e.project.toLowerCase() === String(project).toLowerCase()))
+      .sort(newestFirst)
+  }
   const scored = []
   for (const e of brain.entries.values()) {
     // A note waiting for review hasn't been approved, so it isn't memory yet (RV-001 F1)
-    if (e.status === 'rejected' || e.status === 'pending') continue
+    if (!approved(e)) continue
+    if (kind && e.kind !== kind) continue
     if (lean && !leanVisible(e)) continue
     if (project && e.project && e.project.toLowerCase() !== String(project).toLowerCase()) continue
     const hay = (e.text + ' ' + e.project + ' ' + e.kind).toLowerCase()

@@ -23,7 +23,8 @@ Memory that learns by itself can learn the wrong thing and keep reinforcing it. 
 - **You approve anything about you.** Preferences and vocabulary, including everything the digest proposes, wait in `/brain` (keep / drop) until you approve them, unless you told Claude outright to remember them. A digest note can't skip that, retire another note, or leave a handoff, and one you dropped isn't proposed again.
 - **Work in progress expires.** Threads drop out after 3 weeks; decisions and facts after 6 months. Claude can retire a note early with `resolves`.
 - **An outside reviewer checks them**, with evidence, and you decide. It can drop an exact duplicate by itself; it can only challenge notes you made, and it can't flip-flop a topic.
-- **There's a budget.** At most about 13,000 characters reach a session, newest first. Other projects get one short line each, their latest thread; `recall` has the rest.
+- **There's a budget.** At most about 13,000 characters reach a session. The instructions (how we build, where work runs, how to use this memory) always arrive whole. The rest is kept in order of need, whole items or whole profile sections at a time: this project's waiting items, its own handoff, its notes and its own preferences, then the profile from the top, the global preferences, vocabulary, other projects' handoffs (one line each, with the id to `recall`) and what's in flight elsewhere. `recall` has the rest, and a note's id finds that note in full.
+- **Preferences fold into the profile.** A session gets the global preferences and its own project's, at most 25. Past that, Claude offers `/coter-kit:fold-profile`, which merges the lasting ones into `profile.md` and retires them, once you approve the change. A preference is global unless Claude files it under a project on purpose; the digest never does.
 - **Credentials are redacted** (keys, tokens, `pw ...`, long hex strings) before anything is written. The digest is told never to keep client or end-user personal data.
 
 ## Where it lives
@@ -72,6 +73,7 @@ Claude is told all of this at session start, along with when to call `recall`, w
 | `/checklist` | Open the task checklist |
 | `/checks`, `/checks off`, `/checks on` | Run the checks now, or turn them off or on for this folder |
 | `/coter-kit:mine-history` | Read this machine's past sessions and propose profile updates (run it once on each machine) |
+| `/coter-kit:fold-profile` | Fold your approved preferences into `profile.md`: each one is folded in, filed under its project, or retired, and nothing is written until you approve |
 
 The plugin also ships the `build-a-mod` skill: when you ask for something Claude Code can't do, Claude proposes a mod that adds the capability, builds and tests it, and loads it once you enable hot reloading. The skill lists what such a mod must never do (approve tool calls, change settings or permissions, hide its actions, send data somewhere you didn't name).
 
@@ -137,7 +139,7 @@ When you release, bump `version` in `.claude-plugin/plugin.json`. Installed copi
 claude --plugin-dir .                        # load it for one session, reloads on save
 claude plugin validate --strict .claude-plugin/plugin.json   # `.` checks only the marketplace manifest
 node --check hooks/*.js                       # validate does not catch syntax errors
-claude plugin test                            # 187 tests, no session or network needed
+claude plugin test                            # 204 tests, no session or network needed
 node --test tests/outside-review.test.mjs     # the outside-review scripts (16 tests), on a throwaway repo
 node --test tests/timesheet.test.mjs           # the timesheet arithmetic (22 tests)
 node --test tests/waiting.test.mjs tests/phone.test.mjs   # question cards, who acts on an answer, phone pushes (19 tests)

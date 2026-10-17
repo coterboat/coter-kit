@@ -41,13 +41,14 @@ import {
   markDelivered,
   takeDelivered,
   flushJournal,
+  textLimit,
 } from './brain.js'
 import { ADDRESSABLE, cleanName, nameKey, inboxFor, namesakes, pinDevice, wakePrompt, arrivingSection, snapshotSection, stuckNotes, sendHint, takeBatch, heldFor, heldSection, touchesConfig, isShell, PEER_DENIED, peerUndone, repoIdOf, hookTargets, GUARDED_DIRS } from './addressed.js'
 import { formatWaiting, waitingCard, cardAnswer, answerNote, answersRoot, outsideAnswer, followerOf, followUpPrompt, firstAnswer, LATER } from './waiting.js'
 import { formatRoutes } from './routes.js'
 import { updateMachine, sheetFor, weekOf, confirmCheck, parseAdjustment, formatSheet, validSheet } from './timesheet.js'
 import { liveRoot, dayOf, beatCredit, liveRecord, liveness, lastBeatIn, glance, KEEP_DAYS } from './live.js'
-import { alsoRedact } from './redact.js'
+import { alsoRedact, redact } from './redact.js'
 import { phoneFile, sentFile, phoneConfig, pusherOf, dueWaits, pushMessage, pushRequest, parseSent, mergeSent, nextSent, idleMs, newTopic } from './phone.js'
 import { REVIEW_TOOL, VERDICTS, reviewQueue, queueText, recordVerdicts, picks, challenges, applyVerdict, applyPicks, keepAsIs, userDecides, score, isGuarded, isProtected, isOpen } from './review.js'
 import { reviewsRoot, outsideReview, reviewAction, reviewClaim } from './review-inbox.js'
@@ -60,6 +61,8 @@ const MAX_FIX_ROUNDS = 2
 const DIGEST_EVERY_TURNS = 8
 // recall answers from a pull at most this old, so "pick up what I did on the PC" sees it
 const RECALL_FRESH_MS = 15_000
+// The most notes one recall returns when it lists a kind (preferences, terms)
+const LISTING_MAX = 500
 const SKIP_DIRS = new Set(['node_modules', '.git', 'bin', 'obj', 'dist', 'build', '.next', '.godot', '.venv', 'venv', '__pycache__', '.claude'])
 const LOCKED = /MSB3027|MSB3021|being used by another process/
 
@@ -548,14 +551,18 @@ const REMEMBER_SPEC = {
           properties: {
             kind: { type: 'string', enum: KINDS },
             text: { type: 'string' },
-            scope: { type: 'string', enum: ['project', 'global'], description: 'Decisions, threads and facts default to this project' },
+            scope: {
+              type: 'string',
+              enum: ['project', 'global'],
+              description: "Decisions, threads and facts default to this project. A preference is global unless you pass 'project', for one that only matters in this project",
+            },
             confirmed: { type: 'boolean' },
             resolves: { type: 'string', description: 'Id of an earlier note this replaces or finishes' },
             link: { type: 'string', description: 'waiting only, optional: the http(s) URL of what to review' },
             ref: { type: 'string', description: 'waiting only: a short label, such as "Q8"' },
             options: { type: 'array', items: { type: 'string' }, description: 'waiting only, optional: 2 or 3 short answers the user can click, your recommendation first (Later and a typed answer are always offered)' },
             where: { type: 'string', enum: ROUTE_WHERE, description: 'route only: where the work runs' },
-            project: { type: 'string', description: 'waiting and route only: file it under another project, by its repository name' },
+            project: { type: 'string', description: 'waiting, route and preference only: file it under another project, by its repository name' },
             to: { type: 'string', description: "thread and handoff only: the name of the session it is for (its title, as ListAgents shows it), when SendMessage can't reach it" },
           },
           required: ['kind', 'text'],
@@ -603,7 +610,8 @@ const RECALL_SPEC = {
   inputSchema: {
     type: 'object',
     properties: {
-      query: { type: 'string' },
+      query: { type: 'string', description: "Keywords, or a note's id to read that one note in full" },
+      kind: { type: 'string', enum: KINDS, description: 'Only notes of this kind. With an empty query, a preference or term lists every live one' },
       project: { type: 'string', description: 'Limit to one project by its repository name' },
     },
     required: ['query'],
@@ -2035,13 +2043,24 @@ export function register(on, options = {}) {
     const dropped = notes.filter((n) => typeof n.to === 'string' && n.to.trim() && (unattended || !['thread', 'handoff'].includes(n.kind))).length
     const toNote = !dropped ? '' : unattended ? ' A scheduled run can\'t address notes, so to was dropped.' : ' to is only for thread and handoff notes; it was dropped from ' + dropped + '.'
     const retired = notes.filter((n) => n.resolves && !missing.includes(n.resolves) && /^done[.!]?$/i.test(String(n.text || '').trim())).map((n) => n.resolves)
-    if (!added.length) return { result: (retired.length ? 'Retired ' + retired.join(', ') + '.' : 'Nothing new to save (already known, or empty).') + notFound + toNote }
+    // A note longer than its kind allows is saved cut short, and the end is lost unless Claude saves it again
+    const cut = notes.filter((n) => KINDS.includes(n.kind) && redact(String(n.text || '').trim()).length > textLimit(n.kind))
+    const cutNote = !cut.length
+      ? ''
+      : ' Cut at ' + cut.map((n) => textLimit(n.kind)).filter((v, i, a) => a.indexOf(v) === i).join(' or ') + ' characters, so the end was not saved: ' +
+        cut.map((n) => '"' + clip(redact(String(n.text).trim()), 40) + '"').join(', ') + '. Save the rest as another note, or use a handoff for a longer message (up to 4,000 characters).'
+    const both = notes.filter((n) => n.kind === 'preference' && n.scope === 'global' && typeof n.project === 'string' && n.project.trim())
+    const bothNote = !both.length
+      ? ''
+      : ' Not saved: ' + both.map((n) => '"' + clip(redact(String(n.text || '').trim()), 40) + '" says it is both global and filed under ' + n.project.trim()).join('; ') +
+        '. Send it again with scope global or with project, not both.'
+    if (!added.length) return { result: (retired.length ? 'Retired ' + retired.join(', ') + '.' : 'Nothing new to save (already known, or empty).') + notFound + toNote + cutNote + bothNote }
     const waiting = added.filter((n) => n.status === 'pending').length
     const handoff = added.find((n) => n.kind === 'handoff')
     const shipped = handoff ? await shipHandoff($, handoff) : ''
     return {
       result:
-        'Saved ' + added.length + ' note(s): ' + added.map((n) => n.id).join(', ') + '.' + (retired.length ? ' Retired ' + retired.join(', ') + '.' : '') + (waiting ? ' ' + waiting + ' wait for the user to review them in /brain.' : '') + addressedResult(added, records, now) + shipped + notFound + toNote,
+        'Saved ' + added.length + ' note(s): ' + added.map((n) => n.id).join(', ') + '.' + (retired.length ? ' Retired ' + retired.join(', ') + '.' : '') + (waiting ? ' ' + waiting + ' wait for the user to review them in /brain.' : '') + addressedResult(added, records, now) + shipped + notFound + toNote + cutNote + bothNote,
     }
   })
 
@@ -2122,8 +2141,10 @@ export function register(on, options = {}) {
     } catch (err) {
       $.ui.log('brain refresh failed: ' + (err?.message || err))
     }
-    const found = recall(e.query, unattended ? env.project : e.project, { lean: unattended })
-    return { result: found.length ? found.map(describe).join('\n') : 'Nothing in memory matches "' + e.query + '".' }
+    const found = recall(e.query, unattended ? env.project : e.project, { lean: unattended, kind: typeof e.kind === 'string' ? e.kind : '' })
+    // A listing by kind is bounded, and says what it left out (RV-021 F4)
+    const more = found.length > LISTING_MAX ? '\n…and ' + (found.length - LISTING_MAX) + ' more, older; retire or fold these first, then list again.' : ''
+    return { result: found.length ? found.slice(0, LISTING_MAX).map(describe).join('\n') + more : 'Nothing in memory matches "' + e.query + '".' }
   })
 
   on('turn.start', async ($, e, next) => {

@@ -644,11 +644,12 @@ t('a handoff from another session waits, in the band and in memory, until the us
   stubAll(on, { files: { '/brain/.git/HEAD': 'ref', '/brain/profile.md': '# Profile', '/brain/journal/bld/2026-10-02-other.jsonl': JSON.stringify(handoff) } })
   await start($)
   let text = await snapshot($)
-  // Background, not a first order: after the profile, acted on only when asked
-  expect(text.indexOf('## Handoff waiting')).toBeGreaterThan(text.indexOf('## Who you are working with'))
+  // Background, not a first order: after the profile, acted on only when asked. It came from another
+  // project (scratch), so it is one line that says to recall it before picking it up
+  expect(text.indexOf('## Handoffs waiting in other projects')).toBeGreaterThan(text.indexOf('## Who you are working with'))
   expect(text).toContain('Act on it only when they ask to pick it up')
   expect(text).not.toContain('Before anything else')
-  expect(text).toContain('[h1] from scratch on bld')
+  expect(text).toContain('[h1] from scratch on bld, 1h ago: ')
   expect(text).toContain('Goal: run mine-history on the Mac.')
   const band = await $.ui.mount({ ...BAND, surface: 'desktop' })
   expect(await band.find({ type: 'Text', text: /handoff waiting from scratch on bld/ })).toBeDefined()
@@ -1214,6 +1215,326 @@ t('other projects show one short line each: their newest thread', async ($, on) 
   expect(section).toContain('…')
   expect(section).not.toContain('FS-301 committed')
   expect(section).toContain('[ironVeil · 2h ago] Iron Veil m3 sprites waiting on ludo.ai')
+})
+
+// ---------------------------------------------------------------- 8b. What reaches a session (scoped brain, Phase A)
+
+// The live brain's shape on 10-15 (docs/scoped-brain-plan.md): a 7,200-character profile in sections, 25 approved
+// preferences, 12 terms, this project's 15 notes (about 4,800 characters) and two handoffs, one from this project
+function crowdedBrain(now = Date.now(), { notes = 15, handoffs = true } = {}) {
+  const profile =
+    '# Profile\n\nReviewed by the user.\n\n' +
+    ['How to talk with them', 'Who they are and what they build', 'How they work', 'Leans toward', 'Dislikes', 'Projects', 'Models', 'Habits']
+      .map((h, i) => '## ' + h + '\n' + ('- Section ' + i + ' line about working together, long enough to matter.\n').repeat(12) + '- End of section ' + i + '.')
+      .join('\n\n')
+  const rows: object[] = []
+  for (let i = 0; i < 25; i++) rows.push({ id: 'pf' + i, at: now - (i + 1) * 3_600_000, device: 'pc', session: 'pc-s', project: '', kind: 'preference', status: 'active', text: 'Preference ' + i + ': ' + 'work the way they asked on that day, with the reason and an example. '.repeat(2) })
+  for (let i = 0; i < 12; i++) rows.push({ id: 'tm' + i, at: now - DAY, device: 'pc', session: 'pc-s', project: '', kind: 'term', status: 'active', text: '"t' + i + '" = a piece of shorthand they use, with what it means' })
+  for (let i = 0; i < notes; i++) rows.push({ id: 'wn' + i, at: now - (i + 1) * 60_000, device: 'pc', session: 'pc-s', project: 'work', kind: i % 3 ? 'fact' : 'thread', status: 'active', text: 'Work note ' + i + ': ' + 'a decision or fact this project depends on, with its file and commit. '.repeat(4) })
+  if (handoffs) rows.push({ id: 'hw', at: now - 3_600_000, device: 'pc', session: 'pc-s', project: '', from: 'work', kind: 'handoff', status: 'active', text: 'Goal: finish the work lane. ' + 'Next step with a branch, a file and a command. '.repeat(30) })
+  if (handoffs) rows.push({ id: 'hj', at: now - 7_200_000, device: 'pc', session: 'pc-s', project: '', from: 'jobsnearme', kind: 'handoff', status: 'active', text: 'Goal: jobsnearme lane D wraps the demo fixes. ' + 'Merge order and what is left for the director. '.repeat(14) + 'THE-TAIL-OF-JOBSNEARME' })
+  return {
+    '/brain/.git/HEAD': 'ref',
+    '/brain/profile.md': profile,
+    '/brain/journal/pc/2026-10-15-pc.jsonl': rows.map((r) => JSON.stringify(r)).join('\n') + '\n',
+  }
+}
+
+const sectionOf = (text: string, heading: string) => {
+  const from = text.indexOf(heading)
+  if (from < 0) return ''
+  const next = text.indexOf('\n## ', from + heading.length)
+  return text.slice(from, next < 0 ? undefined : next)
+}
+
+t("with today's crowded brain, the instructions still arrive in full, and the profile gives way at a heading", async ($, on) => {
+  stubAll(on, { files: crowdedBrain() })
+  await start($)
+  const text = await snapshot($)
+  // The three instruction sections, whole: the standard, where work runs, and how to use memory
+  expect(text).toContain('Pick the tier by stakes: light (prototypes, small internal changes), standard (client features, anything a user sees), full (privacy, consent, money, auth, deleting data).')
+  expect(text).toContain('anything user-visible is done once they have walked it.')
+  if (Date.now() < Date.parse('2026-10-19T04:00:00Z')) {
+    expect(text).toContain('Standing order through 2026-10-18')
+    expect(text).toContain('Wheat from chaff is what they used; cutting means removing what they did not use, not redesigning it.')
+  } else expect(text).not.toContain('Standing order through')
+  expect(text).toContain('## Where work runs')
+  expect(text).toContain('/routes lists them; the playbook is')
+  expect(text).toContain('- When an item above is no longer true or a thread is finished, call mcp__coter-kit__remember with resolves set to its id.')
+  expect(text).toContain('/brain sync pulls and pushes it now')
+  // This project's notes and its own handoff come before the profile
+  expect(text).toContain('Work note 0: ')
+  expect(text).toContain('Work note 14: ')
+  expect(text).toContain('Next step with a branch, a file and a command. '.repeat(30).trim())
+  // Within the budget
+  expect(text.slice(text.indexOf('# Working memory')).length).toBeLessThanOrEqual(13_000)
+  // The profile, when it shows, is cut between sections, never inside one
+  for (let i = 0; i < 8; i++) {
+    const shown = text.includes('- Section ' + i + ' line')
+    expect(text.includes('- End of section ' + i + '.')).toBe(shown)
+  }
+})
+
+t('in a quieter project the profile shows its top sections whole, then gives way at a heading', async ($, on) => {
+  stubAll(on, { files: crowdedBrain(Date.now(), { notes: 8, handoffs: false }) })
+  await start($)
+  const text = await snapshot($)
+  expect(text.slice(text.indexOf('# Working memory')).length).toBeLessThanOrEqual(13_000)
+  expect(text).toContain('- End of section 0.')
+  expect(text).not.toContain('- End of section 7.')
+  for (let i = 0; i < 8; i++) expect(text.includes('- End of section ' + i + '.')).toBe(text.includes('- Section ' + i + ' line'))
+  // ...and says where the rest is
+  expect(text).toContain('profile.md')
+  expect(text).toContain('- When an item above is no longer true or a thread is finished, call mcp__coter-kit__remember with resolves set to its id.')
+})
+
+t("another project's handoff is one line with its id, this project's is in full, and recall of the id gives the rest", async ($, on) => {
+  stubAll(on, { files: crowdedBrain() })
+  await start($)
+  const text = await snapshot($)
+  const own = sectionOf(text, '## Handoff waiting')
+  expect(own).toContain('[hw] from work on pc')
+  expect(own).toContain('Act on it only when they ask to pick it up')
+  expect(text).not.toContain('THE-TAIL-OF-JOBSNEARME')
+  const out: any = await $.tool.call({ tool: 'mcp__coter-kit__recall', query: 'hj' })
+  expect(out.result).toContain('THE-TAIL-OF-JOBSNEARME')
+  expect(out.result.split('\n').length).toBe(1)
+})
+
+t("a handoff from another project shows as a line that says to recall it before picking it up", async ($, on) => {
+  const handoff = { id: 'h7', at: Date.now() - 3_600_000, device: 'bld', session: 'other', project: '', from: 'jobsnearme', kind: 'handoff', text: 'Goal: jobsnearme lane D wraps the demo fixes. ' + 'More detail. '.repeat(40) + 'THE-TAIL', status: 'active' }
+  const bare = { id: 'h8', at: Date.now() - 7_200_000, device: 'bld', session: 'other', project: '', kind: 'handoff', text: 'Goal: an old handoff that never said where it came from.', status: 'active' }
+  stubAll(on, { files: { '/brain/.git/HEAD': 'ref', '/brain/profile.md': '# Profile', '/brain/journal/bld/2026-10-15-other.jsonl': [handoff, bare].map((r) => JSON.stringify(r)).join('\n') } })
+  await start($)
+  const text = await snapshot($)
+  expect(text).toContain('[h7] from jobsnearme on bld, 1h ago: Goal: jobsnearme lane D wraps the demo fixes.')
+  expect(text).toContain('[h8] from a session on bld, 2h ago: Goal: an old handoff that never said where it came from.')
+  expect(text).not.toContain('THE-TAIL')
+  expect(text).toMatch(/call mcp__coter-kit__recall with its id/)
+  expect(text).toContain('Act on it only when they ask to pick it up')
+  const full: any = await $.tool.call({ tool: 'mcp__coter-kit__recall', query: 'h7' })
+  expect(full.result).toContain('THE-TAIL')
+})
+
+t('exact-id recall is the whole query, finds one note in any project, and a scheduled run cannot use it', async ($, on) => {
+  const rows = [
+    { id: 'x1', at: Date.now() - DAY, device: 'pc', session: 'pc-s', project: 'jobsnearme', kind: 'fact', text: 'The jobsnearme bridge posts to Juvo connections', status: 'active' },
+    { id: 'x2', at: Date.now() - DAY, device: 'pc', session: 'pc-s', project: 'work', kind: 'fact', text: 'A note that mentions x1 by name', status: 'active' },
+  ]
+  stubAll(on, { files: { '/brain/.git/HEAD': 'ref', '/brain/profile.md': '# Profile', '/brain/journal/pc/2026-10-15-pc.jsonl': rows.map((r) => JSON.stringify(r)).join('\n') } })
+  await start($)
+  await snapshot($)
+  const one: any = await $.tool.call({ tool: 'mcp__coter-kit__recall', query: ' x1 ', project: 'work' })
+  expect(one.result).toContain('[x1 · fact · jobsnearme')
+  expect(one.result).not.toContain('[x2')
+})
+
+t('a scheduled run cannot look up another project by id', async ($, on) => {
+  const rows = [{ id: 'x1', at: Date.now() - DAY, device: 'pc', session: 'pc-s', project: 'jobsnearme', kind: 'fact', text: 'The jobsnearme bridge posts to Juvo connections', status: 'active' }]
+  stubAll(on, { files: { '/brain/.git/HEAD': 'ref', '/brain/profile.md': '# Profile', '/brain/journal/pc/2026-10-15-pc.jsonl': rows.map((r) => JSON.stringify(r)).join('\n') } })
+  await start($)
+  await snapshot($, SCHEDULED)
+  const out: any = await $.tool.call({ tool: 'mcp__coter-kit__recall', query: 'x1' })
+  expect(out.result).not.toContain('Juvo connections')
+})
+
+t("a preference can belong to one project: that project's sessions and scheduled runs get it, others don't", async ($, on) => {
+  const rows = [
+    { id: 'g1', at: Date.now() - DAY, device: 'pc', session: 'pc-s', project: '', kind: 'preference', text: 'Global: answer in the first line', status: 'active' },
+    { id: 'w1', at: Date.now() - DAY, device: 'pc', session: 'pc-s', project: 'work', kind: 'preference', text: 'Work only: the demo leg takes the prettier option', status: 'active' },
+    { id: 'j1', at: Date.now() - DAY, device: 'pc', session: 'pc-s', project: 'jobsnearme', kind: 'preference', text: 'Jobsnearme only: route UI asks to the owning lane', status: 'active' },
+  ]
+  stubAll(on, { files: { '/brain/.git/HEAD': 'ref', '/brain/profile.md': '# Profile', '/brain/journal/pc/2026-10-15-pc.jsonl': rows.map((r) => JSON.stringify(r)).join('\n') } })
+  await start($)
+  const text = await snapshot($)
+  expect(text).toContain('Global: answer in the first line')
+  expect(text).toContain('Work only: the demo leg takes the prettier option')
+  expect(text).not.toContain('Jobsnearme only')
+})
+
+t("a scheduled run gets the global preferences and its own project's, never another project's", async ($, on) => {
+  const rows = [
+    { id: 'g1', at: Date.now() - DAY, device: 'pc', session: 'pc-s', project: '', kind: 'preference', text: 'Global: answer in the first line', status: 'active' },
+    { id: 'w1', at: Date.now() - DAY, device: 'pc', session: 'pc-s', project: 'work', kind: 'preference', text: 'Work only: the demo leg takes the prettier option', status: 'active' },
+    { id: 'j1', at: Date.now() - DAY, device: 'pc', session: 'pc-s', project: 'jobsnearme', kind: 'preference', text: 'Jobsnearme only: route UI asks to the owning lane', status: 'active' },
+  ]
+  stubAll(on, { files: { '/brain/.git/HEAD': 'ref', '/brain/profile.md': '# Profile', '/brain/journal/pc/2026-10-15-pc.jsonl': rows.map((r) => JSON.stringify(r)).join('\n') } })
+  await start($)
+  const text = await snapshot($, SCHEDULED)
+  expect(text).toContain('Global: answer in the first line')
+  expect(text).toContain('Work only: the demo leg takes the prettier option')
+  expect(text).not.toContain('Jobsnearme only')
+  const out: any = await $.tool.call({ tool: 'mcp__coter-kit__recall', query: 'route lane prettier first line' })
+  expect(out.result).toContain('Work only')
+  expect(out.result).not.toContain('Jobsnearme only')
+})
+
+t('a preference is global unless it is scoped on purpose; the digest cannot scope one; a replacement keeps the old scope', async ($, on) => {
+  const { files } = stubAll(on)
+  await start($)
+  await $.tool.call({
+    tool: 'mcp__coter-kit__remember',
+    notes: [
+      { kind: 'preference', text: 'Plain: no scope given', confirmed: true },
+      { kind: 'preference', text: 'Scoped: this project only', scope: 'project', confirmed: true },
+      { kind: 'preference', text: 'Named: ascendant only', project: 'ascendant', confirmed: true },
+      { kind: 'term', text: '"lane" = a session that builds for a director', scope: 'project', confirmed: true },
+    ],
+  })
+  const rows = () => journal(files).split('\n').filter(Boolean).map((l) => JSON.parse(l))
+  const by = (text: string) => rows().find((r) => r.text === text)
+  expect(by('Plain: no scope given').project).toBe('')
+  expect(by('Scoped: this project only').project).toBe('work')
+  expect(by('Named: ascendant only').project).toBe('ascendant')
+  expect(by('"lane" = a session that builds for a director').project).toBe('')
+  // A rewrite from any session keeps the scope it had, unless it names one
+  const scoped = by('Scoped: this project only').id
+  const plain = by('Plain: no scope given').id
+  await $.tool.call({
+    tool: 'mcp__coter-kit__remember',
+    notes: [
+      { kind: 'preference', text: 'Scoped, reworded', resolves: scoped, confirmed: true },
+      { kind: 'preference', text: 'Plain, reworded', resolves: plain, confirmed: true },
+    ],
+  })
+  expect(by('Scoped, reworded').project).toBe('work')
+  expect(by('Plain, reworded').project).toBe('')
+  // ...and one that says global on purpose is global again
+  await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'preference', text: 'Scoped, made global', scope: 'global', resolves: by('Scoped, reworded').id, confirmed: true }] })
+  expect(by('Scoped, made global').project).toBe('')
+})
+
+t('the digest never files a preference under a project', async ($, on) => {
+  const { files, clock } = stubAll(on, { forkReply: '{"kind": "preference", "text": "From the digest: short replies", "scope": "project", "project": "work"}' })
+  await start($)
+  await eightTurns($)
+  await clock.advance(2_000)
+  const row = journal(files).split('\n').filter(Boolean).map((l) => JSON.parse(l)).find((r) => r.text === 'From the digest: short replies')
+  expect(row).toBeDefined()
+  expect(row.project).toBe('')
+})
+
+t("filter, then cap: another project's preferences never push this session's out of the 25", async ($, on) => {
+  const now = Date.now()
+  const rows: object[] = []
+  for (let i = 0; i < 25; i++) rows.push({ id: 'g' + i, at: now - (i + 10) * 3_600_000, device: 'pc', session: 'pc-s', project: '', kind: 'preference', status: 'active', text: 'Global preference number ' + i })
+  for (let i = 0; i < 5; i++) rows.push({ id: 'j' + i, at: now - (i + 1) * 60_000, device: 'pc', session: 'pc-s', project: 'jobsnearme', kind: 'preference', status: 'active', text: 'Jobsnearme preference number ' + i })
+  stubAll(on, { files: { '/brain/.git/HEAD': 'ref', '/brain/profile.md': '# Profile', '/brain/journal/pc/2026-10-15-pc.jsonl': rows.map((r) => JSON.stringify(r)).join('\n') } })
+  await start($)
+  const text = await snapshot($)
+  expect(text).toContain('Global preference number 24')
+  expect(text).not.toContain('Jobsnearme preference number')
+})
+
+t('past the 25 a session gets, Claude is told to offer a fold into the profile, and recall lists every preference', async ($, on) => {
+  const now = Date.now()
+  const rows: object[] = []
+  for (let i = 0; i < 30; i++) rows.push({ id: 'g' + i, at: now - (i + 1) * 3_600_000, device: 'pc', session: 'pc-s', project: '', kind: 'preference', status: 'active', text: 'Global preference number ' + i })
+  stubAll(on, { files: { '/brain/.git/HEAD': 'ref', '/brain/profile.md': '# Profile', '/brain/journal/pc/2026-10-15-pc.jsonl': rows.map((r) => JSON.stringify(r)).join('\n') } })
+  await start($)
+  const text = await snapshot($)
+  expect(text).toContain('Global preference number 0')
+  expect(text).not.toContain('Global preference number 29')
+  expect(text).toMatch(/5 of their approved preferences are past the 25/)
+  expect(text).toContain('/coter-kit:fold-profile')
+  const all: any = await $.tool.call({ tool: 'mcp__coter-kit__recall', query: '', kind: 'preference' })
+  expect(all.result.split('\n').length).toBe(30)
+  expect(all.result).toContain('[g29 · preference')
+})
+
+t("RV-020 F2: in a crowded session this project's own preferences come before the profile and the global ones", async ($, on) => {
+  const files = crowdedBrain()
+  const old = { id: 'wp1', at: Date.now() - 40 * 3_600_000, device: 'pc', session: 'pc-s', project: 'work', kind: 'preference', status: 'active', text: 'THE-PROJECT-RULE: the work demo takes the prettier option' }
+  files['/brain/journal/pc/2026-10-15-pc.jsonl'] += JSON.stringify(old) + '\n'
+  stubAll(on, { files })
+  await start($)
+  const text = await snapshot($)
+  expect(text).toContain('THE-PROJECT-RULE')
+  expect(text).toContain('- When an item above is no longer true or a thread is finished, call mcp__coter-kit__remember with resolves set to its id.')
+  expect(text.slice(text.indexOf('# Working memory')).length).toBeLessThanOrEqual(13_000)
+})
+
+t("RV-020 F3: this project's handoff is kept even when two newer ones from other projects wait", async ($, on) => {
+  const now = Date.now()
+  const rows = [
+    { id: 'ho', at: now - 5 * 3_600_000, device: 'pc', session: 'pc-s', project: '', from: 'work', kind: 'handoff', status: 'active', text: 'Goal: OUR-OWN-HANDOFF for the work lane.' },
+    { id: 'ha', at: now - 2 * 3_600_000, device: 'pc', session: 'pc-s', project: '', from: 'jobsnearme', kind: 'handoff', status: 'active', text: 'Goal: a jobsnearme handoff.' },
+    { id: 'hb', at: now - 1 * 3_600_000, device: 'pc', session: 'pc-s', project: '', from: 'ascendant', kind: 'handoff', status: 'active', text: 'Goal: an ascendant handoff.' },
+  ]
+  stubAll(on, { files: { '/brain/.git/HEAD': 'ref', '/brain/profile.md': '# Profile', '/brain/journal/pc/2026-10-15-pc.jsonl': rows.map((r) => JSON.stringify(r)).join('\n') } })
+  await start($)
+  const text = await snapshot($)
+  expect(sectionOf(text, '## Handoff waiting')).toContain('OUR-OWN-HANDOFF')
+  // Still two at most: this project's, then the newest from elsewhere
+  expect(text).toContain('[hb] from ascendant')
+  expect(text).not.toContain('[ha] from jobsnearme')
+})
+
+t('RV-020 F1 and F4: listing by kind is for preferences and terms only, and lists every one of them', async ($, on) => {
+  const now = Date.now()
+  const rows: object[] = []
+  for (let i = 0; i < 120; i++) rows.push({ id: 'g' + i, at: now - (i + 1) * 60_000, device: 'pc', session: 'pc-s', project: '', kind: 'preference', status: 'active', text: 'Global preference number ' + i })
+  for (let i = 0; i < 30; i++) rows.push({ id: 'f' + i, at: now - (i + 1) * 60_000, device: 'pc', session: 'pc-s', project: 'jobsnearme', kind: 'fact', status: 'active', text: 'Jobsnearme fact number ' + i })
+  stubAll(on, { files: { '/brain/.git/HEAD': 'ref', '/brain/profile.md': '# Profile', '/brain/journal/pc/2026-10-15-pc.jsonl': rows.map((r) => JSON.stringify(r)).join('\n') } })
+  await start($)
+  await snapshot($)
+  const prefs: any = await $.tool.call({ tool: 'mcp__coter-kit__recall', query: '', kind: 'preference' })
+  expect(prefs.result.split('\n').length).toBe(120)
+  const facts: any = await $.tool.call({ tool: 'mcp__coter-kit__recall', query: '', kind: 'fact' })
+  expect(facts.result.split('\n').length).toBeLessThanOrEqual(12)
+})
+
+t('RV-020 F5: a preference that says both global and a project is not saved, and Claude is told why', async ($, on) => {
+  const { files } = stubAll(on)
+  await start($)
+  const out: any = await $.tool.call({
+    tool: 'mcp__coter-kit__remember',
+    notes: [{ kind: 'preference', text: 'Both at once: global and ascendant', scope: 'global', project: 'ascendant', confirmed: true }],
+  })
+  expect(journal(files)).not.toContain('Both at once')
+  expect(out.result).toMatch(/both global and filed under ascendant/)
+})
+
+t("RV-021 F3: when two of this project's handoffs don't both fit, the newest one still does", async ($, on) => {
+  const files = crowdedBrain(Date.now(), { notes: 0, handoffs: false })
+  const now = Date.now()
+  const big = (id: string, at: number, tail: string) => ({ id, at, device: 'pc', session: 'pc-s', project: '', from: 'work', kind: 'handoff', status: 'active', text: 'Goal: a long handoff. ' + 'Step with a file and a command. '.repeat(123) + tail })
+  // Questions this project owes come first and take some of the room
+  const asks = [1, 2, 3].map((i) => ({ id: 'q' + i, at: now - i * 60_000, device: 'pc', session: 'pc-s', project: 'work', kind: 'waiting', status: 'active', ref: 'Q' + i, text: 'Question ' + i + ': ' + 'which way should this go, with the context to decide. '.repeat(6) }))
+  files['/brain/journal/pc/2026-10-15-pc.jsonl'] += [...asks, big('hn', now - 3_600_000, 'NEWEST-TAIL'), big('hx', now - 7_200_000, 'OLDER-TAIL')].map((r) => JSON.stringify(r)).join('\n') + '\n'
+  stubAll(on, { files })
+  await start($)
+  const text = await snapshot($)
+  expect(text).toContain('Question 3: ')
+  expect(text).not.toContain('OLDER-TAIL')
+  expect(text).toContain('NEWEST-TAIL')
+  expect(text.slice(text.indexOf('# Working memory')).length).toBeLessThanOrEqual(13_000)
+})
+
+t('RV-021 F4: a listing by kind stops at 500 and says how many more there are', async ($, on) => {
+  const now = Date.now()
+  const rows: object[] = []
+  for (let i = 0; i < 520; i++) rows.push({ id: 'g' + i, at: now - (i + 1) * 60_000, device: 'pc', session: 'pc-s', project: '', kind: 'term', status: 'active', text: '"t' + i + '" = shorthand number ' + i })
+  stubAll(on, { files: { '/brain/.git/HEAD': 'ref', '/brain/profile.md': '# Profile', '/brain/journal/pc/2026-10-15-pc.jsonl': rows.map((r) => JSON.stringify(r)).join('\n') } })
+  await start($)
+  await snapshot($)
+  const out: any = await $.tool.call({ tool: 'mcp__coter-kit__recall', query: '', kind: 'term' })
+  const lines = out.result.split('\n')
+  expect(lines.length).toBe(501)
+  expect(lines[500]).toContain('20 more')
+})
+
+t('remember says when it cuts a note, and what to do about the rest', async ($, on) => {
+  stubAll(on)
+  await start($)
+  const long = 'Lane B to director: ' + 'merged FS-526 at 92981d7f, '.repeat(20) + 'and the next step is FS-529.'
+  const out: any = await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'thread', text: long }, { kind: 'fact', text: 'Short and whole' }] })
+  expect(out.result).toContain('Saved 2 note(s)')
+  expect(out.result).toMatch(/Cut at 400 characters/)
+  expect(out.result).toContain('"Lane B to director: merged FS-526')
+  expect(out.result).toMatch(/handoff/)
+  const short: any = await $.tool.call({ tool: 'mcp__coter-kit__remember', notes: [{ kind: 'fact', text: 'Another short one' }] })
+  expect(short.result).not.toMatch(/Cut at/)
 })
 
 // ---------------------------------------------------------------- 9. Catch-up
